@@ -7,6 +7,7 @@ class BiPolarStepper
   public:
     BiPolarStepper(int enaPin, int dirPin, int pulPin, int stepMode);
     void setDirection(bool dir);
+    void run();
     void oneStep();
     void setDesiredStep(long desiredStep);
     void setStepTime(unsigned long stepTime);

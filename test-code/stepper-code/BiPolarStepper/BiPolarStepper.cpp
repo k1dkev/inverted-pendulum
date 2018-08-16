@@ -30,6 +30,18 @@ void BiPolarStepper::setDirection(bool dir)
   digitalWrite(_dirPin, _dir);
 }
 
+void BiPolarStepper::run()
+{
+  unsigned long t = micros();
+  if ((t - _lastTime) > _stepTime && !_done) {
+    digitalWrite(_pulPin, HIGH);
+    digitalWrite(_pulPin, LOW);
+    _lastTime = t;
+    _stepCount += _dir ? 1 : -1;
+    if (_stepCount == _desiredStep) _done = true;
+  }
+}
+
 void BiPolarStepper::oneStep()
 {
   unsigned long t = micros();
@@ -79,6 +91,11 @@ void BiPolarStepper::setW(float w)
     _stepTime = 1000000000;
   } else {
     _stepTime = (unsigned long)_k/_w;
+  }
+  if (_w >= 0){
+    setDirection(true);
+  } else {
+    setDirection(false);
   }
 }
 
