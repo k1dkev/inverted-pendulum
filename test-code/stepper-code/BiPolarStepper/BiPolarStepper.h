@@ -13,6 +13,7 @@ class BiPolarStepper
     void setStepTime(unsigned long stepTime);
     void setW(float w);
     bool goToDesiredStep();
+    int sgn(float val);
     bool _done;
   private:
     int _enaPin;

@@ -6,6 +6,7 @@ import math
 # Physical Parameters
 g = 9810 # mm/s^2
 Le = 197.21
+Lt = 250
 
 # Initial Conditions
 x0 = 0
@@ -14,21 +15,27 @@ theta0 = (math.pi/180)*1 # 1 Degree offset
 w0 = 0
 
 # Setting up time vector and initial conditions
-t, dt = np.linspace(0,10,10000, retstep=True)
+t, dt = np.linspace(0,40,100000, retstep=True)
 x = np.empty((t.size,4))
 u = np.empty(t.size)
 x[0,:] = np.array([[x0, v0, theta0, w0]])
 
 # Balance control
 def balancePID(x):
-	kpt = 9900
-	kdt = 0
+	kpt = 50000
+	kdt = 500
 	kit = 0
-	kpx = 0
-	kdx = 0
+	kpx = -.5
+	kdx = -.5
 	kix = 0
-	return (kpt*x[2] + kdt*x[3])
-	#return 1000
+	return (kpt*x[2] + kdt*x[3] - kpx*x[0] - kdx*x[1])
+
+# def balancePID(x):
+# 	kpt = 40000
+# 	kdt = 2000
+# 	kcw = 50
+# 	return (kpt*x[2] + kdt*x[3] - kcw*np.sign(x[0])*np.log(1 - np.absolute(x[0])/Lt))
+# 	#return 1000
 
 # xdot
 def xdot(x, u):

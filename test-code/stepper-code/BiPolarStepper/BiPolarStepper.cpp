@@ -82,15 +82,15 @@ void BiPolarStepper::setStepTime(unsigned long stepTime)
 
 void BiPolarStepper::setW(float w)
 {
-  if (w > _maxSpeed) {
-    _w = _maxSpeed;
+  if (abs(w) > _maxSpeed) {
+    _w = _maxSpeed*sgn(w);
   } else {
     _w = w;
   }
-  if (_w < .0001) {
+  if (abs(_w) < .0001) {
     _stepTime = 1000000000;
   } else {
-    _stepTime = (unsigned long)_k/_w;
+    _stepTime = (unsigned long)_k/abs(_w);
   }
   if (_w >= 0){
     setDirection(true);
@@ -107,5 +107,11 @@ bool BiPolarStepper::goToDesiredStep()
   } else {
     return true;
   }
+}
+
+int BiPolarStepper::sgn(float val) {
+ if (val < 0) return -1;
+ if (val==0) return 0;
+ return 1;
 }
 
