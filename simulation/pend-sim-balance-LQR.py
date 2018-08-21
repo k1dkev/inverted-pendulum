@@ -7,14 +7,17 @@ import scipy.linalg
 # Physical Parameters
 g = 9810 # mm/s^2
 Le = 197.21 # Effective Pendulum length
+L = 144.4 # hinge to CoM length
 Lt = 250 # Half the track length
+m = .094 #kg
+Ih = 2676.83 #kgmm^2
 
 # LQR Weights
 qx = .1
 qv = .05
 qt = 1
 qw = 1
-r = .005
+r = 50 # original r was .005 
 
 # Finding K
 A = np.array([[0, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, 1], [0, 0, g/Le, 0] ])
@@ -28,12 +31,14 @@ Q = np.diag([qx, qv, qt, qw])
 R = np.array([r])
 S = scipy.linalg.solve_continuous_are(A, B, Q, R)
 K = np.matmul(np.transpose(B),S)/R
+print("Gain Matrix K")
+print(K)
 
 # Initial Conditions
 x0 = 0
 v0 = 0
-theta0 = (math.pi/180)*3 # 1 Degree offset
-w0 = .369 # angular velocity after falling 3 degs from rest
+theta0 = (math.pi/180)*3/4 # Offset in degrees
+w0 = np.sqrt(2*m*g*L*(1 - np.cos(theta0))/Ih) # angular velocity after falling 3 degs from rest
 
 # Setting up time vector and initial conditions
 t, dt = np.linspace(0,40,100000, retstep=True)

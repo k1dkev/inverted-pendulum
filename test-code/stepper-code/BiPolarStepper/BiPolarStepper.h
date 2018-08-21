@@ -14,7 +14,11 @@ class BiPolarStepper
     void setW(float w);
     bool goToDesiredStep();
     int sgn(float val);
-    bool _done;
+    void setV(float v);
+    void accel(float a, float dt);
+    float getX();
+    float getV();
+    bool _stop;
   private:
     int _enaPin;
     int _dirPin;
@@ -28,6 +32,9 @@ class BiPolarStepper
     bool _dir;
     float _k;
     float _w;
+    float _b;
+    float _Lt;
+    float _xMaxAccel;
 };
 
 #endif

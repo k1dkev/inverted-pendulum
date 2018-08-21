@@ -1,11 +1,22 @@
 #include <BiPolarStepper.h>
 BiPolarStepper stepper(7,6,5,2);
-
+unsigned long lastTime;
+unsigned long t;
 void setup() {
-  stepper.setW(1.0);
-  stepper._done = false;
+  stepper.setV(-10.0);
+  stepper._stop = false;
+  //Serial.begin(9600);
+  lastTime = millis();
 }
 
 void loop() {
   stepper.run();
+  t = millis();
+  if ((t - lastTime)> 10) {
+    stepper.accel(-100.0, .01);
+    // Serial.println(stepper.getV());
+    lastTime = t;
+  }
+
+
 }
