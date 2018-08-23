@@ -44,8 +44,8 @@ ISR(TIMER1_COMPA_vect){//timer1 interrupt 1Hz toggles pin 13 (LED)
     vel = 100*(theta - lastTheta);
   }
   if (count >= 10) {
-    //Serial.println("angle:    " + String(theta));
-    Serial.println("velocity: " + String(vel));
+    Serial.println("angle:    " + String(sensorRead));
+    //Serial.println("velocity: " + String(vel));
     count = 0;
   }
   lastTheta = theta;

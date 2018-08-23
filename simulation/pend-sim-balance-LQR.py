@@ -17,7 +17,7 @@ qx = .1
 qv = .05
 qt = 1
 qw = 1
-r = 50 # original r was .005 
+r = .005 # original r was .005 
 
 # Finding K
 A = np.array([[0, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, 1], [0, 0, g/Le, 0] ])
@@ -37,7 +37,7 @@ print(K)
 # Initial Conditions
 x0 = 0
 v0 = 0
-theta0 = (math.pi/180)*3/4 # Offset in degrees
+theta0 = (math.pi/180)*3 # Offset in degrees
 w0 = np.sqrt(2*m*g*L*(1 - np.cos(theta0))/Ih) # angular velocity after falling 3 degs from rest
 
 # Setting up time vector and initial conditions

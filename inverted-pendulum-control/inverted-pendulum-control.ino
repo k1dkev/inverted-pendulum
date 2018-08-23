@@ -1,4 +1,6 @@
-#include <BiPolarStepper.h>
+#include "BiPolarStepper.h"
+#include "P3Encoder.h"
+
 BiPolarStepper stepper(7,6,5,2);
 unsigned long lastTime;
 unsigned long t;
@@ -13,7 +15,7 @@ void loop() {
   stepper.run();
   t = millis();
   if ((t - lastTime)> 10) {
-    stepper.accel(-10000.0, .01);
+    stepper.accel(-1000.0, .01);
     // Serial.println(stepper.getV());
     lastTime = t;
   }

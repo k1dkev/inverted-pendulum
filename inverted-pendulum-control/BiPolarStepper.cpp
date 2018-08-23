@@ -3,25 +3,29 @@
 
 BiPolarStepper::BiPolarStepper(int enaPin, int dirPin, int pulPin, int stepMode)
 {
-  _enaPin = enaPin;
-  _dirPin = dirPin;
-  _pulPin = pulPin;
-  _stepsPerRev = 200*stepMode;
-  _dir = true;
-  _stepTime = 1000000000;
-  _w = 0;
-  _k = 2000000.0*PI/_stepsPerRev; // Convertion factor from rad/s to steptime
-  _lastTime = micros();
-  _stepCount = 0;
-  _desiredStep = 0;
-  _stop = true;
-  _maxSpeed = 62.83; // 600 rpm
-  _b = 16.0/PI; // Converstion factor from rad/s to mm/s
-  _Lt = 190.0;
-  _xMaxAccel = 10000; //  1 g acceleration
+  // Setting up default values of fields
+  _stop = true;                   // Stepper is stopped by default
+  _enaPin = enaPin;               // Enable Pin
+  _dirPin = dirPin;               // Direction Pin
+  _pulPin = pulPin;               // Pulse Pin (Driver executes step on falling edge)
+  _stepsPerRev = 200*stepMode;    // 200 full steps per rev. stepMode = 2 if halfstepping.
+  _stepTime = 1000000000;         // Time inbetween steps (Speed of stepper)
+  _lastTime = micros();           // Time at when the last step was executed
+  _stepCount = 0;                 // The step position of cart
+  _dir = true;                    // Direction of stepper. High goes towards the motor.
+  _k = 2000000.0*PI/_stepsPerRev; // Convertion factor from rad/s to steptime. w = k/stepTime.
+  _b = 16.0/PI;                   // Converstion factor from rad/s to mm/s. v = b*w.
+  _Lt = 190.0;                    // Half of allowable track length. Stepper can move to +/- Lt (mm)
+  _w = 0;                         // Angular velocity of stepper motor (rad/s)
+  _maxSpeed = 62.83;              // Max angular velocity. 600 rpm or about 320 mm/s
+  _xMaxAccel = 10000;             // About 1g of linear acceleration (mm/s^2)
+
+  // Setting digital pins to be outputs
   pinMode(_enaPin, OUTPUT);
   pinMode(_dirPin, OUTPUT);
   pinMode(_pulPin, OUTPUT);
+
+  // Setting default values of pins
   digitalWrite(_enaPin, LOW); // LOW is enabled
   digitalWrite(_dirPin, _dir);
   digitalWrite(_pulPin, LOW);
@@ -42,33 +46,6 @@ void BiPolarStepper::run()
     digitalWrite(_pulPin, LOW);
     _lastTime = t;
     _stepCount += _dir ? 1 : -1;
-    if (_stepCount == _desiredStep) _stop = true;
-  }
-}
-
-void BiPolarStepper::oneStep()
-{
-  unsigned long t = micros();
-  if ((t - _lastTime) > _stepTime && !_stop) {
-    digitalWrite(_pulPin, HIGH);
-    digitalWrite(_pulPin, LOW);
-    _lastTime = t;
-    _stepCount += _dir ? 1 : -1;
-    if (_stepCount == _desiredStep) _stop = true;
-  }
-}
-
-void BiPolarStepper::setDesiredStep(long desiredStep)
-{
-  _desiredStep = desiredStep;
-  if (_desiredStep > _stepCount) {
-    setDirection(true);
-    _stop = false;
-  } else if (_desiredStep < _stepCount) {
-    setDirection(false);
-    _stop = false;
-  } else {
-    _stop = true;
   }
 }
 
@@ -100,16 +77,6 @@ void BiPolarStepper::setW(float w)
     setDirection(true);
   } else {
     setDirection(false);
-  }
-}
-
-bool BiPolarStepper::goToDesiredStep()
-{
-  if (_desiredStep != _stepCount ) {
-    oneStep();
-    return false;
-  } else {
-    return true;
   }
 }
 
