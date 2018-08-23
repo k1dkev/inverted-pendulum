@@ -58,14 +58,12 @@ void P3Encoder::setVup(float Vup)
 {
     _Vup = Vup;
     _c = PI/(_Vd - _Vup);
-    Serial.println("Inside of setVd. Vd: " + String(_Vup) + " _c: " + String(_c));
 }
 
 void P3Encoder::setVd(float Vd)
 {
     _Vd = Vd;
     _c = PI/(_Vd - _Vup);
-    Serial.println("Inside of setVd. Vd: " + String(_Vd) + " _c: " + String(_c));
 }
 
 int P3Encoder::sgn(float val) {

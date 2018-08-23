@@ -153,6 +153,7 @@ void loop() {
 
         case 010:
             Serial.println("Swinging Up...");
+            state = 020;
             break;
 
         case 020:
@@ -171,7 +172,7 @@ void loop() {
                     lastTime = t;
                 }
                 if ( (t - closeTime) >= 3000 ) {
-                    state = 020;
+                    state = 021;
                     stepper.unStop();
                     break;
                 }
