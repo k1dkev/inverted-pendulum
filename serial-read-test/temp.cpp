@@ -18,13 +18,6 @@ unsigned long t; // us
 unsigned long lastTime; // us
 unsigned long closeTime; // us
 unsigned long farTime; // us
-unsigned long swingStartTime; //us
-
-unsigned long measInterval = 10000; //ms
-unsigned long sensorInterval = 10000; //us 1000 Hz
-unsigned long closeInterval = 3000000; // us
-unsigned long farInterval = 500000; // us
-
 
 float x = 0.0;
 float v = 0.0;
@@ -32,11 +25,9 @@ float theta = PI;
 float thetadot = 0.0;
 float u = 0.0;
 float dt = 0.0;
-float E = 0.0;
-float Ix = 0.0;
-float swingDT = 0.0;
 
 float stateArray[4];
+bool isClose = false;
 
 void setup() {
     Serial.begin(115200);
@@ -97,7 +88,7 @@ void loop() {
                 sensorReading = sensor.readRaw();
                 avgReading = (((float)N - 1.0)*avgReading + (float)sensorReading)/((float)N);
                 N++;
-                if ( millis() - startTime >= measInterval) break; 
+                if ( millis() - startTime >= 10*1000) break; 
             }
             sensor.setVup(avgReading);
             Serial.println("Number of measurements: " + String(N-1));
@@ -133,7 +124,7 @@ void loop() {
                 sensorReading = sensor.readRaw();
                 avgReading = (((float)N - 1.0)*avgReading + (float)sensorReading)/((float)N);
                 N++;
-                if ( millis() - startTime >= measInterval) break; 
+                if ( millis() - startTime >= 10*1000) break; 
             }
             sensor.setVd(avgReading);
             Serial.println("Number of measurements: " + String(N-1));
@@ -150,7 +141,6 @@ void loop() {
                     Serial.println(">>> " + String(receivedChars));
                     newData = false;
                     if (*receivedChars == 'y') {
-                        stepper.unStop();
                         state = 010;
                     } else if (*receivedChars == 'n') {
                         state = 020;
@@ -164,47 +154,30 @@ void loop() {
 
         case 010:
             Serial.println("Swinging Up...");
-            lastTime = micros();
-            swingStartTime = micros();
-            while(true) {
-                t = micros();
-                if ( t > lastTime && (t - lastTime) >= sensorInterval ) {
-                    sensor.update();
-                    x = stepper.getX();
-                    v = stepper.getV();
-                    theta = sensor._theta;
-                    thetadot = sensor._thetadot;
-                    dt =sensor._dt;
-                    swingDT = ((float)micros() - (float)swingStartTime)/1000000.0;
-                    u = swingUp(x, v, theta, thetadot, swingDT);
-                    stepper.accel(u, dt);
-                    lastTime = t;
-                    if (canBalance(x, v, theta, thetadot)) {
-                        state = 021;
-                        break;
-                    }
-                }
-                stepper.run();
-            }
+            state = 020;
             break;
 
         case 020:
             Serial.println("Bring the pendulum to the origin and hold it for 3 seconds...");
-            closeTime = micros();
-            t = micros();
-            while(true) {
-                t = micros();
-                if ( t > lastTime && (t - lastTime) >= sensorInterval ) {
-                    updateStateArray(sensor, stepper, stateArray);
-                    if (!closeToOrigin(stateArray)) closeTime = micros();
-                    lastTime = t;
-                }
-                if ( t > closeTime && (t - closeTime) >= closeInterval ) {
-                    state = 021;
-                    stepper.unStop();
-                    break;
-                }
-            }
+            // closeTime = micros();
+            // t = micros();
+            // while(true) {
+            //     t = micros();
+            //     if ( (t - lastTime) >= 10000 ) {
+            //         updateStateArray(sensor, stepper, stateArray);
+            //         if (!closeToOrigin(stateArray)) closeTime = micros();
+            //         lastTime = t;
+            //     }
+            //     if ( (t - closeTime) >= 3000000 ) {
+            //         state = 021;
+            //         stepper.unStop();
+            //         break;
+            //     }
+            // }
+            Serial.println("Delaying for 5 sec...");
+            delay(5000);
+            state = 021;
+            stepper.unStop();
             break;
 
         case 021:
@@ -213,34 +186,40 @@ void loop() {
             lastTime = micros();
             while(true) {
                 t = micros();
-                if ( t > lastTime && (t - lastTime) >= sensorInterval ) {
-                    sensor.update();
-                    x = stepper.getX();
-                    v = stepper.getV();
-                    theta = sensor._theta;
-                    thetadot = sensor._thetadot;
-                    dt =sensor._dt;
-                    Ix = Ix + x*dt;
-                    u = balanceLQR(x, v, theta, thetadot, Ix);
-                    stepper.accel(u, dt);
-                    if (!farFromOrigin(x, v, theta, thetadot)) farTime = micros();
+                if ( (t - lastTime) >= 10000 ) {
+                    updateStateArray(sensor, stepper, stateArray);
+                    u = balanceLQR(stateArray);
+                    stepper.accel(u, sensor._dt);
+                    if (!farFromOrigin(stateArray)) farTime = micros();
                     lastTime = t;
                 }
-                if ( t > lastTime && (t - farTime) >= farInterval ) {
-                    state = 022;
-                    stepper.stop();
-                    break;
-                }
+                // if ( (t - farTime) >= 500000 ) {
+                //     state = 010;
+                //     stepper.stop();
+                //     break;
+                // }
                 stepper.run();
             }
             break;
 
-        case 022:
-            Serial.println("Balance Failed...");
-            while(true){}
-            break;
+        // case 666:
+        //     Serial.println("Reading sensor at 100 HZ");
+        //     while(true) {
+        //         t = millis();
+        //         if ( (t - lastTime) >= 10 ) {
+        //             sensor.update();
+        //             Serial.print("theta: ");
+        //             Serial.print(sensor._theta);
+        //             Serial.print(". thetadot: ");
+        //             Serial.println(sensor._thetadot);
+        //             lastTime = t;
+        //         }
+        //     }
+        //     break;
+        // case 777:
+        //     Serial.println("Next State");
+        //     break;
         default:
-            Serial.println("You made it to the default, woops!");
             break;
 }
 }
@@ -297,59 +276,34 @@ bool closeToOrigin(float x[4]){
     }
 }
 
-bool farFromOrigin(float x, float v, float theta, float thetadot){
-    if ( abs(theta) >= 45*PI/180.0) {
+// bool farFromOrigin(float x, float v, float theta, float thetadot){
+//     if ( abs(theta) >= 45*PI/180.0) {
+//         return true;
+//     } else {
+//         return false;
+//     }
+// }
+
+bool farFromOrigin(float x[4]){
+    if ( abs(x[2]) >= 45*PI/180.0) {
         return true;
     } else {
         return false;
     }
 }
 
-float balanceLQR(float x, float v, float theta, float thetadot, float Ix){
+// float balanceLQR(float x, float v, float theta, float thetadot){
+//     float Kx = -4.472;
+//     float Kv = -5.621;
+//     float Kt = -33492.0;
+//     float Kw = -4749.;
+//     return -(Kx*x + Kv*v + Kt*theta + Kw*thetadot);
+// }
+
+float balanceLQR(float x[4]){
     float Kx = -4.472;
     float Kv = -5.621;
     float Kt = -33492.0;
     float Kw = -4749.;
-    float Kix = -0.5;
-    return -(Kx*x + Kv*v + Kt*theta + Kw*thetadot + Kix*Ix);
-}
-
-float swingUp(float x, float v, float theta, float thetadot, float swingDT){
-    float ksu = 600.0;
-    float kcw = 1.37*ksu;
-    float Lt = 150;
-    float a = 0.65 + 0.1/25.0*swingDT;
-    float E = pendE(theta, thetadot);
-    float Eup = 133157.016;
-    float Kx = 1.0;
-    float Kv = 1.5;
-    if (E <= a*Eup) {
-        return -ksu*sign(thetadot*cos(theta)) + kcw*sign(x)*log(1 - abs(x)/Lt);
-    } else {
-        return -(Kx*x + Kv*v); // pushes cart towards the center
-    }
-}
-
-bool canBalance(float x, float v, float theta, float thetadot){
-    // if ( abs(x) <= 75.0 && abs(v) <= 150.0 && abs(theta) <= 3.0*PI/180.0 && abs(thetadot) < .369) {
-    if ( abs(theta) <= 5.0*PI/180.0 ) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-int sign(float val)
-{
- if (val < 0) return -1;
- if (val==0) return 0;
- return 1;
-}
-
-float pendE(float theta, float thetadot) {
-    float Ih = 2676.83; // kgmm^2
-    float g = 9810.0; // mm/s^2
-    float m = .094; // kg
-    float L = 144.4;  //mm
-    return 0.5*Ih*pow(thetadot,2) + m*g*L*cos(theta);
+    return -(Kx*x[0] + Kv*x[1] + Kt*x[2] + Kw*x[3]);
 }

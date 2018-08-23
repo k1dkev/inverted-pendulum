@@ -21,6 +21,11 @@ class P3Encoder
     float _c;
     float _lastTheta;
     unsigned long _lastTimeOfUpdate;
+    float _wk;
+    float _wkm1;
+    float _wkm2;
+    float _wkm3;
+    float _wkm4;
 };
 
 #endif

@@ -7,7 +7,7 @@ import scipy.linalg
 # Physical Parameters
 g = 9810 # mm/s^2
 Le = 197.21 # Effective Pendulum length
-Lt = 250 # Half the track length
+Lt = 150 # Half the track length
 Ih = 2676.83 # kgmm^2
 m = .094 #kg
 L = 144.4 #mm
@@ -61,6 +61,8 @@ for i, _ in enumerate(t):
 	if i == t.size - 2:
 		u[i+1] = swingUp(x[i+1,:])
 		break
+
+print(energyOfPend(np.array([0,0,0,0])))
 
 plt.figure(1)
 
