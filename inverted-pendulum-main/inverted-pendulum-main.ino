@@ -25,7 +25,6 @@ unsigned long sensorInterval = 10000; //us 1000 Hz
 unsigned long closeInterval = 3000000; // us
 unsigned long farInterval = 500000; // us
 
-
 float x = 0.0;
 float v = 0.0;
 float theta = PI;
