@@ -18,7 +18,7 @@ BiPolarStepper::BiPolarStepper(int enaPin, int dirPin, int pulPin, int stepMode)
   _Lt = 190.0;                    // Half of allowable track length. Stepper can move to +/- Lt (mm)
   _w = 0;                         // Angular velocity of stepper motor (rad/s)
   _maxSpeed = 62.83;              // Max angular velocity. 600 rpm or about 320 mm/s
-  _xMaxAccel = 15000;             // About 1g of linear acceleration (mm/s^2)
+  _xMaxAccel = 10000;             // About 1g of linear acceleration (mm/s^2)
 
   // Setting digital pins to be outputs
   pinMode(_enaPin, OUTPUT);
@@ -101,7 +101,7 @@ void BiPolarStepper::accel(float a, float dt)
 
 float BiPolarStepper::getX()
 {
-  return 32.0*((float)_stepCount)/((float) _stepsPerRev);;
+  return 32.0*((float)_stepCount)/((float) _stepsPerRev);
 }
 
 float BiPolarStepper::getV()

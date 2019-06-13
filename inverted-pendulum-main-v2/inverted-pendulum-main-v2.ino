@@ -298,7 +298,7 @@ bool closeToOrigin(float x[4]){
 }
 
 bool farFromOrigin(float x, float v, float theta, float thetadot){
-    if ( abs(theta) >= 10*PI/180.0) {
+    if ( abs(theta) >= 15*PI/180.0) {
         return true;
     } else {
         return false;
@@ -306,35 +306,57 @@ bool farFromOrigin(float x, float v, float theta, float thetadot){
 }
 
 float balanceLQR(float x, float v, float theta, float thetadot, float Ix){
-    float Kx = -4.472;
-    float Kv = -5.621;
-    float Kt = -33492.0;
-    float Kw = -4749.;
+    float Kx = -44.72;
+    float Kv = -22.65;
+    float Kt = -65000.0;
+    float Kw = -9216.0;
     float Kix = -0.5;
     return -(Kx*x + Kv*v + Kt*theta + Kw*thetadot + Kix*Ix);
 }
 
 float swingUp(float x, float v, float theta, float thetadot, float swingDT){
-    float ksu = 1000.0;
+    float ksu = 600.0;
     float kcw = 1.37*ksu;
     float Lt = 150;
-    float a = 0.7 + 0.1/100.0*swingDT;
+    float a = 0.65 + 0.1/25.0*swingDT;
     float E = pendE(theta, thetadot);
     float Eup = 133157.016;
     float Kx = 1.0;
-    float Kv = 0.0;
+    float Kv = 1.5;
     if (E <= a*Eup) {
         return -ksu*sign(thetadot*cos(theta)) + kcw*sign(x)*log(1 - abs(x)/Lt);
-    } else if(E > 1.2*a*Eup) {
-        return ksu*sign(thetadot*cos(theta)) + kcw*sign(x)*log(1 - abs(x)/Lt);
     } else {
         return -(Kx*x + Kv*v); // pushes cart towards the center
-    }
+    }    
+
+
+    // float ksu = 600.0;
+    // float kcw = 1.37*ksu;
+    // float Lt = 150;
+    // float a = 0.65 + 0.1/25.0*swingDT;
+    // float E = pendE(theta, thetadot);
+    // float Eup = 133157.016;
+    // // Serial.println(E/Eup);
+    // // Serial.println(x);
+    // float Kx = 1.0;
+    // float Kv = 0.0;
+    // if (E <= a*Eup) {
+    //     return -ksu*sign(thetadot*cos(theta)) + kcw*sign(x)*log(1 - abs(x)/Lt);
+    // } else if(E > 2.0*a*Eup) {
+    //     return ksu*sign(thetadot*cos(theta)) + kcw*sign(x)*log(1 - abs(x)/Lt);
+    // } else {
+    //     return -(Kx*x + Kv*v); // pushes cart towards the center
+    // }
+
+    // float ksu = 0.25*600.0;
+    // float kcw = 1.37*ksu;
+    // float Lt = 150;
+    // return 40.0*thetadot + kcw*sign(x)*log(1 - abs(x)/Lt);
 }
 
 bool canBalance(float x, float v, float theta, float thetadot){
     // if ( abs(x) <= 75.0 && abs(v) <= 150.0 && abs(theta) <= 3.0*PI/180.0 && abs(thetadot) < .369) {
-    if ( abs(theta) <= 5.0*PI/180.0 && abs(thetadot) <= 1.0) {
+    if ( abs(theta) <= 5.0*PI/180.0 && abs(thetadot) <= 0.2) {
         return true;
     } else {
         return false;
