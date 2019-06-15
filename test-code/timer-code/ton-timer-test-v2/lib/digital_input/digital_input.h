@@ -1,8 +1,7 @@
 #ifndef digital_input_h
 #define digital_input_h
 #include "Arduino.h"
-#include "ton.h"
-#include "tof.h"
+#include "timers.h"
 
 class digital_input
 {

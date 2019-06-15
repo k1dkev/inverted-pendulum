@@ -1,4 +1,3 @@
-#include "Arduino.h"
 #include "digital_input.h"
 
 digital_input::digital_input(int pin, unsigned long onDebounce, unsigned long offDebounce, unsigned long *currentTimePointer, int mode)
