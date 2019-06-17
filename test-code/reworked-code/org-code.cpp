@@ -1,10 +1,7 @@
 #include "P3Encoder.h"
 #include "BiPolarStepper.h"
 
-const byte numChars = 32;
-char receivedChars[numChars];   // an array to store the received data
 unsigned int state = 000; // Note this is base 8 numbers
-boolean newData = false;
 
 unsigned long startTime; // ms
 float avgReading;
@@ -51,40 +48,15 @@ void loop() {
 
         case 001:
             Serial.println("Do you wish to calibrate? (y/n)");
-            while(true){
-                recvWithEndMarker();
-                if (newData) {
-                    Serial.println(">>> " + String(receivedChars));
-                    newData = false;
-                    if (*receivedChars == 'y') {
-                        state = 002;
-                    } else if (*receivedChars == 'n') {
-                        state = 006;
-                    } else {
-                        Serial.println(String(receivedChars) + " is not a valid input. Try again...");
-                    }
-                    break;
-                }
-            }
+            // yes goto state 002
+            // no goto state 006
             break;
 
         case 002:
             Serial.println("(1) Attach the pendulum so that the set screw is on the LEFT side.");
             Serial.println("(2) Let pendulum come to rest in the downward position.");
             Serial.println("(3) Send 'go' when ready.");
-            while(true){
-                recvWithEndMarker();
-                if (newData) {
-                    Serial.println(">>> " + String(receivedChars));
-                    newData = false;
-                    if (strcmp(receivedChars,"go") == 0) {
-                        state = 003;
-                    } else {
-                        Serial.println(String(receivedChars) + " is not a valid input. Try again...");
-                    }
-                    break;
-                }
-            }
+            // "go" goto state 003
             break;
 
         case 003:
@@ -108,19 +80,7 @@ void loop() {
             Serial.println("(1) Attach the pendulum so that the set screw is on the RIGHT side.");
             Serial.println("(2) Let pendulum come to rest in the downward position.");
             Serial.println("(3) Send 'go' when ready.");
-            while(true){
-                recvWithEndMarker();
-                if (newData) {
-                    Serial.println(">>> " + String(receivedChars));
-                    newData = false;
-                    if (strcmp(receivedChars,"go") == 0) {
-                        state = 005;
-                    } else {
-                        Serial.println(String(receivedChars) + " is not a valid input. Try again...");
-                    }
-                    break;
-                }
-            }
+            // "go" goto state 005
             break;
 
         case 005:
@@ -143,22 +103,9 @@ void loop() {
 
         case 006:
             Serial.println("Start swing up loop? (y/n)");
-            while(true){
-                recvWithEndMarker();
-                if (newData) {
-                    Serial.println(">>> " + String(receivedChars));
-                    newData = false;
-                    if (*receivedChars == 'y') {
-                        stepper.unStop();
-                        state = 010;
-                    } else if (*receivedChars == 'n') {
-                        state = 020;
-                    } else {
-                        Serial.println(String(receivedChars) + " is not a valid input. Try again...");
-                    }
-                    break;
-                }
-            }
+            // yes goto state 010
+                stepper.unStop();
+            // no goto state 020
             break;
 
         case 010:

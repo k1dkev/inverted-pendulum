@@ -15,7 +15,7 @@ class LCD_UI
     char **_optionsList;
     int _i;
     int _j;
-    int _N;
+    int _n;
     LiquidCrystal *_lcd;
 };
 

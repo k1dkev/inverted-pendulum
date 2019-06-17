@@ -8,7 +8,7 @@ LCD_UI::LCD_UI(char **optionsList, int N, LiquidCrystal *lcd)
   _optionsList = optionsList; // List of options
   _i = 0;                     // Option Index
   _j = 0;                     // Screen Index
-  _N = N;                     // Number of Options
+  _n = N;                     // Number of Options
   _lcd = lcd;                 // Pointer to LCD
 }
 
@@ -19,9 +19,9 @@ int LCD_UI::getIndex()
 
 void LCD_UI::down()
 {
-  if (_i < _N-1) _i++;
+  if (_i < _n-1) _i++;
   if (_i > (_j + 1)) _j += 2;
-  if (_j > _N-1) _j = _N - 1;
+  if (_j > _n-1) _j = _n - 1;
   print();
 }
 
@@ -40,7 +40,7 @@ void LCD_UI::print()
   _lcd->print(_i == _j ? "->" : "  ");
   _lcd->print(_optionsList[_j]);
   _lcd->setCursor(0, 1);
-  if(!_N%2 || _j != _N - 1) { // N is odd and _j is at end of array
+  if(!_n%2 || _j != _n - 1) { // N is odd and _j is at end of array
     _lcd->print(_i != _j ? "->" : "  ");
     _lcd->print(_optionsList[_j+1]);
   }
