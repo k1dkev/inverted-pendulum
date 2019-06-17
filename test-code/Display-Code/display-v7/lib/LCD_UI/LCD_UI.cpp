@@ -40,9 +40,7 @@ void LCD_UI::print()
   _lcd->print(_i == _j ? "->" : "  ");
   _lcd->print(_optionsList[_j]);
   _lcd->setCursor(0, 1);
-  if(_N%2 && _j == _N - 1) { // N is odd and _j is at end of array
-    _lcd->setCursor(0, 1);
-  } else { // N is even
+  if(!_N%2 || _j != _N - 1) { // N is odd and _j is at end of array
     _lcd->print(_i != _j ? "->" : "  ");
     _lcd->print(_optionsList[_j+1]);
   }
