@@ -189,9 +189,9 @@ bool canBalance(float x, float v, float theta, float thetadot){
 
 int sign(float val)
 {
- if (val < 0) return -1;
- if (val==0) return 0;
- return 1;
+    if (val < 0) return -1;
+    if (val==0) return 0;
+    return 1;
 }
 
 float pendE(float theta, float thetadot) {
