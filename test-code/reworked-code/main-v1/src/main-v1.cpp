@@ -1,5 +1,3 @@
-// Works with physical push buttons
-
 #include "LCD_UI.h"
 #include "Arduino.h"
 #include <LiquidCrystal.h>
@@ -10,7 +8,7 @@
 
 // HEADER FROM INTERTED MAIN
 
-unsigned long startTime; // ms
+// unsigned long startTime; // ms
 float avgReading;
 unsigned long N;
 int sensorReading;
@@ -18,11 +16,11 @@ int sensorReading;
 P3Encoder sensor(A8);
 BiPolarStepper stepper(7,6,5,8);
 
-unsigned long t; // us
-unsigned long lastTime; // us
-unsigned long closeTime; // us
-unsigned long farTime; // us
-unsigned long swingStartTime; //us
+// unsigned long t; // us
+// unsigned long lastTime; // us
+// unsigned long closeTime; // us
+// unsigned long farTime; // us
+// unsigned long swingStartTime; //us
 
 unsigned long measInterval = 10000; //ms
 unsigned long sensorInterval = 10000; //us 1000 Hz
@@ -41,25 +39,32 @@ float swingDT = 0.0;
 
 float stateArray[4];
 ///////////////////////////////////////////////////////////////////////
+
+// Timers
 unsigned long globalCurrentTime = 0;
 ton tonSensorTimer(sensorInterval, &globalCurrentTime);
 ton tonSwingUpTimer(25000000, &globalCurrentTime); // max time doesn't matter
+ton tonFarFromOriginTimer(farInterval, &globalCurrentTime);
 
-int enterPin = 13;
-int upPin = 10;
-int downPin = 9;
-
+// Program states
 enum States {MAIN_MENU, CALIBRATE, SWING_UP, BALANCE};
 char *options[] = {"Swing up", "Balance", "Calibrate"};
 States stateOptionArray[] = {SWING_UP, BALANCE, CALIBRATE};
 States state = MAIN_MENU;
 States lastState = CALIBRATE; // Make sure lastState != state as initial value
 States nextState = MAIN_MENU;
+
+// Display object creations
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+LCD_UI ui(options, 3, &lcd);
+
+// Push Buttons
+int enterPin = 13;
+int upPin = 10;
+int downPin = 9;
 digital_input enterPB(enterPin, 50000, 50000, &globalCurrentTime, INPUT_PULLUP);
 digital_input upPB(upPin, 50000, 50000, &globalCurrentTime, INPUT_PULLUP);
 digital_input downPB(downPin, 50000, 50000, &globalCurrentTime, INPUT_PULLUP);
-LCD_UI ui(options, 3, &lcd);
 
 // Function declarations
 States main_menu(void);
@@ -70,7 +75,8 @@ float swingUp(float x, float v, float theta, float thetadot, float swingDT);
 bool canBalance(float x, float v, float theta, float thetadot);
 int sign(float val);
 float pendE(float theta, float thetadot);
-
+bool farFromOrigin(float x, float v, float theta, float thetadot);
+float balanceLQR(float x, float v, float theta, float thetadot, float Ix);
 
 void setup() {
     lcd.begin(16,2);
@@ -110,9 +116,31 @@ States balance() {
     if (lastState != state) {
         lcd.clear();
         lcd.print("BALANCE STATE");
+        tonSensorTimer.reset();
+        tonFarFromOriginTimer.reset();
     }
     enterPB.update();
     if (enterPB._risingEdge) return MAIN_MENU;
+
+    // Balance loop
+    if (tonSensorTimer._Q) {
+        sensor.update();
+        x = stepper.getX();
+        v = stepper.getV();
+        theta = sensor._theta;
+        thetadot = sensor._thetadot;
+        dt =sensor._dt;
+        Ix = Ix + x*dt;
+        u = balanceLQR(x, v, theta, thetadot, Ix);
+        stepper.accel(u, dt);
+        tonFarFromOriginTimer.update(farFromOrigin(x, v, theta, thetadot));
+    }
+    if (tonFarFromOriginTimer._Q) {
+        state = CALIBRATE; // Balance failed
+        stepper.stop();
+    }
+    stepper.run();
+
 	return BALANCE;
 }
 
@@ -200,4 +228,21 @@ float pendE(float theta, float thetadot) {
     float m = .094; // kg
     float L = 144.4;  //mm
     return 0.5*Ih*pow(thetadot,2) + m*g*L*cos(theta);
+}
+
+bool farFromOrigin(float x, float v, float theta, float thetadot){
+    if ( abs(theta) >= 45*PI/180.0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+float balanceLQR(float x, float v, float theta, float thetadot, float Ix){
+    float Kx = -4.472;
+    float Kv = -5.621;
+    float Kt = -33492.0;
+    float Kw = -4749.0;
+    float Kix = -0.5;
+    return -(Kx*x + Kv*v + Kt*theta + Kw*thetadot + Kix*Ix);
 }
