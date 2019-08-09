@@ -64,10 +64,10 @@
 #define ILI9341_PINK        0xF81F
 
 /******************* UI details */
-#define BUTTON_X 40
+#define BUTTON_X 120
 #define BUTTON_Y 100
-#define BUTTON_W 60
-#define BUTTON_H 30
+#define BUTTON_W 220
+#define BUTTON_H 60
 #define BUTTON_SPACING_X 20
 #define BUTTON_SPACING_Y 20
 #define BUTTON_TEXTSIZE 2
@@ -109,22 +109,18 @@ TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 
 Elegoo_GFX_Button buttons[15];
 /* create 15 buttons, in classic candybar phone style */
-char buttonlabels[15][5] = {"Send", "Clr", "End", "1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#" };
-uint16_t buttoncolors[15] = {ILI9341_DARKGREEN, ILI9341_DARKGREY, ILI9341_RED, 
-                             ILI9341_BLUE, ILI9341_BLUE, ILI9341_BLUE, 
-                             ILI9341_BLUE, ILI9341_BLUE, ILI9341_BLUE, 
-                             ILI9341_BLUE, ILI9341_BLUE, ILI9341_BLUE, 
-                             ILI9341_ORANGE, ILI9341_BLUE, ILI9341_ORANGE};
+char buttonlabels[3][10] = {"Calibrate", "Swing up", "Balance"};
+uint16_t buttoncolors[15] = {ILI9341_DARKGREEN, ILI9341_DARKGREY, ILI9341_RED};
                              
 void setup(void) {
   Serial.begin(9600);
   Serial.println(F("TFT LCD test"));
-
-#ifdef USE_Elegoo_SHIELD_PINOUT
-  Serial.println(F("Using Elegoo 2.8\" TFT Arduino Shield Pinout"));
-#else
-  Serial.println(F("Using Elegoo 2.8\" TFT Breakout Board Pinout"));
-#endif
+  textfield[TEXT_LEN] = 0;
+  #ifdef USE_Elegoo_SHIELD_PINOUT
+    Serial.println(F("Using Elegoo 2.8\" TFT Arduino Shield Pinout"));
+  #else
+    Serial.println(F("Using Elegoo 2.8\" TFT Breakout Board Pinout"));
+  #endif
 
   Serial.print("TFT size is "); Serial.print(tft.width()); Serial.print("x"); Serial.println(tft.height());
 
@@ -165,20 +161,17 @@ void setup(void) {
   tft.fillScreen(BLACK);
   
   // create buttons
-  for (uint8_t row=0; row<5; row++) {
-    for (uint8_t col=0; col<3; col++) {
-      buttons[col + row*3].initButton(&tft, BUTTON_X+col*(BUTTON_W+BUTTON_SPACING_X), 
+  for (uint8_t row=0; row<3; row++) {
+      buttons[row].initButton(&tft, BUTTON_X, 
                  BUTTON_Y+row*(BUTTON_H+BUTTON_SPACING_Y),    // x, y, w, h, outline, fill, text
-                  BUTTON_W, BUTTON_H, ILI9341_WHITE, buttoncolors[col+row*3], ILI9341_WHITE,
-                  buttonlabels[col + row*3], BUTTON_TEXTSIZE); 
-      buttons[col + row*3].drawButton();
-    }
+                  BUTTON_W, BUTTON_H, ILI9341_WHITE, buttoncolors[row], ILI9341_WHITE,
+                  buttonlabels[row], BUTTON_TEXTSIZE); 
+      buttons[row].drawButton();
   }
-  
+
   // create 'text field'
   tft.drawRect(TEXT_X, TEXT_Y, TEXT_W, TEXT_H, ILI9341_WHITE);
 
- 
 }
 // Print something in the mini status bar with either flashstring
 void status(const __FlashStringHelper *msg) {
@@ -199,9 +192,6 @@ void status(char *msg) {
 #define MINPRESSURE 10
 #define MAXPRESSURE 1000
 void loop(void) {
-  /*TSPoint p;
-  p = ts.getPoint(); 
-  */
   digitalWrite(13, HIGH);
   TSPoint p = ts.getPoint();
   digitalWrite(13, LOW);
@@ -210,37 +200,15 @@ void loop(void) {
   //pinMode(XP, OUTPUT);
   pinMode(XM, OUTPUT);
   pinMode(YP, OUTPUT);
-  //pinMode(YM, OUTPUT);
 
-  // we have some minimum pressure we consider 'valid'
-  // pressure of 0 means no pressing!
-  
- // p = ts.getPoint(); 
-  /*
-  if (ts.bufferSize()) {
-    
-  } else {
-    // this is our way of tracking touch 'release'!
-    p.x = p.y = p.z = -1;
-  }*/
-  
-  // Scale from ~0->4000 to tft.width using the calibration #'s
-  /*
-  if (p.z != -1) {
-    p.x = map(p.x, TS_MINX, TS_MAXX, 0, tft.width());
-    p.y = map(p.y, TS_MINY, TS_MAXY, 0, tft.height());
-    Serial.print("("); Serial.print(p.x); Serial.print(", "); 
-    Serial.print(p.y); Serial.print(", "); 
-    Serial.print(p.z); Serial.println(") ");
-  }*/
-   if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
-    // scale from 0->1023 to tft.width
-    p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-    p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
-   }
+  if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
+  // scale from 0->1023 to tft.width
+  p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+  p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+  }
    
   // go thru all the buttons, checking if they were pressed
-  for (uint8_t b=0; b<15; b++) {
+  for (uint8_t b=0; b<3; b++) {
     if (buttons[b].contains(p.x, p.y)) {
       //Serial.print("Pressing: "); Serial.println(b);
       buttons[b].press(true);  // tell the button it is pressed
@@ -250,35 +218,24 @@ void loop(void) {
   }
 
   // now we can ask the buttons if their state has changed
-  for (uint8_t b=0; b<15; b++) {
+  for (uint8_t b=0; b<3; b++) {
     if (buttons[b].justReleased()) {
       // Serial.print("Released: "); Serial.println(b);
       buttons[b].drawButton();  // draw normal
     }
     
     if (buttons[b].justPressed()) {
-        buttons[b].drawButton(true);  // draw invert!
+      buttons[b].drawButton(true);  // draw invert!
         
-        // if a numberpad button, append the relevant # to the textfield
-        if (b >= 3) {
-          if (textfield_i < TEXT_LEN) {
-            textfield[textfield_i] = buttonlabels[b][0];
-            textfield_i++;
-	    textfield[textfield_i] = 0; // zero terminate
-            
-           // fona.playDTMF(buttonlabels[b][0]);
-          }
-        }
-
-        // clr button! delete char
-        if (b == 1) {
-          
-          textfield[textfield_i] = 0;
-          if (textfield_i > 0) {
-            textfield_i--;
-            textfield[textfield_i] = ' ';
-          }
-        }
+      textfield_i = 0;
+      while (buttonlabels[b][textfield_i] != 0) {
+        textfield[textfield_i] = buttonlabels[b][textfield_i];
+        textfield_i++;
+      }
+      while (textfield_i < TEXT_LEN) {
+        textfield[textfield_i] = ' ';
+        textfield_i++;
+      }
 
         // update the current text field
         Serial.println(textfield);
@@ -286,20 +243,6 @@ void loop(void) {
         tft.setTextColor(TEXT_TCOLOR, ILI9341_BLACK);
         tft.setTextSize(TEXT_TSIZE);
         tft.print(textfield);
-
-        // its always OK to just hang up
-        if (b == 2) {
-          status(F("Hanging up"));
-          //fona.hangUp();
-        }
-        // we dont really check that the text field makes sense
-        // just try to call
-        if (b == 0) {
-          status(F("Calling"));
-          Serial.print("Calling "); Serial.print(textfield);
-          
-          //fona.callPhone(textfield);
-        }
         
       delay(100); // UI debouncing
     }

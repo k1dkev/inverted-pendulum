@@ -1,10 +1,8 @@
-// Paint example specifically for the TFTLCD breakout board.
-// If using the Arduino shield, use the tftpaint_shield.pde sketch instead!
-// DOES NOT CURRENTLY WORK ON ARDUINO LEONARDO
+// IMPORTANT: Elegoo_TFTLCD LIBRARY MUST BE SPECIFICALLY
+// CONFIGURED FOR EITHER THE TFT SHIELD OR THE BREAKOUT BOARD.
+// SEE RELEVANT COMMENTS IN Elegoo_TFTLCD.h FOR SETUP.
 //Technical support:goodtft@163.com
 
-#include "Arduino.h"
-#include "SPI.h"
 #include <Elegoo_GFX.h>    // Core graphics library
 #include <Elegoo_TFTLCD.h> // Hardware-specific library
 #include <TouchScreen.h>
@@ -274,7 +272,7 @@ void loop(void) {
         if (b == 1) {
           
           textfield[textfield_i] = 0;
-          if (textfield_i > 0) {
+          if (textfield > 0) {
             textfield_i--;
             textfield[textfield_i] = ' ';
           }
