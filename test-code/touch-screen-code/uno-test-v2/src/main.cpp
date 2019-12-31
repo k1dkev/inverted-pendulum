@@ -92,7 +92,7 @@ void setup(void) {
   Serial.print("TFT size is "); Serial.print(tft.width()); Serial.print("x"); Serial.println(tft.height());
   tft.reset();
   tft.begin(0x9341);
-  tft.setRotation(3);
+  tft.setRotation(2);
   tft.fillScreen(BLACK);
 
   // create buttons
@@ -138,12 +138,12 @@ void loop(void) {
 
   if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
     // scale from 0->1023 to tft.width
-    p.x = map(p.x, TS_MINX, TS_MAXX, tft.height(), 0);
-    p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.width(), 0));
-    // p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
-    // p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
+    // p.x = map(p.x, TS_MINX, TS_MAXX, 240, 0);
+    // p.y = (320-map(p.y, TS_MINY, TS_MAXY, 320, 0));
+    p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
+    p.y = (tft.height()-map(p.y, TS_MINY, TS_MAXY, tft.height(), 0));
     // int py = p.y;
-    // p.y = tft.width() - p.x;
+    // p.y = 240 - p.x;
     // p.x = py;
     Serial.print("(x,y): "); Serial.print(p.x); Serial.print(" "); Serial.println(p.y);
   }
