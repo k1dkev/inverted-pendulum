@@ -1,5 +1,7 @@
-#include "P3Encoder.h"
-#include "BiPolarStepper.h"
+#include "Arduino.h"
+#include <P3Encoder.h>
+#include <BiPolarStepper.h>
+#include <timers.h>
 
 // Function declarations
 void recvWithEndMarker();
