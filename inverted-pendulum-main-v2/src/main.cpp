@@ -276,8 +276,7 @@ void recvWithEndMarker() {
             }
         }
         else {
-            // receivedChars[ndx] = '\0'; // terminate the string
-            receivedChars[ndx] = 'z'; // terminate the string
+            receivedChars[ndx] = '\0'; // terminate the string
             ndx = 0;
             newData = true;
         }
