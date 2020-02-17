@@ -78,14 +78,17 @@ x = np.empty((4,t.size))
 xplus = np.empty((2,Ni))
 z = np.empty((t.size))
 w = np.empty((t.size))
+w_basic = np.empty(Ni)
+z_meas = np.empty(Ni)
 P = np.empty((2,2,t.size))
 x[:,0] = np.array([x0, v0, theta0, w0]).T
 xplus[:,0] = np.array([theta0, w0]).T
 P[:,:,0] = np.array([[0,0], [0,0]])
 w[0] = w0
+w_basic[0] = w0
 
 # Normal Random number generator
-sigma_v_theta = .1*2*math.pi/360 # Measurement noise
+sigma_v_theta = 5*2*math.pi/360 # Measurement noise
 sigma_w_theta = .4*2*math.pi/360 # Process noise
 sigma_w_omega = .4*2*math.pi/360 # Proces noise
 rand_v = np.random.normal(0, sigma_v_theta, t.size)
@@ -96,7 +99,7 @@ R = sigma_v_theta**2
 
 #------------------- Simulation Loop -------------------#
 
-lastTime = 0;
+lastTime = 0
 # Looping over time vector and Simulating Dynamics
 u = 0
 i = 1
@@ -108,7 +111,9 @@ for k, _ in enumerate(t):
 	z[k] = x[2,k] + rand_v[k]
 	deltaT = t[k] - lastTime
 	if deltaT >= kdt:
+		z_meas[i] = z[k]
 		xplus[:,i], Pi = kalmanFilter(z[k], u, xplus[:,i-1], Pi, deltaT, Q, R)
+		w_basic[i] = (z_meas[i] - z_meas[i-1]) / deltaT
 		tkalman[i] = t[k]
 		lastTime = t[k]
 		i = i + 1
@@ -134,38 +139,16 @@ for k, _ in enumerate(t):
 
 #----------------------- Plotting ----------------------#
 
+fig, (ax1, ax2) = plt.subplots(2, sharex=True)
+ax1.plot(t,z,'r-',linewidth=1,label = 'Measurement')
+ax1.plot(tkalman,xplus[0,:], 'g-', linewidth=2, label = 'Kalman')
+ax1.set_title('Angular Position')
 
-# plt.figure(1)
+ax2.plot(tkalman,w_basic,'r-',linewidth=1,label = 'Basic derivative')
+ax2.plot(tkalman,xplus[1,:], 'g-', linewidth=2, label = 'Kalman')
+ax2.set_title('Angular Velocity')
 
-# plt.subplot(321)
-# plt.plot(t,x[:,0],'r-',linewidth=1)
-# plt.ylabel('x')
-
-# plt.subplot(322)
-# plt.plot(t,x[:,1],'r-',linewidth=1)
-# plt.ylabel('v')
-
-# plt.subplot(323)
-# plt.plot(t,x[:,2]*180/math.pi,'r-',linewidth=1)
-# plt.ylabel('theta(degrees)')
-
-# plt.subplot(324)
-# plt.plot(t,x[:,3],'r-',linewidth=1)
-# plt.ylabel('w')
-
-# plt.subplot(325)
-# plt.plot(t,u,'r-',linewidth=1)
-# plt.ylabel('u')
-
-# plt.subplot(326)
-# plt.plot(t,z,'r-',linewidth=1)
-# plt.ylabel('z')
-
-plt.figure(1)
-
-# plt.plot(t,x[:,2],'r-',linewidth=3)
-plt.plot(t,x[2,:]*180/math.pi,'r-',linewidth=4)
-plt.plot(tkalman,xplus[0,:]*180/math.pi, 'g-', linewidth=3)
-#plt.plot(t,w, 'b-', linewidth=3)
+ax1.legend(loc='upper center')
+ax2.legend(loc='upper center')
 
 plt.show()
