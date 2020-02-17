@@ -16,7 +16,7 @@ def xdot(x, u):
 	Xdot = x[1]
 	vdot = u
 	thetadot = x[3]
-	wdot = (g*math.sin(x[2]) - u*math.cos(x[2]))/Le
+	wdot = (g*math.sin(x[2]) - u*math.cos(x[2]))/Le - Beta*x[3]
 	return np.transpose(np.array([Xdot, vdot, thetadot, wdot]))
 
 # rk4 updates x
@@ -32,7 +32,7 @@ def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
 	theta_minus_kp1 = xplus_k[0] + xplus_k[1]*dt
 	omega_minus_kp1 = xplus_k[1] + (g*math.sin(xplus_k[0]) - u*math.cos(xplus_k[0]))*dt/Le
 	xminus_kp1 = np.array([theta_minus_kp1, omega_minus_kp1])
-	F_kp1 = np.array([ [1,dt], [(g*math.cos(xminus_kp1[0]) + u*math.sin(xminus_kp1[0]))*dt/Le, 1] ])
+	F_kp1 = np.array([ [1,dt], [(g*math.cos(xminus_kp1[0]) + u*math.sin(xminus_kp1[0]))*dt/Le, 1 - Beta*dt] ])
 	H_kp1 = np.array([1,0])
 	Pminus_kp1 = F_kp1 @ Pplus_k @ F_kp1.T + Q
 	nu_kp1 = z_kp1 - xminus_kp1[0]
@@ -54,6 +54,7 @@ Lt = 250 # Half the track length
 m = .094 #kg
 Ih = 2676.83 #kgmm^2
 K = 0
+Beta = .5 #Damping
 
 # Initial Conditions
 x0 = 0
@@ -140,11 +141,13 @@ for k, _ in enumerate(t):
 #----------------------- Plotting ----------------------#
 
 fig, (ax1, ax2) = plt.subplots(2, sharex=True)
-ax1.plot(t,z,'r-',linewidth=1,label = 'Measurement')
+#ax1.plot(t,z,'r-',linewidth=1,label = 'Measurement')
+ax1.plot(t,x[2,:],'r-',linewidth=1,label = 'Measurement')
 ax1.plot(tkalman,xplus[0,:], 'g-', linewidth=2, label = 'Kalman')
 ax1.set_title('Angular Position')
 
-ax2.plot(tkalman,w_basic,'r-',linewidth=1,label = 'Basic derivative')
+#ax2.plot(tkalman,w_basic,'r-',linewidth=1,label = 'Basic derivative')
+ax2.plot(t,x[3,:],'r-',linewidth=1,label = 'Basic derivative')
 ax2.plot(tkalman,xplus[1,:], 'g-', linewidth=2, label = 'Kalman')
 ax2.set_title('Angular Velocity')
 
