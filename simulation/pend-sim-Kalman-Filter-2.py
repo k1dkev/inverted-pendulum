@@ -67,7 +67,7 @@ w0 = 0
 tFinal = 10
 tInitial = 0
 Nsteps = 10000
-kalmanFrequency = 100 # Hz
+kalmanFrequency = 1000 # Hz
 kdt = 1 / kalmanFrequency
 Ni = (int) (tFinal - tInitial) * kalmanFrequency
 print(Ni)
