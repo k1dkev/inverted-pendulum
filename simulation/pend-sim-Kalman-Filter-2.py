@@ -7,9 +7,12 @@ import scipy.linalg
 #----------------------- Functions ---------------------#
 
 # Balance control
-def LQR(K, x):
-	return 0
-	return -np.matmul(K,x)
+def LQR(x, v, theta, thetadot):
+	Kx = -4.472
+	Kv = -5.621
+	Kt = -33492.0
+	Kw = -4749.0
+	return -(Kx*x + Kv*v + Kt*theta + Kw*thetadot)
 
 # xdot
 def xdot(x, u):
@@ -30,7 +33,7 @@ def rk4(x, xdot, u, dt):
 # Kalman Filter
 def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
 	theta_minus_kp1 = xplus_k[0] + xplus_k[1]*dt
-	omega_minus_kp1 = xplus_k[1] + (g*math.sin(xplus_k[0]) - u*math.cos(xplus_k[0]))*dt/Le
+	omega_minus_kp1 = xplus_k[1] + ((g*math.sin(xplus_k[0]) - u*math.cos(xplus_k[0]))/Le -Beta*xplus_k[1])*dt
 	xminus_kp1 = np.array([theta_minus_kp1, omega_minus_kp1])
 	F_kp1 = np.array([ [1,dt], [(g*math.cos(xminus_kp1[0]) + u*math.sin(xminus_kp1[0]))*dt/Le, 1 - Beta*dt] ])
 	H_kp1 = np.array([1,0])
@@ -60,17 +63,17 @@ Beta = .5 #Damping
 x0 = 0
 v0 = 0
 theta0 = (math.pi/180)*3 # Offset in degrees
-# w0 = np.sqrt(2*m*g*L*(1 - np.cos(theta0))/Ih) # angular velocity after falling 3 degs from rest
 w0 = 0
 
 # Time and frequencies
-tFinal = 10
+tFinal = 20
 tInitial = 0
 Nsteps = 10000
-kalmanFrequency = 1000 # Hz
+kalmanFrequency = 100 # Hz
 kdt = 1 / kalmanFrequency
 Ni = (int) (tFinal - tInitial) * kalmanFrequency
 print(Ni)
+
 #------------------------- Setup -----------------------#
 
 # Setting up time vector and initial conditions
@@ -81,17 +84,19 @@ z = np.empty((t.size))
 w = np.empty((t.size))
 w_basic = np.empty(Ni)
 z_meas = np.empty(Ni)
+u = np.empty(Ni)
 P = np.empty((2,2,t.size))
 x[:,0] = np.array([x0, v0, theta0, w0]).T
 xplus[:,0] = np.array([theta0, w0]).T
 P[:,:,0] = np.array([[0,0], [0,0]])
 w[0] = w0
 w_basic[0] = w0
+u[0] = 0
 
 # Normal Random number generator
-sigma_v_theta = 5*2*math.pi/360 # Measurement noise
-sigma_w_theta = .4*2*math.pi/360 # Process noise
-sigma_w_omega = .4*2*math.pi/360 # Proces noise
+sigma_v_theta = .1*2*math.pi/360 # Measurement noise
+sigma_w_theta = .1*2*math.pi/360 # Process noise
+sigma_w_omega = .1*2*math.pi/360 # Proces noise
 rand_v = np.random.normal(0, sigma_v_theta, t.size)
 rand_w_theta = np.random.normal(0, sigma_w_theta, t.size)
 rand_w_omega = np.random.normal(0, sigma_w_omega, t.size)
@@ -100,58 +105,69 @@ R = sigma_v_theta**2
 
 #------------------- Simulation Loop -------------------#
 
-lastTime = 0
 # Looping over time vector and Simulating Dynamics
-u = 0
+lastTime = 0
 i = 1
 tkalman = np.empty(Ni)
 tkalman[0] = 0
 Pi = np.array([[0,0], [0,0]])
 
 for k, _ in enumerate(t):
-	z[k] = x[2,k] + rand_v[k]
-	deltaT = t[k] - lastTime
+	z[k] = x[2,k] + rand_v[k] # Measurement
+	deltaT = t[k] - lastTime  # Checking track up time since last kalman update
 	if deltaT >= kdt:
-		z_meas[i] = z[k]
-		xplus[:,i], Pi = kalmanFilter(z[k], u, xplus[:,i-1], Pi, deltaT, Q, R)
-		w_basic[i] = (z_meas[i] - z_meas[i-1]) / deltaT
-		tkalman[i] = t[k]
+		z_meas[i] = z[k] 
+		xplus[:,i], Pi = kalmanFilter(z[k], u[i-1], xplus[:,i-1], Pi, deltaT, Q, R) # Kalman Filter
+		w_basic[i] = (z_meas[i] - z_meas[i-1]) / deltaT # Basic angular velocity
+		# u[i] = LQR(x[0,k], x[1,k], x[2,k], x[3,k]) # Control w/ perfect feedback
+		u[i] = LQR(x[0,k], x[1,k], xplus[0,i], xplus[1,i]) # Control w/ Kalman
+		# u[i] = LQR(x[0,k], x[1,k], z[k], w_basic[i]) # Control w/o Kalman
+		tkalman[i] = t[k] # Time for kalman filter
 		lastTime = t[k]
-		i = i + 1
-	# u[k] = LQR(K, x[k,:])
+		i += 1
 	if k != t.size - 1:
-		x[:,k+1] = rk4(x[:,k], xdot, u, dt)
-	# if k == t.size - 2:
-	# 	u[k+1] = LQR(K, x[k+1,:])
-	# 	break
-
-# for k, _ in enumerate(t):
-# 	z[k] = x[2,k] + rand_v[k]
-# 	deltaT = t[k] - lastTime
-# 	if k != 0 and k != t.size and deltaT >= kdt:
-# 		xplus[:,k], P[:,:,k] = kalmanFilter(z[k], u, xplus[:,k-1], P[:,:,k-1], dt, Q, R)
-# 	# u[k] = LQR(K, x[k,:])
-# 	if k != t.size - 1:
-# 		x[:,k+1] = rk4(x[:,k], xdot, u, dt)
-# 	# if k == t.size - 2:
-# 	# 	u[k+1] = LQR(K, x[k+1,:])
-# 	# 	break
-
+		x[:,k+1] = rk4(x[:,k], xdot, u[i-1], dt) # System dynamics
 
 #----------------------- Plotting ----------------------#
 
-fig, (ax1, ax2) = plt.subplots(2, sharex=True)
-#ax1.plot(t,z,'r-',linewidth=1,label = 'Measurement')
-ax1.plot(t,x[2,:],'r-',linewidth=1,label = 'Measurement')
-ax1.plot(tkalman,xplus[0,:], 'g-', linewidth=2, label = 'Kalman')
-ax1.set_title('Angular Position')
+# Defining subplots
+fig, axs = plt.subplots(3, 2, sharex=True)
 
-#ax2.plot(tkalman,w_basic,'r-',linewidth=1,label = 'Basic derivative')
-ax2.plot(t,x[3,:],'r-',linewidth=1,label = 'Basic derivative')
-ax2.plot(tkalman,xplus[1,:], 'g-', linewidth=2, label = 'Kalman')
-ax2.set_title('Angular Velocity')
+# Plotting Angular Position
+axs[0, 0].plot(t,z,'r-',linewidth=1,label = 'Measurement')
+#ax1.plot(t,x[2,:],'r-',linewidth=1,label = 'Actual')
+axs[0, 0].plot(tkalman,xplus[0,:], 'g-', linewidth=2, label = 'Kalman')
+axs[0, 0].set_title('Angular Position')
 
-ax1.legend(loc='upper center')
-ax2.legend(loc='upper center')
+# Plotting Angular Velocity
+axs[1, 0].plot(tkalman,w_basic,'r-',linewidth=1,label = 'Basic derivative')
+#ax2.plot(t,x[3,:],'r-',linewidth=1,label = 'Actual')
+axs[1, 0].plot(tkalman,xplus[1,:], 'g-', linewidth=2, label = 'Kalman')
+axs[1, 0].set_title('Angular Velocity')
 
+# Plotting Control
+axs[2, 0].plot(tkalman,u, 'g-', linewidth=2, label = 'u')
+axs[2, 0].set_title('Control u')
+
+# Plotting Linear Position
+axs[0, 1].plot(t, x[0,:], 'g-', linewidth=2, label = 'x')
+axs[0, 1].set_title('Linear Position')
+
+# Plotting Linear Velocity
+axs[1, 1].plot(t, x[1,:], 'g-', linewidth=2, label = 'v')
+axs[1, 1].set_title('Linear Velocity')
+
+# Empty Plot
+axs[2, 1].plot(t, t, 'g-', linewidth=2, label = 't')
+axs[2, 1].set_title('Empty Plot')
+
+# Legend settings
+axs[0, 0].legend(frameon=False, loc='upper right', ncol=2)
+axs[1, 0].legend(frameon=False, loc='upper right', ncol=2)
+axs[2, 0].legend(frameon=False, loc='upper right', ncol=1)
+axs[0, 1].legend(frameon=False, loc='upper right', ncol=2)
+axs[1, 1].legend(frameon=False, loc='upper right', ncol=2)
+axs[2, 1].legend(frameon=False, loc='upper right', ncol=1)
+
+# Show plot
 plt.show()
