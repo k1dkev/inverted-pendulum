@@ -8,7 +8,7 @@ import scipy.linalg
 
 # Swingup control
 def swingup(x, v, theta, thetadot):
-	ksu = 600.0
+	ksu = 600
 	kcw = 1.37*ksu
 	Lt = 150
 	E = pendE(theta, thetadot)
@@ -17,7 +17,9 @@ def swingup(x, v, theta, thetadot):
 	Kv = 1.5
 	if E <= Eup:
 		return -ksu*sign(thetadot*math.cos(theta)) + kcw*sign(x)*math.log(1 - abs(x)/Lt)
+		#return -ksu*sign(thetadot*math.cos(theta))
 	else:
+		#return -ksu*sign(thetadot*math.cos(theta))
 		return -(Kx*x + Kv*v) # pushes cart towards the center
 
 # Returns the sign of a value
@@ -75,6 +77,17 @@ def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
 	Pplus_kp1 = np.absolute(Pplus_kp1)
 	return (xplus_kp1, Pplus_kp1)
 
+# Can Balance
+def canBalance(x, v, theta, thetadot):
+	return abs(theta*180/3.14) <= 2
+
+# Control Loop
+def control_loop(x, v, theta, thetadot):
+	if canBalance(x, v, theta, thetadot):
+		return LQR(x, v, theta, thetadot)
+	else:
+		return swingup(x, v, theta, thetadot)
+
 #------------------------- Inputs ----------------------#
 
 # Physical Parameters
@@ -85,7 +98,7 @@ Lt = 250 # Half the track length
 m = .094 #kg
 Ih = 2676.83 #kgmm^2
 K = 0
-Beta = .5 #Damping
+Beta = .1 #Damping
 
 # Initial Conditions
 x0 = 0
@@ -120,6 +133,9 @@ P[:,:,0] = np.array([[0,0], [0,0]])
 w[0] = w0
 w_basic[0] = w0
 u[0] = 0
+bUseKalmanFeedback = False
+bUsePerfectFeedback = True
+bUseBasicEstimate = False
 
 # Normal Random number generator
 sigma_v_theta = .1*2*math.pi/360 # Measurement noise
@@ -147,10 +163,12 @@ for k, _ in enumerate(t):
 		z_meas[i] = z[k] 
 		xplus[:,i], Pi = kalmanFilter(z[k], u[i-1], xplus[:,i-1], Pi, deltaT, Q, R) # Kalman Filter
 		w_basic[i] = (z_meas[i] - z_meas[i-1]) / deltaT # Basic angular velocity
-		# u[i] = LQR(x[0,k], x[1,k], x[2,k], x[3,k]) # LQR Control w/ perfect feedback
-		# u[i] = LQR(x[0,k], x[1,k], xplus[0,i], xplus[1,i]) # LQR Control w/ Kalman
-		# u[i] = LQR(x[0,k], x[1,k], z[k], w_basic[i]) # LQR Control w/o Kalman
-		u[i] = swingup(x[0,k], x[1,k], x[2,k], x[3,k]) # Swingup Control w/ perfect feedback
+		if bUseKalmanFeedback:
+			u[i] = control_loop(x[0,k], x[1,k], xplus[0,i], xplus[1,i])
+		elif bUseBasicEstimate:
+			u[i] = control_loop(x[0,k], x[1,k], z[k], w_basic[i])
+		elif bUsePerfectFeedback:
+			u[i] = control_loop(x[0,k], x[1,k], x[2,k], x[3,k])
 		tkalman[i] = t[k] # Time for kalman filter
 		lastTime = t[k]
 		i += 1
