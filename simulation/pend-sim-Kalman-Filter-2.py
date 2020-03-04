@@ -6,6 +6,34 @@ import scipy.linalg
 
 #----------------------- Functions ---------------------#
 
+# Swingup control
+def swingup(x, v, theta, thetadot):
+	ksu = 600.0
+	kcw = 1.37*ksu
+	Lt = 150
+	E = pendE(theta, thetadot)
+	Eup = pendE(0, 0)
+	Kx = 1.0
+	Kv = 1.5
+	if E <= Eup:
+		return -ksu*sign(thetadot*math.cos(theta)) + kcw*sign(x)*math.log(1 - abs(x)/Lt)
+	else:
+		return -(Kx*x + Kv*v) # pushes cart towards the center
+
+# Returns the sign of a value
+def sign(val):
+	if val < 0: return -1
+	if val==0: return 0
+	return 1
+
+# Returns the pedulum energy
+def pendE(theta, thetadot):
+    Ih = 2676.83 	# kgmm^2
+    g = 9810.0 		# mm/s^2
+    m = .094 		# kg
+    L = 144.4  		# mm
+    return 0.5*Ih*thetadot**2 + m*g*L*math.cos(theta)
+
 # Balance control
 def LQR(x, v, theta, thetadot):
 	Kx = -4.472
@@ -62,7 +90,7 @@ Beta = .5 #Damping
 # Initial Conditions
 x0 = 0
 v0 = 0
-theta0 = (math.pi/180)*3 # Offset in degrees
+theta0 = (math.pi/180)*180 # Offset in degrees
 w0 = 0
 
 # Time and frequencies
@@ -119,9 +147,10 @@ for k, _ in enumerate(t):
 		z_meas[i] = z[k] 
 		xplus[:,i], Pi = kalmanFilter(z[k], u[i-1], xplus[:,i-1], Pi, deltaT, Q, R) # Kalman Filter
 		w_basic[i] = (z_meas[i] - z_meas[i-1]) / deltaT # Basic angular velocity
-		# u[i] = LQR(x[0,k], x[1,k], x[2,k], x[3,k]) # Control w/ perfect feedback
-		u[i] = LQR(x[0,k], x[1,k], xplus[0,i], xplus[1,i]) # Control w/ Kalman
-		# u[i] = LQR(x[0,k], x[1,k], z[k], w_basic[i]) # Control w/o Kalman
+		# u[i] = LQR(x[0,k], x[1,k], x[2,k], x[3,k]) # LQR Control w/ perfect feedback
+		# u[i] = LQR(x[0,k], x[1,k], xplus[0,i], xplus[1,i]) # LQR Control w/ Kalman
+		# u[i] = LQR(x[0,k], x[1,k], z[k], w_basic[i]) # LQR Control w/o Kalman
+		u[i] = swingup(x[0,k], x[1,k], x[2,k], x[3,k]) # Swingup Control w/ perfect feedback
 		tkalman[i] = t[k] # Time for kalman filter
 		lastTime = t[k]
 		i += 1
