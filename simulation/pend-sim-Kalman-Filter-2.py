@@ -16,7 +16,10 @@ def swingup(x, v, theta, thetadot):
 	Kx = 1.0
 	Kv = 1.5
 	if E <= Eup:
-		return -ksu*sign(thetadot*math.cos(theta)) + kcw*sign(x)*math.log(1 - abs(x)/Lt)
+		if abs(x) >= Lt:
+			return -sign(x)*ksu
+		else:
+			return -ksu*sign(thetadot*math.cos(theta)) + kcw*sign(x)*math.log(1 - abs(x)/Lt)
 		#return -ksu*sign(thetadot*math.cos(theta))
 	else:
 		#return -ksu*sign(thetadot*math.cos(theta))
@@ -79,7 +82,8 @@ def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
 
 # Can Balance
 def canBalance(x, v, theta, thetadot):
-	return abs(theta*180/3.14) <= 2
+	mod_theta = theta % (2 * math.pi)
+	return abs(mod_theta*180/math.pi) <= 2
 
 # Control Loop
 def control_loop(x, v, theta, thetadot):
@@ -107,7 +111,7 @@ theta0 = (math.pi/180)*180 # Offset in degrees
 w0 = 0
 
 # Time and frequencies
-tFinal = 20
+tFinal = 25
 tInitial = 0
 Nsteps = 10000
 kalmanFrequency = 100 # Hz
@@ -153,6 +157,8 @@ R = sigma_v_theta**2
 lastTime = 0
 i = 1
 tkalman = np.empty(Ni)
+can_balance = np.empty(Ni)
+pend_energy = np.empty(Ni)
 tkalman[0] = 0
 Pi = np.array([[0,0], [0,0]])
 
@@ -165,10 +171,16 @@ for k, _ in enumerate(t):
 		w_basic[i] = (z_meas[i] - z_meas[i-1]) / deltaT # Basic angular velocity
 		if bUseKalmanFeedback:
 			u[i] = control_loop(x[0,k], x[1,k], xplus[0,i], xplus[1,i])
+			can_balance[i] = canBalance(x[0,k], x[1,k], xplus[0,i], xplus[1,i])
+			pend_energy[i] = pendE(xplus[0,i], xplus[1,i])
 		elif bUseBasicEstimate:
 			u[i] = control_loop(x[0,k], x[1,k], z[k], w_basic[i])
+			can_balance[i] = canBalance(x[0,k], x[1,k], z[k], w_basic[i])
+			pend_energy[i] = pendE(z[k], w_basic[i])
 		elif bUsePerfectFeedback:
 			u[i] = control_loop(x[0,k], x[1,k], x[2,k], x[3,k])
+			can_balance[i] = canBalance(x[0,k], x[1,k], x[2,k], x[3,k])
+			pend_energy[i] = pendE(x[2,k], x[3,k])
 		tkalman[i] = t[k] # Time for kalman filter
 		lastTime = t[k]
 		i += 1
@@ -176,7 +188,7 @@ for k, _ in enumerate(t):
 		x[:,k+1] = rk4(x[:,k], xdot, u[i-1], dt) # System dynamics
 
 #----------------------- Plotting ----------------------#
-
+print(pendE(0,0))
 # Defining subplots
 fig, axs = plt.subplots(3, 2, sharex=True)
 
@@ -205,8 +217,8 @@ axs[1, 1].plot(t, x[1,:], 'g-', linewidth=2, label = 'v')
 axs[1, 1].set_title('Linear Velocity')
 
 # Empty Plot
-axs[2, 1].plot(t, t, 'g-', linewidth=2, label = 't')
-axs[2, 1].set_title('Empty Plot')
+axs[2, 1].plot(tkalman, pend_energy / pendE(0,0), 'g-', linewidth=2, label = 't')
+axs[2, 1].set_title('Can balance')
 
 # Legend settings
 axs[0, 0].legend(frameon=False, loc='upper right', ncol=2)
