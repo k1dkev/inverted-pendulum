@@ -39,7 +39,7 @@ x0 = 0
 v0 = 0
 theta0 = (math.pi/180)*10 # Offset in degrees
 #w0 = np.sqrt(2*m*g*L*(1 - np.cos(theta0))/Ih) # angular velocity after falling 3 degs from rest
-w0 = 0.1;
+w0 = 0.1
 
 # Setting up time vector and initial conditions
 t, dt = np.linspace(0,40,100000, retstep=True)

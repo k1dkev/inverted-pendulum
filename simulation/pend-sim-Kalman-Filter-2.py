@@ -8,22 +8,40 @@ import scipy.linalg
 
 # Swingup control
 def swingup(x, v, theta, thetadot):
-	ksu = 600
-	kcw = 1.37*ksu
-	Lt = 150
+	k = 0.1
 	E = pendE(theta, thetadot)
 	Eup = pendE(0, 0)
 	Kx = 1.0
 	Kv = 1.5
-	if E <= Eup:
+	if E <= 0.99*Eup:
 		if abs(x) >= Lt:
-			return -sign(x)*ksu
+			u = -sign(x)*Amax
 		else:
-			return -ksu*sign(thetadot*math.cos(theta)) + kcw*sign(x)*math.log(1 - abs(x)/Lt)
-		#return -ksu*sign(thetadot*math.cos(theta))
+			u = Amax*(-sign(thetadot*math.cos(theta)) + k*sign(x)*math.log(1 - abs(x)/Lt))
 	else:
-		#return -ksu*sign(thetadot*math.cos(theta))
-		return -(Kx*x + Kv*v) # pushes cart towards the center
+		u = -(Kx*x + Kv*v) # pushes cart towards the center
+	if abs(u) > Amax:
+		u = sign(u)*Amax
+	return u
+
+# # Swingup control
+# def swingup(x, v, theta, thetadot):
+# 	ksu = 600
+# 	kcw = 1.37*ksu
+# 	Lt = 150
+# 	E = pendE(theta, thetadot)
+# 	Eup = pendE(0, 0)
+# 	Kx = 1.0
+# 	Kv = 1.5
+# 	if E <= Eup:
+# 		if abs(x) >= Lt:
+# 			return -sign(x)*ksu
+# 		else:
+# 			return -ksu*sign(thetadot*math.cos(theta)) + kcw*sign(x)*math.log(1 - abs(x)/Lt)
+# 		#return -ksu*sign(thetadot*math.cos(theta))
+# 	else:
+# 		#return -ksu*sign(thetadot*math.cos(theta))
+# 		return -(Kx*x + Kv*v) # pushes cart towards the center
 
 # Returns the sign of a value
 def sign(val):
@@ -45,7 +63,11 @@ def LQR(x, v, theta, thetadot):
 	Kv = -5.621
 	Kt = -33492.0
 	Kw = -4749.0
-	return -(Kx*x + Kv*v + Kt*theta + Kw*thetadot)
+	mod_theta = theta % (2 * math.pi)
+	u = -(Kx*x + Kv*v + Kt*mod_theta + Kw*thetadot)
+	if abs(u) > Amax:
+		u = sign(u)*Amax
+	return u
 
 # xdot
 def xdot(x, u):
@@ -56,12 +78,16 @@ def xdot(x, u):
 	return np.transpose(np.array([Xdot, vdot, thetadot, wdot]))
 
 # rk4 updates x
+# def rk4(x, xdot, u, dt):
+# 	k1 = xdot(x, u)*dt
+# 	k2 = xdot(x + k1/2, u)*dt
+# 	k3 = xdot(x + k2/2, u)*dt
+# 	k4 = xdot(x + k3, u)*dt
+# 	return x + (k1 + 2*k2 + 2*k3 + k4)/6
+
+# rk4 updates x
 def rk4(x, xdot, u, dt):
-	k1 = xdot(x, u)*dt
-	k2 = xdot(x + k1/2, u)*dt
-	k3 = xdot(x + k2/2, u)*dt
-	k4 = xdot(x + k3, u)*dt
-	return x + (k1 + 2*k2 + 2*k3 + k4)/6
+	return x + xdot(x,u)*dt
 
 # Kalman Filter
 def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
@@ -83,7 +109,7 @@ def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
 # Can Balance
 def canBalance(x, v, theta, thetadot):
 	mod_theta = theta % (2 * math.pi)
-	return abs(mod_theta*180/math.pi) <= 2
+	return abs(mod_theta*180/math.pi) <= 10
 
 # Control Loop
 def control_loop(x, v, theta, thetadot):
@@ -103,26 +129,27 @@ m = .094 #kg
 Ih = 2676.83 #kgmm^2
 K = 0
 Beta = .1 #Damping
+Amax = 1000 # mm/s^2 Max acceleration
 
 # Initial Conditions
 x0 = 0
 v0 = 0
-theta0 = (math.pi/180)*180 # Offset in degrees
+theta0 = (math.pi/180)*.1 # Offset in degrees
 w0 = 0
 
 # Time and frequencies
-tFinal = 25
+tFinal = 1
 tInitial = 0
-Nsteps = 10000
+Nsteps = 100000
 kalmanFrequency = 100 # Hz
 kdt = 1 / kalmanFrequency
 Ni = (int) (tFinal - tInitial) * kalmanFrequency
-print(Ni)
 
 #------------------------- Setup -----------------------#
 
 # Setting up time vector and initial conditions
 t, dt = np.linspace(0,tFinal,Nsteps, retstep=True)
+print(dt)
 x = np.empty((4,t.size))
 xplus = np.empty((2,Ni))
 z = np.empty((t.size))
@@ -168,7 +195,10 @@ for k, _ in enumerate(t):
 	if deltaT >= kdt:
 		z_meas[i] = z[k] 
 		xplus[:,i], Pi = kalmanFilter(z[k], u[i-1], xplus[:,i-1], Pi, deltaT, Q, R) # Kalman Filter
-		w_basic[i] = (z_meas[i] - z_meas[i-1]) / deltaT # Basic angular velocity
+		if i == 1:
+			w_basic[i] = 0
+		else:
+			w_basic[i] = (z_meas[i] - z_meas[i-1]) / deltaT # Basic angular velocity
 		if bUseKalmanFeedback:
 			u[i] = control_loop(x[0,k], x[1,k], xplus[0,i], xplus[1,i])
 			can_balance[i] = canBalance(x[0,k], x[1,k], xplus[0,i], xplus[1,i])
@@ -185,10 +215,13 @@ for k, _ in enumerate(t):
 		lastTime = t[k]
 		i += 1
 	if k != t.size - 1:
-		x[:,k+1] = rk4(x[:,k], xdot, u[i-1], dt) # System dynamics
+		if abs(u[i-1]) > Amax:
+			u_lim = sign(u[i-1])*Amax
+		else:
+			u_lim = u[i-1]
+		x[:,k+1] = rk4(x[:,k], xdot, u_lim, dt) # System dynamics
 
 #----------------------- Plotting ----------------------#
-print(pendE(0,0))
 # Defining subplots
 fig, axs = plt.subplots(3, 2, sharex=True)
 
@@ -216,8 +249,10 @@ axs[0, 1].set_title('Linear Position')
 axs[1, 1].plot(t, x[1,:], 'g-', linewidth=2, label = 'v')
 axs[1, 1].set_title('Linear Velocity')
 
-# Empty Plot
-axs[2, 1].plot(tkalman, pend_energy / pendE(0,0), 'g-', linewidth=2, label = 't')
+# Bonus plot
+#axs[2, 1].plot(tkalman, pend_energy / pendE(0,0), 'g-', linewidth=2, label = 't')
+#axs[2, 1].set_title('Pendulum energy')
+axs[2, 1].plot(tkalman, can_balance, 'g-', linewidth=2, label = 't')
 axs[2, 1].set_title('Can balance')
 
 # Legend settings
