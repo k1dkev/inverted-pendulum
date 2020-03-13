@@ -85,6 +85,10 @@ def rk4(x, xdot, u, dt):
 def integrate_dynamics(x, xdot, u, dt):
 	return x + xdot(x,u)*dt
 
+# state estimate
+def estimate_state(x_curr_est, z_meas, xdot, u, dt):
+	return x_est
+
 # Kalman Filter
 def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
 	theta_minus_kp1 = xplus_k[0] + xplus_k[1]*dt
@@ -154,6 +158,9 @@ x_est = np.empty((4,Nk))
 w_basic = np.empty(Nk)
 z_meas = np.empty(Nk)
 P = np.empty((2,2,Nk))
+tk = np.empty(Nk)
+can_balance = np.empty(Nk)
+pend_energy = np.empty(Nk)
 
 x[:,0] = np.array([x0, v0, theta0, w0]).T
 x_est[:,0] = np.array([x0, v0, theta0, w0]).T
@@ -178,18 +185,17 @@ bUseBasicEstimate = False
 #------------------- Simulation Loop -------------------#
 
 # Looping over time vector and Simulating Dynamics
-lastTime = 0
-i = 1
-tkalman = np.empty(Ni)
-can_balance = np.empty(Ni)
-pend_energy = np.empty(Ni)
-tkalman[0] = 0
-Pi = np.array([[0,0], [0,0]])
-
+k=1
+tLastEstimateTime = 0
 for i in range(1,N):
-	u[i] = 0
-	def control_loop(x, v, theta, thetadot):
-	x[:,i+1] = integrate_dynamics(x[:,i], xdot, u[i], dt)
+	t[i] = i*dt
+	if (t[i] - tLastUpdateTime) > kdt:
+		tLastEstimateTime = t[i]
+		tk[k] = t[i]
+		x_est[:,k] = estimate_state()
+		u[k] = control_loop(x_est)
+		k += 1
+	x[:,i+1] = integrate_dynamics(x[:,i], xdot, u[k], dt)
 
 
 
