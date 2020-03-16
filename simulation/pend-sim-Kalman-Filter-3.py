@@ -9,39 +9,20 @@ import scipy.linalg
 # Swingup control
 def swingup(x):
 	k = 0.1
-	E = pendE(theta, thetadot)
-	Eup = pendE(0, 0)
+	E = pendE(x)
+	Eup = pendE(np.array([0, 0, 0, 0]))
 	Kx = 1.0
 	Kv = 1.5
-	if E <= 0.99*Eup:
-		if abs(x) >= Lt:
-			u = -sign(x)*Amax
+	mapped_theta = map_theta(x[2])
+	if E <= Eup:
+		if abs(x[0]) >= Lt:
+			u = -sign(x[0])*Amax
 		else:
-			u = Amax*(-sign(thetadot*math.cos(theta)) + k*sign(x)*math.log(1 - abs(x)/Lt))
+			#u = Amax*(-sign(x[3]*math.cos(mapped_theta)) + k*sign(x[0])*math.log(1 - abs(x[0])/Lt))
+			u = -Amax*sign(x[3]*math.cos(mapped_theta))
 	else:
-		u = -(Kx*x + Kv*v) # pushes cart towards the center
-	if abs(u) > Amax:
-		u = sign(u)*Amax
+		u = -(Kx*x[0] + Kv*x[1]) # pushes cart towards the center
 	return u
-
-# # Swingup control
-# def swingup(x, v, theta, thetadot):
-# 	ksu = 600
-# 	kcw = 1.37*ksu
-# 	Lt = 150
-# 	E = pendE(theta, thetadot)
-# 	Eup = pendE(0, 0)
-# 	Kx = 1.0
-# 	Kv = 1.5
-# 	if E <= Eup:
-# 		if abs(x) >= Lt:
-# 			return -sign(x)*ksu
-# 		else:
-# 			return -ksu*sign(thetadot*math.cos(theta)) + kcw*sign(x)*math.log(1 - abs(x)/Lt)
-# 		#return -ksu*sign(thetadot*math.cos(theta))
-# 	else:
-# 		#return -ksu*sign(thetadot*math.cos(theta))
-# 		return -(Kx*x + Kv*v) # pushes cart towards the center
 
 # Returns the sign of a value
 def sign(val):
@@ -50,8 +31,8 @@ def sign(val):
 	return 1
 
 # Returns the pedulum energy
-def pendE(theta, thetadot):
-    return 0.5*Ih*thetadot**2 + m*g*L*math.cos(theta)
+def pendE(x):
+    return 0.5*Ih*x[3]**2 + m*g*L*math.cos(x[2])
 
 # Balance control
 def LQR(x):
@@ -59,8 +40,8 @@ def LQR(x):
 	Kv = -5.621
 	Kt = -33492.0
 	Kw = -4749.0
-	# mod_theta = x[2] % (2 * math.pi)
-	u = -(Kx*x[0] + Kv*x[1] + Kt*x[2] + Kw*x[3])
+	mapped_theta = map_theta(x[2])
+	u = -(Kx*x[0] + Kv*x[1] + Kt*mapped_theta + Kw*x[3])
 	return u
 
 # xdot
@@ -87,10 +68,6 @@ def integrate_dynamics(x, xdot, u, dt):
 def estimate_state(x):
 	return x
 
-# def estimate_state(x_curr_est, z_meas, xdot, u, dt):
-# 	return x_est
-
-
 # Kalman Filter
 def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
 	theta_minus_kp1 = xplus_k[0] + xplus_k[1]*dt
@@ -111,7 +88,11 @@ def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
 # Can Balance
 def canBalance(x):
 	mapped_theta = map_theta(x[2])
-	return abs(mapped_theta*180/math.pi) <= 5
+	bX_OK = abs(x[0]) <= 25
+	bV_OK = True
+	bTheta_OK = abs(mapped_theta*180/math.pi) <= 4
+	bW_OK = True
+	return bX_OK and bV_OK and bTheta_OK and bW_OK
 
 # Control Loop
 def control_loop(x):
@@ -121,7 +102,32 @@ def control_loop(x):
 		u = swingup(x)
 	if abs(u) > Amax:
 		u = sign(u)*Amax
-	return u
+	return limit_control(x,u)
+
+# Limit Control function
+def limit_control(x,u):
+	if abs(u) > Amax:
+		u = sign(u)*Amax
+	return track_safety(x,u)
+
+# Track safety function
+def track_safety(x,u):
+	# Note the whole point of this try and except is so this fcn can have the equivalent of static variables
+	try:
+		x_max = x[0] + 0.5*sign(x[1])*x[1]**2/Amax
+		if not track_safety.bPreventCrash and ((x_max >= (Lt - x_safe)) or (x_max <= (-Lt + x_safe))):
+			track_safety.bPreventCrash = True
+			track_safety.signOfV = sign(x[1])
+		if track_safety.bPreventCrash and sign(x[1]) != track_safety.signOfV and (x_max <= (Lt - x_safe)) and (x_max >= (-Lt + x_safe)):
+			track_safety.bPreventCrash = False
+		if track_safety.bPreventCrash:
+			return -track_safety.signOfV*Amax
+		else:
+			return u
+	except AttributeError:
+		track_safety.bPreventCrash = False
+		track_safety.signOfV = 0
+		return 0
 
 # Map theta from [-inf,inf] -> [-180,180]
 def map_theta(theta):
@@ -133,6 +139,13 @@ def map_theta(theta):
 		mapped_theta = mapped_theta - (2*math.pi)
 	return mapped_theta
 
+def norm_theta(theta):
+	if theta < 0:
+		normed_theta = -((-theta) % (2*math.pi)) + 2*math.pi
+	else:
+		normed_theta = theta % (2*math.pi)
+	return normed_theta
+
 #------------------------- Inputs ----------------------#
 
 # Physical Parameters
@@ -141,20 +154,22 @@ Is = 0.11 # Moment of Inertia of the pendulum shaft
 Ig = 716.7 # Moment of Inertia of pendulum about CoM
 L = 144.4 # hinge to CoM length
 Lt = 250 # Half the track length
+x_safe = 10 # Safety margin for keeping x within the track length
 m = .094 #kg
 Ih = Is + Ig + m*L**2
 K = 0
 Beta = 0 # Damping
 Amax = 1000 # mm/s^2 Max acceleration
+EnergyUp = pendE(np.array([0, 0, 0, 0]))
 
 # Initial Conditions
 x0 = 0
 v0 = 0
-theta0 = (math.pi/180)*3.0 # Offset in degrees
+theta0 = (math.pi/180)*180.0 # Offset in degrees
 w0 = 0
 
 # Time and frequencies
-timeFinal = 10 # sec
+timeFinal = 20 # sec
 dt = 0.0001 # sec
 kalmanFrequency = 100 # Hz
 kdt = 1 / kalmanFrequency
@@ -172,6 +187,7 @@ Nk = math.floor(timeFinal * kalmanFrequency) - 1
 t = np.empty(N)
 x = np.empty((4,N))
 z = np.empty(N)
+normed_theta = np.empty(N)
 
 u = np.empty(Nk)
 x_est = np.empty((4,Nk))
@@ -179,14 +195,16 @@ x_est = np.empty((4,Nk))
 # z_meas = np.empty(Nk)
 # P = np.empty((2,2,Nk))
 tk = np.empty(Nk)
-# can_balance = np.empty(Nk)
-# pend_energy = np.empty(Nk)
+can_balance = np.empty(Nk)
+pend_energy = np.empty(Nk)
 
 x[:,0] = np.array([x0, v0, theta0, w0]).T
 x_est[:,0] = np.array([x0, v0, theta0, w0]).T
 # P[:,:,0] = np.array([[0,0], [0,0]])
 # w_basic[0] = w0
 u[0] = 0
+pend_energy[0] = pendE(x_est[:,0])
+normed_theta[0] = theta0
 
 # # Normal Random number generator
 # sigma_v_theta = .1*2*math.pi/360 # Measurement noise
@@ -207,61 +225,33 @@ for i in range(0,N-1):
 		tk[k] = t[i]
 		x_est[:,k] = estimate_state(x[:,i])
 		u[k] = control_loop(x_est[:,k])
+		can_balance[k] = canBalance(x_est[:,k])
+		pend_energy[k] = pendE(x_est[:,k])
 		k += 1
 	x[:,i+1] = integrate_dynamics(x[:,i], xdot, u[k-1], dt)
 	t[i+1] = (i+1)*dt
-
-# for k, _ in enumerate(t):
-# 	z[k] = x[2,k] + rand_v[k] # Measurement
-# 	deltaT = t[k] - lastTime  # Checking track up time since last kalman update
-# 	if deltaT >= kdt:
-# 		z_meas[i] = z[k] 
-# 		xplus[:,i], Pi = kalmanFilter(z[k], u[i-1], xplus[:,i-1], Pi, deltaT, Q, R) # Kalman Filter
-# 		if i == 1:
-# 			w_basic[i] = 0
-# 		else:
-# 			w_basic[i] = (z_meas[i] - z_meas[i-1]) / deltaT # Basic angular velocity
-# 		if bUseKalmanFeedback:
-# 			u[i] = control_loop(x[0,k], x[1,k], xplus[0,i], xplus[1,i])
-# 			can_balance[i] = canBalance(x[0,k], x[1,k], xplus[0,i], xplus[1,i])
-# 			pend_energy[i] = pendE(xplus[0,i], xplus[1,i])
-# 		elif bUseBasicEstimate:
-# 			u[i] = control_loop(x[0,k], x[1,k], z[k], w_basic[i])
-# 			can_balance[i] = canBalance(x[0,k], x[1,k], z[k], w_basic[i])
-# 			pend_energy[i] = pendE(z[k], w_basic[i])
-# 		elif bUsePerfectFeedback:
-# 			u[i] = control_loop(x[0,k], x[1,k], x[2,k], x[3,k])
-# 			can_balance[i] = canBalance(x[0,k], x[1,k], x[2,k], x[3,k])
-# 			pend_energy[i] = pendE(x[2,k], x[3,k])
-# 		tkalman[i] = t[k] # Time for kalman filter
-# 		lastTime = t[k]
-# 		i += 1
-# 	if k != t.size - 1:
-# 		if abs(u[i-1]) > Amax:
-# 			u_lim = sign(u[i-1])*Amax
-# 		else:
-# 			u_lim = u[i-1]
-# 		x[:,k+1] = rk4(x[:,k], xdot, u_lim, dt) # System dynamics
+	normed_theta[i+1] = map_theta(x[2,i+1])
 
 #----------------------- Plotting ----------------------#
 # Defining subplots
 fig, axs = plt.subplots(3, 2, sharex=True)
 
 # Plotting Angular Position
-#axs[0, 0].plot(t,z,'r-',linewidth=1,label = 'Measurement')
-axs[0, 0].plot(t,x[2,:]*180.0/math.pi,'r-',linewidth=1,label = 'Actual')
-#axs[0, 0].plot(tkalman,xplus[0,:], 'g-', linewidth=2, label = 'Kalman')
+axs[0, 0].plot(t,normed_theta*180.0/math.pi,'b-',linewidth=1,label = 'Actual')
+# axs[0, 0].plot(tk,x_est[2,:]*180.0/math.pi, 'g-', linewidth=2, label = 'Kalman')
+# axs[0, 0].plot(t,z,'r-',linewidth=1,label = 'Measurement')
 axs[0, 0].set_title('Angular Position')
 
 # Plotting Angular Velocity
-# axs[1, 0].plot(tkalman,w_basic,'r-',linewidth=1,label = 'Basic derivative')
-# axs[1, 0].plot(tkalman,xplus[1,:], 'g-', linewidth=2, label = 'Kalman')
-axs[1, 0].plot(t,x[3,:], 'g-', linewidth=2, label = 'Kalman')
+axs[1, 0].plot(t,x[3,:], 'b-', linewidth=1, label = 'Actual')
+axs[1, 0].plot(tk,x_est[3,:], 'g-', linewidth=2, label = 'Kalman')
+# axs[1, 0].plot(tk,w_basic,'r-',linewidth=1,label = 'Basic derivative')
 axs[1, 0].set_title('Angular Velocity')
 
-# Plotting Control
-axs[2, 0].plot(tk, u, 'g-', linewidth=2, label = 'u')
-axs[2, 0].set_title('Control u')
+# Can balance / pend energy
+axs[2, 0].plot(tk, pend_energy / EnergyUp, 'r-', linewidth=2, label = 'Energy')
+axs[2, 0].plot(tk, can_balance, 'g-', linewidth=2, label = 'Balance?')
+axs[2, 0].set_title('Can balance / PendE')
 
 # Plotting Linear Position
 axs[0, 1].plot(t, x[0,:], 'g-', linewidth=2, label = 'x')
@@ -271,11 +261,9 @@ axs[0, 1].set_title('Linear Position')
 axs[1, 1].plot(t, x[1,:], 'g-', linewidth=2, label = 'v')
 axs[1, 1].set_title('Linear Velocity')
 
-# # Bonus plot
-# #axs[2, 1].plot(tkalman, pend_energy / pendE(0,0), 'g-', linewidth=2, label = 't')
-# #axs[2, 1].set_title('Pendulum energy')
-# axs[2, 1].plot(tkalman, can_balance, 'g-', linewidth=2, label = 't')
-# axs[2, 1].set_title('Can balance')
+# Plotting Control u
+axs[2, 1].plot(tk, u, 'g-', linewidth=2, label = 'u')
+axs[2, 1].set_title('Control u')
 
 # Legend settings
 axs[0, 0].legend(frameon=False, loc='upper right', ncol=2)
