@@ -6,7 +6,7 @@ import scipy.linalg
 
 #----------------------- Functions ---------------------#
 
-# Swingup control
+# Swingup control (Note using u = Kw sucks)
 def swingup(x):
 	k = 0.1
 	E = pendE(x)
@@ -15,11 +15,9 @@ def swingup(x):
 	Kv = 1.5
 	mapped_theta = map_theta(x[2])
 	if E <= Eup:
-		if abs(x[0]) >= Lt:
-			u = -sign(x[0])*Amax
-		else:
-			#u = Amax*(-sign(x[3]*math.cos(mapped_theta)) + k*sign(x[0])*math.log(1 - abs(x[0])/Lt))
-			u = -Amax*sign(x[3]*math.cos(mapped_theta))
+		u = -Amax*sign(x[3]*math.cos(mapped_theta))
+		if E >= 0.9*Eup:
+			u = -Amax*(Eup-E)*sign(x[3]*math.cos(mapped_theta))
 	else:
 		u = -(Kx*x[0] + Kv*x[1]) # pushes cart towards the center
 	return u
@@ -88,10 +86,10 @@ def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
 # Can Balance
 def canBalance(x):
 	mapped_theta = map_theta(x[2])
-	bX_OK = abs(x[0]) <= 25
+	bX_OK = abs(x[0]) <= 50
 	bV_OK = True
-	bTheta_OK = abs(mapped_theta*180/math.pi) <= 4
-	bW_OK = True
+	bTheta_OK = abs(mapped_theta*180/math.pi) <= 2
+	bW_OK = abs(x[3]) <= 1
 	return bX_OK and bV_OK and bTheta_OK and bW_OK
 
 # Control Loop
@@ -157,15 +155,14 @@ Lt = 250 # Half the track length
 x_safe = 10 # Safety margin for keeping x within the track length
 m = .094 #kg
 Ih = Is + Ig + m*L**2
-K = 0
-Beta = 0 # Damping
+Beta = 8 # Damping
 Amax = 1000 # mm/s^2 Max acceleration
 EnergyUp = pendE(np.array([0, 0, 0, 0]))
 
 # Initial Conditions
 x0 = 0
 v0 = 0
-theta0 = (math.pi/180)*180.0 # Offset in degrees
+theta0 = (math.pi/180)*179.0 # Offset in degrees
 w0 = 0
 
 # Time and frequencies
@@ -194,6 +191,7 @@ x_est = np.empty((4,Nk))
 # w_basic = np.empty(Nk)
 # z_meas = np.empty(Nk)
 # P = np.empty((2,2,Nk))
+one_array = np.ones(Nk)
 tk = np.empty(Nk)
 can_balance = np.empty(Nk)
 pend_energy = np.empty(Nk)
@@ -237,8 +235,9 @@ for i in range(0,N-1):
 fig, axs = plt.subplots(3, 2, sharex=True)
 
 # Plotting Angular Position
-axs[0, 0].plot(t,normed_theta*180.0/math.pi,'b-',linewidth=1,label = 'Actual')
-# axs[0, 0].plot(tk,x_est[2,:]*180.0/math.pi, 'g-', linewidth=2, label = 'Kalman')
+axs[0, 0].plot(t,normed_theta*180.0/math.pi,'r-',linewidth=1,label = 'Actual')
+axs[0, 0].plot(tk,x_est[2,:]*180.0/math.pi, 'g-', linewidth=1, label = 'Kalman')
+axs[0, 0].plot(tk,one_array*357.0, 'b-', linewidth=1, label = 'Kalman')
 # axs[0, 0].plot(t,z,'r-',linewidth=1,label = 'Measurement')
 axs[0, 0].set_title('Angular Position')
 
