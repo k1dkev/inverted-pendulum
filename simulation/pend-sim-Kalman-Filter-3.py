@@ -16,8 +16,6 @@ def swingup(x):
 	mapped_theta = map_theta(x[2])
 	if E <= Eup:
 		u = -Amax*sign(x[3]*math.cos(mapped_theta))
-		if E >= 0.9*Eup:
-			u = -Amax*(Eup-E)*sign(x[3]*math.cos(mapped_theta))
 	else:
 		u = -(Kx*x[0] + Kv*x[1]) # pushes cart towards the center
 	return u
@@ -47,7 +45,7 @@ def xdot(x, u):
 	Xdot = x[1]
 	vdot = u
 	thetadot = x[3]
-	wdot = (m*L/Ih)*(g*math.sin(x[2]) - u*math.cos(x[2]) - Beta*x[3])
+	wdot = (m*L*(g*math.sin(x[2]) - u*math.cos(x[2])) - Beta*x[3])/Ih
 	return np.transpose(np.array([Xdot, vdot, thetadot, wdot]))
 
 # rk4 updates x
@@ -86,21 +84,49 @@ def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
 # Can Balance
 def canBalance(x):
 	mapped_theta = map_theta(x[2])
-	bX_OK = abs(x[0]) <= 50
+	bX_OK = abs(x[0]) <= 30
 	bV_OK = True
 	bTheta_OK = abs(mapped_theta*180/math.pi) <= 2
-	bW_OK = abs(x[3]) <= 1
+	bW_OK = abs(x[3]) <= 0.05
 	return bX_OK and bV_OK and bTheta_OK and bW_OK
+
+# Can Balance
+def cantBalance(x):
+	mapped_theta = map_theta(x[2])
+	bX_NOK = False
+	bV_NOK = False
+	bTheta_NOK = abs(mapped_theta*180/math.pi) >= 90
+	bW_NOK = False
+	return bX_NOK and bV_NOK and bTheta_NOK and bW_NOK
+
+# Control Loop
+# def control_loop(x):
+# 	if canBalance(x):
+# 		u = LQR(x)
+# 	else:
+# 		u = swingup(x)
+# 	if abs(u) > Amax:
+# 		u = sign(u)*Amax
+# 	return limit_control(x,u)
 
 # Control Loop
 def control_loop(x):
-	if canBalance(x):
-		u = LQR(x)
-	else:
-		u = swingup(x)
-	if abs(u) > Amax:
-		u = sign(u)*Amax
-	return limit_control(x,u)
+	# Note the whole point of this try and except is so this fcn can have the equivalent of static variables
+	try:
+		if canBalance(x):
+			control_loop.bCanBalance = True
+		elif cantBalance(x):
+			control_loop.bCanBalance = False
+		if control_loop.bCanBalance:
+			u = LQR(x)
+		else:
+			u = swingup(x)
+		if abs(u) > Amax:
+			u = sign(u)*Amax
+		return limit_control(x,u)
+	except AttributeError:
+		control_loop.bCanBalance = False
+		return 0
 
 # Limit Control function
 def limit_control(x,u):
@@ -155,20 +181,21 @@ Lt = 250 # Half the track length
 x_safe = 10 # Safety margin for keeping x within the track length
 m = .094 #kg
 Ih = Is + Ig + m*L**2
-Beta = 8 # Damping
+#Beta = 8 # Damping
+Beta = 700 # Damping
 Amax = 1000 # mm/s^2 Max acceleration
 EnergyUp = pendE(np.array([0, 0, 0, 0]))
 
 # Initial Conditions
 x0 = 0
 v0 = 0
-theta0 = (math.pi/180)*179.0 # Offset in degrees
+theta0 = (math.pi/180)*180.0 # Offset in degrees
 w0 = 0
 
 # Time and frequencies
-timeFinal = 20 # sec
-dt = 0.0001 # sec
-kalmanFrequency = 100 # Hz
+timeFinal = 35 # sec
+dt = 0.00001 # sec
+kalmanFrequency = 1000 # Hz
 kdt = 1 / kalmanFrequency
 
 # What type of estimate to use
@@ -235,9 +262,8 @@ for i in range(0,N-1):
 fig, axs = plt.subplots(3, 2, sharex=True)
 
 # Plotting Angular Position
-axs[0, 0].plot(t,normed_theta*180.0/math.pi,'r-',linewidth=1,label = 'Actual')
-axs[0, 0].plot(tk,x_est[2,:]*180.0/math.pi, 'g-', linewidth=1, label = 'Kalman')
-axs[0, 0].plot(tk,one_array*357.0, 'b-', linewidth=1, label = 'Kalman')
+axs[0, 0].plot(t,normed_theta*180.0/math.pi,'r-',linewidth=1,label = 'Normed')
+axs[0, 0].plot(tk,x_est[2,:]*180.0/math.pi, 'g-', linewidth=1, label = 'Actual')
 # axs[0, 0].plot(t,z,'r-',linewidth=1,label = 'Measurement')
 axs[0, 0].set_title('Angular Position')
 
