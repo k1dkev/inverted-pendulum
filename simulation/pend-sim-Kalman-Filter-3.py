@@ -7,18 +7,47 @@ import scipy.linalg
 #----------------------- Functions ---------------------#
 
 # Swingup control (Note using u = Kw sucks)
+# def swingup(x):
+# 	k = 0.1
+# 	E = pendE(x)
+# 	Eup = pendE(np.array([0, 0, 0, 0]))
+# 	Kx = 0.5
+# 	Kv = 0.5
+# 	mapped_theta = map_theta(x[2])
+# 	if E <= 0.95*Eup:
+# 		u = -Amax*sign(x[3]*math.cos(mapped_theta))
+# 	else:
+# 		u = -(Kx*x[0] + Kv*x[1]) - Amax*10.0*(Eup-E)/Eup*sign(x[3]*math.cos(mapped_theta)) # pushes cart towards the center
+# 	return u
+	# if E <= Eup:
+	# 	u = -Amax*sign(x[3]*math.cos(mapped_theta))
+	# else:
+	# 	u = -(Kx*x[0] + Kv*x[1]) # pushes cart towards the center
+	# return u
 def swingup(x):
-	k = 0.1
-	E = pendE(x)
-	Eup = pendE(np.array([0, 0, 0, 0]))
-	Kx = 1.0
-	Kv = 1.5
-	mapped_theta = map_theta(x[2])
-	if E <= Eup:
-		u = -Amax*sign(x[3]*math.cos(mapped_theta))
-	else:
-		u = -(Kx*x[0] + Kv*x[1]) # pushes cart towards the center
-	return u
+	try:
+		k = 0.1
+		E = pendE(x)
+		Eup = pendE(np.array([0, 0, 0, 0]))
+		Kx = 0.5
+		Kv = 0.5
+		mapped_theta = map_theta(x[2])
+		if E-Eup > 0:
+			swingup.bMaintain = True
+		elif E/Eup < 0.95:
+			swingup.bMaintain = False
+		if swingup.bMaintain:
+			if E > Eup:
+				factor = 0
+			else:
+				factor = (Eup-E)/Eup/0.05 # should be betweeb 0 and 1
+			u = -factor*(Kx*x[0] + Kv*x[1]) - Amax*(1-factor)*sign(x[3]*math.cos(mapped_theta)) # pushes cart towards the center
+		else:
+			u = -Amax*sign(x[3]*math.cos(mapped_theta))
+		return u
+	except AttributeError:
+		swingup.bMaintain = False
+		return 0
 
 # Returns the sign of a value
 def sign(val):
@@ -194,7 +223,7 @@ w0 = 0
 
 # Time and frequencies
 timeFinal = 35 # sec
-dt = 0.00001 # sec
+dt = 0.0001 # sec
 kalmanFrequency = 1000 # Hz
 kdt = 1 / kalmanFrequency
 
