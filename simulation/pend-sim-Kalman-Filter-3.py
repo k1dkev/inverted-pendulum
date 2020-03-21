@@ -29,19 +29,19 @@ def swingup(x):
 		k = 0.1
 		E = pendE(x)
 		Eup = pendE(np.array([0, 0, 0, 0]))
-		Kx = 0.5
-		Kv = 0.5
+		Kx = 5
+		Kv = 5
 		mapped_theta = map_theta(x[2])
-		if E-Eup > 0:
+		if E/Eup > 1.0:
 			swingup.bMaintain = True
-		elif E/Eup < 0.95:
+		elif E/Eup < 0.8:
 			swingup.bMaintain = False
 		if swingup.bMaintain:
-			if E > Eup:
-				factor = 0
+			if E/Eup < 1.0:
+				Eadd = .5*Eup # 1 percent of Eup per second
 			else:
-				factor = (Eup-E)/Eup/0.05 # should be betweeb 0 and 1
-			u = -factor*(Kx*x[0] + Kv*x[1]) - Amax*(1-factor)*sign(x[3]*math.cos(mapped_theta)) # pushes cart towards the center
+				Eadd = 0.0
+			u = -Kx*x[0] - Kv*x[1] -(Beta*x[3]+Eadd/x[3])/(m*L*math.cos(mapped_theta))
 		else:
 			u = -Amax*sign(x[3]*math.cos(mapped_theta))
 		return u
@@ -115,11 +115,11 @@ def canBalance(x):
 	mapped_theta = map_theta(x[2])
 	bX_OK = abs(x[0]) <= 30
 	bV_OK = True
-	bTheta_OK = abs(mapped_theta*180/math.pi) <= 2
+	bTheta_OK = abs(mapped_theta*180/math.pi) <= 3
 	bW_OK = abs(x[3]) <= 0.05
 	return bX_OK and bV_OK and bTheta_OK and bW_OK
 
-# Can Balance
+# Cant Balance
 def cantBalance(x):
 	mapped_theta = map_theta(x[2])
 	bX_NOK = False
