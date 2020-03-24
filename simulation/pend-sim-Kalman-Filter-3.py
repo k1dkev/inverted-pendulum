@@ -33,11 +33,35 @@ def integrate_dynamics(x, xdot, u, dt):
 	return x + xdot(x,u)*dt
 
 # state estimate
-def estimate_state(x):
+def estimate_state(x,u,z):
+	z[k] = x[2] + rand_v[k] # Measurement
+	z_meas[i] = z[k] 
+	kalmanFilter(z,H,F,x_est,P,Q,f,h)
+	xplus[:,i], Pi = kalmanFilter(z[k], u[i-1], xplus[:,i-1], Pi, deltaT, Q, R)
 	return x
+
+# # Kalman Filter
+# def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
+# 	theta_minus_kp1 = xplus_k[0] + xplus_k[1]*dt
+# 	omega_minus_kp1 = xplus_k[1] + ((g*math.sin(xplus_k[0]) - u*math.cos(xplus_k[0]))/Le -Beta*xplus_k[1])*dt
+# 	xminus_kp1 = np.array([theta_minus_kp1, omega_minus_kp1])
+# 	F_kp1 = np.array([ [1,dt], [(g*math.cos(xminus_kp1[0]) + u*math.sin(xminus_kp1[0]))*dt/Le, 1 - Beta*dt] ])
+# 	H_kp1 = np.array([1,0])
+# 	Pminus_kp1 = F_kp1 @ Pplus_k @ F_kp1.T + Q
+# 	nu_kp1 = z_kp1 - xminus_kp1[0]
+# 	S_kp1 = H_kp1 @ Pminus_kp1 @ H_kp1.T + R
+# 	K_kp1 = (Pminus_kp1 @ H_kp1.T)/S_kp1
+# 	xplus_kp1 = xminus_kp1 + K_kp1*nu_kp1
+# 	I = np.identity(2)
+# 	Pplus_kp1 = (I - K_kp1 @ H_kp1) @ Pminus_kp1
+# 	Pplus_kp1 = np.absolute(Pplus_kp1)
+# 	return (xplus_kp1, Pplus_kp1)
 
 # Kalman Filter
 def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
+	# Predict
+
+	# Update
 	theta_minus_kp1 = xplus_k[0] + xplus_k[1]*dt
 	omega_minus_kp1 = xplus_k[1] + ((g*math.sin(xplus_k[0]) - u*math.cos(xplus_k[0]))/Le -Beta*xplus_k[1])*dt
 	xminus_kp1 = np.array([theta_minus_kp1, omega_minus_kp1])
@@ -184,7 +208,6 @@ Lt = 250 # Half the track length
 x_safe = 10 # Safety margin for keeping x within the track length
 m = .094 #kg
 Ih = Is + Ig + m*L**2
-#Beta = 8 # Damping
 Beta = 700 # Damping
 Amax = 1000 # mm/s^2 Max acceleration
 EnergyUp = pendE(np.array([0, 0, 0, 0]))
@@ -234,15 +257,15 @@ u[0] = 0
 pend_energy[0] = pendE(x_est[:,0])
 normed_theta[0] = theta0
 
-# # Normal Random number generator
-# sigma_v_theta = .1*2*math.pi/360 # Measurement noise
-# sigma_w_theta = .1*2*math.pi/360 # Process noise
-# sigma_w_omega = .1*2*math.pi/360 # Proces noise
-# rand_v = np.random.normal(0, sigma_v_theta, t.size)
-# rand_w_theta = np.random.normal(0, sigma_w_theta, t.size)
-# rand_w_omega = np.random.normal(0, sigma_w_omega, t.size)
-# Q = np.array([[sigma_w_theta**2, 0],[0, sigma_w_omega**2]])
-# R = sigma_v_theta**2
+# Normal Random number generator
+sigma_v_theta = .1*2*math.pi/360 # Measurement noise
+sigma_w_theta = .1*2*math.pi/360 # Process noise
+sigma_w_omega = .1*2*math.pi/360 # Proces noise
+rand_v = np.random.normal(0, sigma_v_theta, N)
+rand_w_theta = np.random.normal(0, sigma_w_theta, N)
+rand_w_omega = np.random.normal(0, sigma_w_omega, N)
+Q = np.array([[sigma_w_theta**2, 0],[0, sigma_w_omega**2]])
+R = sigma_v_theta**2
 
 #------------------- Simulation Loop -------------------#
 
