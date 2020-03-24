@@ -6,68 +6,11 @@ import scipy.linalg
 
 #----------------------- Functions ---------------------#
 
-# Swingup control (Note using u = Kw sucks)
-# def swingup(x):
-# 	k = 0.1
-# 	E = pendE(x)
-# 	Eup = pendE(np.array([0, 0, 0, 0]))
-# 	Kx = 0.5
-# 	Kv = 0.5
-# 	mapped_theta = map_theta(x[2])
-# 	if E <= 0.95*Eup:
-# 		u = -Amax*sign(x[3]*math.cos(mapped_theta))
-# 	else:
-# 		u = -(Kx*x[0] + Kv*x[1]) - Amax*10.0*(Eup-E)/Eup*sign(x[3]*math.cos(mapped_theta)) # pushes cart towards the center
-# 	return u
-	# if E <= Eup:
-	# 	u = -Amax*sign(x[3]*math.cos(mapped_theta))
-	# else:
-	# 	u = -(Kx*x[0] + Kv*x[1]) # pushes cart towards the center
-	# return u
-def swingup(x):
-	try:
-		k = 0.1
-		E = pendE(x)
-		Eup = pendE(np.array([0, 0, 0, 0]))
-		Kx = 5
-		Kv = 5
-		mapped_theta = map_theta(x[2])
-		if E/Eup > 1.0:
-			swingup.bMaintain = True
-		elif E/Eup < 0.8:
-			swingup.bMaintain = False
-		if swingup.bMaintain:
-			if E/Eup < 1.0:
-				Eadd = .5*Eup # 1 percent of Eup per second
-			else:
-				Eadd = 0.0
-			u = -Kx*x[0] - Kv*x[1] -(Beta*x[3]+Eadd/x[3])/(m*L*math.cos(mapped_theta))
-		else:
-			u = -Amax*sign(x[3]*math.cos(mapped_theta))
-		return u
-	except AttributeError:
-		swingup.bMaintain = False
-		return 0
-
 # Returns the sign of a value
 def sign(val):
 	if val < 0: return -1
 	if val==0: return 0
 	return 1
-
-# Returns the pedulum energy
-def pendE(x):
-    return 0.5*Ih*x[3]**2 + m*g*L*math.cos(x[2])
-
-# Balance control
-def LQR(x):
-	Kx = -4.472
-	Kv = -5.621
-	Kt = -33492.0
-	Kw = -4749.0
-	mapped_theta = map_theta(x[2])
-	u = -(Kx*x[0] + Kv*x[1] + Kt*mapped_theta + Kw*x[3])
-	return u
 
 # xdot
 def xdot(x, u):
@@ -129,16 +72,6 @@ def cantBalance(x):
 	return bX_NOK and bV_NOK and bTheta_NOK and bW_NOK
 
 # Control Loop
-# def control_loop(x):
-# 	if canBalance(x):
-# 		u = LQR(x)
-# 	else:
-# 		u = swingup(x)
-# 	if abs(u) > Amax:
-# 		u = sign(u)*Amax
-# 	return limit_control(x,u)
-
-# Control Loop
 def control_loop(x):
 	# Note the whole point of this try and except is so this fcn can have the equivalent of static variables
 	try:
@@ -156,6 +89,46 @@ def control_loop(x):
 	except AttributeError:
 		control_loop.bCanBalance = False
 		return 0
+
+# Returns the pedulum energy
+def pendE(x):
+    return 0.5*Ih*x[3]**2 + m*g*L*math.cos(x[2])
+
+# Swingup control (Note using u = Kw sucks)
+def swingup(x):
+	try:
+		k = 0.1
+		E = pendE(x)
+		Eup = pendE(np.array([0, 0, 0, 0]))
+		Kx = 5
+		Kv = 5
+		mapped_theta = map_theta(x[2])
+		if E/Eup > 1.0:
+			swingup.bMaintain = True
+		elif E/Eup < 0.8:
+			swingup.bMaintain = False
+		if swingup.bMaintain:
+			if E/Eup < 1.0:
+				Eadd = .5*Eup # 1 percent of Eup per second
+			else:
+				Eadd = 0.0
+			u = -Kx*x[0] - Kv*x[1] -(Beta*x[3]+Eadd/x[3])/(m*L*math.cos(mapped_theta))
+		else:
+			u = -Amax*sign(x[3]*math.cos(mapped_theta))
+		return u
+	except AttributeError:
+		swingup.bMaintain = False
+		return 0
+
+# Balance control
+def LQR(x):
+	Kx = -4.472
+	Kv = -5.621
+	Kt = -33492.0
+	Kw = -4749.0
+	mapped_theta = map_theta(x[2])
+	u = -(Kx*x[0] + Kv*x[1] + Kt*mapped_theta + Kw*x[3])
+	return u
 
 # Limit Control function
 def limit_control(x,u):
@@ -192,6 +165,7 @@ def map_theta(theta):
 		mapped_theta = mapped_theta - (2*math.pi)
 	return mapped_theta
 
+# Map theta from [-inf,inf] -> [0,360]
 def norm_theta(theta):
 	if theta < 0:
 		normed_theta = -((-theta) % (2*math.pi)) + 2*math.pi
