@@ -108,7 +108,7 @@ def cantBalance(x):
 	mapped_theta = map_theta(x[2])
 	bX_NOK = False
 	bV_NOK = False
-	bTheta_NOK = abs(mapped_theta*180/math.pi) >= 90
+	bTheta_NOK = abs(mapped_theta*180/math.pi) >= 45
 	bW_NOK = False
 	return bX_NOK and bV_NOK and bTheta_NOK and bW_NOK
 
@@ -236,7 +236,7 @@ theta0 = (math.pi/180)*180.0 # Offset in degrees
 w0 = 0
 
 # Time and frequencies
-timeFinal = 35 # sec
+timeFinal = 100 # sec
 dt = 0.0001 # sec
 kalmanFrequency = 1000 # Hz
 kdt = 1 / kalmanFrequency
@@ -244,7 +244,6 @@ kdt = 1 / kalmanFrequency
 # What type of estimate to use
 bUseKalmanFeedback = True
 bUsePerfectFeedback = False
-# bUseBasicEstimate = False
 bUseProcessNoise = False
 
 #------------------------- Initialization of vectors -----------------------#
@@ -258,9 +257,6 @@ normed_theta = np.empty(N)
 
 u = np.empty(Nk)
 x_est = np.empty((4,Nk))
-# w_basic = np.empty(Nk)
-# z_meas = np.empty(Nk)
-# P = np.empty((2,2,Nk))
 one_array = np.ones(Nk)
 tk = np.empty(Nk)
 can_balance = np.empty(Nk)
@@ -269,17 +265,15 @@ z = np.empty(Nk)
 
 x[:,0] = np.array([x0, v0, theta0, w0]).T
 x_est[:,0] = np.array([x0, v0, theta0, w0]).T
-# P[:,:,0] = np.array([[0,0], [0,0]])
-# w_basic[0] = w0
 u[0] = 0
 pend_energy[0] = pendE(x_est[:,0])
 normed_theta[0] = theta0
 z[0] = theta0
 
 # Normal Random number generator
-sigma_v_theta = .1*2*math.pi/360 # Measurement noise
-sigma_w_theta = .1*2*math.pi/360 # Process noise
-sigma_w_omega = .1*2*math.pi/360 # Proces noise
+sigma_v_theta = 0.5*math.pi/180 # Measurement noise
+sigma_w_theta = .05*math.pi/180 # Process noise
+sigma_w_omega = .05*math.pi/180 # Proces noise
 rand_v = np.random.normal(0, sigma_v_theta, Nk)
 rand_w_theta = np.random.normal(0, sigma_w_theta, N)
 rand_w_omega = np.random.normal(0, sigma_w_omega, N)
@@ -297,8 +291,8 @@ for i in range(0,N-1):
 	if (math.floor(t[i] / kdt) - k) > 0:
 		tk[k] = t[i]
 		if bUseKalmanFeedback:
-			z[k] = h(x[:,i]) + rand_v[k]
-			x_tw, P_est = EKF(x_tw, P_est, u[k-1], f, Jf, Q, z[k], h, Jh, R, dt)
+			z[k] = x[2,i] + rand_v[k]
+			x_tw, P_est = EKF(x_tw, P_est, u[k-1], f, Jf, Q, z[k], h, Jh, R, kdt)
 			x_est[:,k] = np.array([x[0,i], x[1,i], x_tw[0], x_tw[1]]).T
 		elif bUsePerfectFeedback:
 			x_est[:,k] = x[:,i]
@@ -319,15 +313,14 @@ for i in range(0,N-1):
 fig, axs = plt.subplots(3, 2, sharex=True)
 
 # Plotting Angular Position
-axs[0, 0].plot(t,normed_theta*180.0/math.pi,'r-',linewidth=1,label = 'Normed')
-axs[0, 0].plot(tk,x_est[2,:]*180.0/math.pi, 'g-', linewidth=1, label = 'Actual')
-# axs[0, 0].plot(t,z,'r-',linewidth=1,label = 'Measurement')
+axs[0, 0].plot(t,x[2,:]*180.0/math.pi, 'b-', linewidth=1, label = 'Actual')
+axs[0, 0].plot(tk,x_est[2,:]*180.0/math.pi, 'g-', linewidth=1, label = 'Kalman')
+axs[0, 0].plot(tk,z*180.0/math.pi,'r-',linewidth=1,label = 'Measurement')
 axs[0, 0].set_title('Angular Position')
 
 # Plotting Angular Velocity
 axs[1, 0].plot(t,x[3,:], 'b-', linewidth=1, label = 'Actual')
 axs[1, 0].plot(tk,x_est[3,:], 'g-', linewidth=2, label = 'Kalman')
-# axs[1, 0].plot(tk,w_basic,'r-',linewidth=1,label = 'Basic derivative')
 axs[1, 0].set_title('Angular Velocity')
 
 # Can balance / pend energy
