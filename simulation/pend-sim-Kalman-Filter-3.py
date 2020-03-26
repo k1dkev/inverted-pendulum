@@ -12,7 +12,7 @@ def sign(val):
 	if val==0: return 0
 	return 1
 
-# xdot
+# Continous Dynamics
 def xdot(x, u):
 	Xdot = x[1]
 	vdot = u
@@ -32,13 +32,60 @@ def rk4(x, xdot, u, dt):
 def integrate_dynamics(x, xdot, u, dt):
 	return x + xdot(x,u)*dt
 
-# state estimate
-def estimate_state(x,u,z):
-	z[k] = x[2] + rand_v[k] # Measurement
-	z_meas[i] = z[k] 
-	kalmanFilter(z,H,F,x_est,P,Q,f,h)
-	xplus[:,i], Pi = kalmanFilter(z[k], u[i-1], xplus[:,i-1], Pi, deltaT, Q, R)
-	return x
+# System Specific Discrete Dynamics of just theta and omega
+def f(x_km1, u_km1, dt):
+	# x = [theta w]^T
+	# x_k = f(x_km1, u_km1)
+	thetadot = x_km1[1]
+	wdot = (m*L*(g*math.sin(x_km1[0]) - u_km1*math.cos(x_km1[0])) - Beta*x_km1[1])/Ih
+	xk = x_km1 + np.transpose(np.array([thetadot, wdot]))*dt
+	return xk
+
+def Jf(x, u, dt):
+	# x = [theta w]^T
+	# Jf = F = df/dx
+	F11 = 1
+	F21 = dt
+	F12 = (m*L*dt/Ih)*(g*math.cos(x[0]) + u*math.sin(x[0]))
+	F22 = 1 - Beta*dt/Ih
+	return np.array([[F11, F21], [F12, F22]])
+
+def h(x):
+	# x = [theta w]^T
+	# z = h(x)
+	return x[0]
+
+def Jh(x):
+	# x = [theta w]^T
+	# Jh = H = dh/dx
+	return np.array([1, 0])
+
+# Extended Kalman Filter
+def EKF(x, u, f, Jf, Q, z, h, Jh, R):
+	# x is the state estimate at the last time step
+	# f is the discrete dynamics of the system x_k = f(x_k-1,u_k-1) + w
+	# Jf is the Jacbocian of the discrete dynamics Jf = F = df/dx
+	# Q is the process noise covariance matrix Q = Cov(w)
+	# z is the measurement. Note z = h(x) + v
+	# h is the measurement function
+	# Jh is the Jacobian of measurement function Jh = H = dh/dx
+	# R is the measurement noise covariance matrix R = Cov(v)
+
+	# Predict Step
+	x_pre = f(x,u)
+	F = Jf(x,u)
+	P_pre = F @ P @ F.T + Q
+
+	# Update Step
+	H = Jh(x_pre)
+	y = z - h(x_pre)
+	S = H @ P_pre @ H.T + R
+	K = P_pre @ H.T @ scipy.linalg.inv(S)
+	x_est = x_pre + K @ y
+	I = np.identity(x.size)
+	P_est = (I - K @ H) @ P_pre
+	# P_est = np.absolute(P_est)
+	return (x_est, P_est)
 
 # # Kalman Filter
 # def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
@@ -56,26 +103,6 @@ def estimate_state(x,u,z):
 # 	Pplus_kp1 = (I - K_kp1 @ H_kp1) @ Pminus_kp1
 # 	Pplus_kp1 = np.absolute(Pplus_kp1)
 # 	return (xplus_kp1, Pplus_kp1)
-
-# Kalman Filter
-def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
-	# Predict
-
-	# Update
-	theta_minus_kp1 = xplus_k[0] + xplus_k[1]*dt
-	omega_minus_kp1 = xplus_k[1] + ((g*math.sin(xplus_k[0]) - u*math.cos(xplus_k[0]))/Le -Beta*xplus_k[1])*dt
-	xminus_kp1 = np.array([theta_minus_kp1, omega_minus_kp1])
-	F_kp1 = np.array([ [1,dt], [(g*math.cos(xminus_kp1[0]) + u*math.sin(xminus_kp1[0]))*dt/Le, 1 - Beta*dt] ])
-	H_kp1 = np.array([1,0])
-	Pminus_kp1 = F_kp1 @ Pplus_k @ F_kp1.T + Q
-	nu_kp1 = z_kp1 - xminus_kp1[0]
-	S_kp1 = H_kp1 @ Pminus_kp1 @ H_kp1.T + R
-	K_kp1 = (Pminus_kp1 @ H_kp1.T)/S_kp1
-	xplus_kp1 = xminus_kp1 + K_kp1*nu_kp1
-	I = np.identity(2)
-	Pplus_kp1 = (I - K_kp1 @ H_kp1) @ Pminus_kp1
-	Pplus_kp1 = np.absolute(Pplus_kp1)
-	return (xplus_kp1, Pplus_kp1)
 
 # Can Balance
 def canBalance(x):
@@ -274,7 +301,10 @@ k=1
 for i in range(0,N-1):
 	if (math.floor(t[i] / kdt) - k) > 0:
 		tk[k] = t[i]
-		x_est[:,k] = estimate_state(x[:,i])
+		if bUseKalmanFeedback:
+			x_est[:,k] = EKF(x_est[:,k-1], u[k-1], f, Jf, Q, z, h, Jh, R)
+		elif bUsePerfectFeedback:
+			x_est[:,k] = x[:,i]
 		u[k] = control_loop(x_est[:,k])
 		can_balance[k] = canBalance(x_est[:,k])
 		pend_energy[k] = pendE(x_est[:,k])
