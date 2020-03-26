@@ -61,7 +61,7 @@ def Jh(x):
 	return np.array([1, 0])
 
 # Extended Kalman Filter
-def EKF(x, u, f, Jf, Q, z, h, Jh, R):
+def EKF(x, P, u, f, Jf, Q, z, h, Jh, R, dt):
 	# x is the state estimate at the last time step
 	# f is the discrete dynamics of the system x_k = f(x_k-1,u_k-1) + w
 	# Jf is the Jacbocian of the discrete dynamics Jf = F = df/dx
@@ -70,39 +70,29 @@ def EKF(x, u, f, Jf, Q, z, h, Jh, R):
 	# h is the measurement function
 	# Jh is the Jacobian of measurement function Jh = H = dh/dx
 	# R is the measurement noise covariance matrix R = Cov(v)
+	# dt is the time step
 
 	# Predict Step
-	x_pre = f(x,u)
-	F = Jf(x,u)
+	x_pre = f(x, u, dt)
+	F = Jf(x, u, dt)
 	P_pre = F @ P @ F.T + Q
 
 	# Update Step
 	H = Jh(x_pre)
 	y = z - h(x_pre)
 	S = H @ P_pre @ H.T + R
-	K = P_pre @ H.T @ scipy.linalg.inv(S)
-	x_est = x_pre + K @ y
+	if S.size == 1:
+		K = P_pre @ H.T / S
+	else:
+		K = P_pre @ H.T @ scipy.linalg.inv(S)
+	if y.size == 1:
+		x_est = x_pre + K*y
+	else:
+		x_est = x_pre + K @ y
 	I = np.identity(x.size)
 	P_est = (I - K @ H) @ P_pre
-	# P_est = np.absolute(P_est)
+	P_est = np.absolute(P_est)
 	return (x_est, P_est)
-
-# # Kalman Filter
-# def kalmanFilter(z_kp1, u, xplus_k, Pplus_k, dt, Q, R):
-# 	theta_minus_kp1 = xplus_k[0] + xplus_k[1]*dt
-# 	omega_minus_kp1 = xplus_k[1] + ((g*math.sin(xplus_k[0]) - u*math.cos(xplus_k[0]))/Le -Beta*xplus_k[1])*dt
-# 	xminus_kp1 = np.array([theta_minus_kp1, omega_minus_kp1])
-# 	F_kp1 = np.array([ [1,dt], [(g*math.cos(xminus_kp1[0]) + u*math.sin(xminus_kp1[0]))*dt/Le, 1 - Beta*dt] ])
-# 	H_kp1 = np.array([1,0])
-# 	Pminus_kp1 = F_kp1 @ Pplus_k @ F_kp1.T + Q
-# 	nu_kp1 = z_kp1 - xminus_kp1[0]
-# 	S_kp1 = H_kp1 @ Pminus_kp1 @ H_kp1.T + R
-# 	K_kp1 = (Pminus_kp1 @ H_kp1.T)/S_kp1
-# 	xplus_kp1 = xminus_kp1 + K_kp1*nu_kp1
-# 	I = np.identity(2)
-# 	Pplus_kp1 = (I - K_kp1 @ H_kp1) @ Pminus_kp1
-# 	Pplus_kp1 = np.absolute(Pplus_kp1)
-# 	return (xplus_kp1, Pplus_kp1)
 
 # Can Balance
 def canBalance(x):
@@ -252,9 +242,10 @@ kalmanFrequency = 1000 # Hz
 kdt = 1 / kalmanFrequency
 
 # What type of estimate to use
-bUseKalmanFeedback = False
-bUsePerfectFeedback = True
-bUseBasicEstimate = False
+bUseKalmanFeedback = True
+bUsePerfectFeedback = False
+# bUseBasicEstimate = False
+bUseProcessNoise = False
 
 #------------------------- Initialization of vectors -----------------------#
 
@@ -263,7 +254,6 @@ N = math.ceil(timeFinal / dt)
 Nk = math.floor(timeFinal * kalmanFrequency) - 1
 t = np.empty(N)
 x = np.empty((4,N))
-z = np.empty(N)
 normed_theta = np.empty(N)
 
 u = np.empty(Nk)
@@ -275,6 +265,7 @@ one_array = np.ones(Nk)
 tk = np.empty(Nk)
 can_balance = np.empty(Nk)
 pend_energy = np.empty(Nk)
+z = np.empty(Nk)
 
 x[:,0] = np.array([x0, v0, theta0, w0]).T
 x_est[:,0] = np.array([x0, v0, theta0, w0]).T
@@ -283,16 +274,20 @@ x_est[:,0] = np.array([x0, v0, theta0, w0]).T
 u[0] = 0
 pend_energy[0] = pendE(x_est[:,0])
 normed_theta[0] = theta0
+z[0] = theta0
 
 # Normal Random number generator
 sigma_v_theta = .1*2*math.pi/360 # Measurement noise
 sigma_w_theta = .1*2*math.pi/360 # Process noise
 sigma_w_omega = .1*2*math.pi/360 # Proces noise
-rand_v = np.random.normal(0, sigma_v_theta, N)
+rand_v = np.random.normal(0, sigma_v_theta, Nk)
 rand_w_theta = np.random.normal(0, sigma_w_theta, N)
 rand_w_omega = np.random.normal(0, sigma_w_omega, N)
+w = np.empty((4,N))
 Q = np.array([[sigma_w_theta**2, 0],[0, sigma_w_omega**2]])
-R = sigma_v_theta**2
+R = np.array([sigma_v_theta**2])
+P_est = np.array([[0,0], [0,0]])
+x_tw = np.array([theta0, w0]).T
 
 #------------------- Simulation Loop -------------------#
 
@@ -302,14 +297,20 @@ for i in range(0,N-1):
 	if (math.floor(t[i] / kdt) - k) > 0:
 		tk[k] = t[i]
 		if bUseKalmanFeedback:
-			x_est[:,k] = EKF(x_est[:,k-1], u[k-1], f, Jf, Q, z, h, Jh, R)
+			z[k] = h(x[:,i]) + rand_v[k]
+			x_tw, P_est = EKF(x_tw, P_est, u[k-1], f, Jf, Q, z[k], h, Jh, R, dt)
+			x_est[:,k] = np.array([x[0,i], x[1,i], x_tw[0], x_tw[1]]).T
 		elif bUsePerfectFeedback:
 			x_est[:,k] = x[:,i]
 		u[k] = control_loop(x_est[:,k])
 		can_balance[k] = canBalance(x_est[:,k])
 		pend_energy[k] = pendE(x_est[:,k])
 		k += 1
-	x[:,i+1] = integrate_dynamics(x[:,i], xdot, u[k-1], dt)
+	if bUseProcessNoise:
+		w[:,i] = np.array([0, 0, rand_w_theta[i], rand_w_omega[i]]).T
+	else:
+		w[:,i] = np.array([0, 0, 0, 0]).T
+	x[:,i+1] = integrate_dynamics(x[:,i], xdot, u[k-1], dt) + w[:,i]
 	t[i+1] = (i+1)*dt
 	normed_theta[i+1] = map_theta(x[2,i+1])
 
