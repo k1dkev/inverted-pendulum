@@ -53,6 +53,7 @@ function Assembly(canvasWidth, canvasHeight) {
     MARGIN: 5,
   };
 
+  // Constructor
   this.totalWidth =
     2 *
       (dims.MARGIN +
@@ -61,42 +62,48 @@ function Assembly(canvasWidth, canvasHeight) {
         dims.PENDULUM_HOLE_LOCATION) +
     dims.LINEAR_SHAFT_LENGTH;
 
-  this.heightMM =
+  this.totalHeight =
     2 * (dims.MARGIN + dims.PENDULUM_HEIGHT - dims.PENDULUM_HOLE_LOCATION);
 
   // this.determineScaling = function (canvasWidth, canvasHeight) {
   let pxmmWidth = canvasWidth / this.totalWidth; // pxmm = pixels per mm
-  let pxmmHeight = canvasHeight / this.heightMM;
+  let pxmmHeight = canvasHeight / this.totalHeight;
   this.pxmm = pxmmWidth >= pxmmHeight ? pxmmHeight : pxmmWidth;
-  this.widthPx = this.pxmm * this.totalWidth;
-  this.heightPx = this.pxmm * this.heightMM;
+  this.widthPx = this.pxmm * this.totalWidth; // unneeded
+  this.heightPx = this.pxmm * this.totalHeight; // unneeded
   // };
+
+  this.canvasSizeUpdate = function (canvasWidth, canvasHeight) {
+    let pxmmWidth = canvasWidth / this.totalWidth; // pxmm = pixels per mm
+    let pxmmHeight = canvasHeight / this.totalHeight;
+    this.pxmm = pxmmWidth >= pxmmHeight ? pxmmHeight : pxmmWidth;
+  };
 
   // Fills a rectangle using mm dimensions
   this.fillRect = function (ctx, x, y, w, h) {
     ctx.fillRect(this.pxmm * x, this.pxmm * y, this.pxmm * w, this.pxmm * h);
   };
 
+  // Fills a rectangle using mm dimensions
+  this.fillRectRelCenter = function (x, y, w, h) {
+    this.ctx.fillRect(
+      this.pxmm * (this.totalWidth / 2 + x),
+      this.pxmm * (this.totalHeight / 2 + y),
+      this.pxmm * w,
+      this.pxmm * h
+    );
+  };
+
   this.drawCart = function (ctx) {
     let x = 0;
     ctx.fillStyle = "Silver";
-    // ctx.fillRect(
-    //   this.widthPx / 2 + this.pxmm * (x - dims.CART_MOUNT_PLATE_WIDTH / 2),
-    //   this.heightPx / 2 - this.pxmm * dims.ROTARY_BEARING_MOUNT_HOLE_LOCATION,
-    //   this.pxmm * dims.CART_MOUNT_PLATE_WIDTH,
-    //   this.pxmm *
-    //     (dims.LINEAR_BEARING_HEIGHT +
-    //       dims.CART_MOUNT_PLATE_HEIGHT +
-    //       dims.ROTARY_BEARING_MOUNT_HEIGHT)
-    // );
-    ctx.fillRect(
-      this.widthPx / 2 + this.pxmm * (x - dims.CART_MOUNT_PLATE_WIDTH / 2),
-      this.heightPx / 2 - this.pxmm * dims.ROTARY_BEARING_MOUNT_HOLE_LOCATION,
-      this.pxmm * dims.CART_MOUNT_PLATE_WIDTH,
-      this.pxmm *
-        (dims.LINEAR_BEARING_HEIGHT +
-          dims.CART_MOUNT_PLATE_HEIGHT +
-          dims.ROTARY_BEARING_MOUNT_HEIGHT)
+    this.fillRectRelCenter(
+      x - dims.CART_MOUNT_PLATE_WIDTH / 2,
+      -dims.ROTARY_BEARING_MOUNT_HOLE_LOCATION,
+      dims.CART_MOUNT_PLATE_WIDTH,
+      dims.LINEAR_BEARING_HEIGHT +
+        dims.CART_MOUNT_PLATE_HEIGHT +
+        dims.ROTARY_BEARING_MOUNT_HEIGHT
     );
   };
 
@@ -162,6 +169,7 @@ function Assembly(canvasWidth, canvasHeight) {
   };
 
   this.draw = function (ctx) {
+    this.ctx = ctx;
     this.drawLeftBlock(ctx);
     this.drawRightBlock(ctx);
     this.drawLinearShaft(ctx);
