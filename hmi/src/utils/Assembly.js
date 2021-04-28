@@ -62,7 +62,7 @@ function Assembly(canvasWidth, canvasHeight) {
     2 * (dims.MARGIN + dims.PENDULUM_HEIGHT - dims.PENDULUM_HOLE_LOCATION);
 
   this.x = 0;
-  this.theta = 0;
+  this.theta = Math.PI / 4;
 
   let pxmmWidth = canvasWidth / this.totalWidth; // pxmm = pixels per mm
   let pxmmHeight = canvasHeight / this.totalHeight;
@@ -76,17 +76,12 @@ function Assembly(canvasWidth, canvasHeight) {
     this.pxmm = pxmmWidth >= pxmmHeight ? pxmmHeight : pxmmWidth;
   };
 
-  // Fills a rectangle using mm dimensions
-  this.fillRect = function (x, y, w, h) {
-    this.ctx.fillRect(
-      this.pxmm * x,
-      this.pxmm * y,
-      this.pxmm * w,
-      this.pxmm * h
-    );
+  this.updateState = function ({ x, theta }) {
+    if (x) this.x = x;
+    if (theta) this.theta = theta;
   };
 
-  // Fills a rectangle using mm dimensions
+  // Fills a rectangle using mm dimensions and relative to the center
   this.fillRectRelCenter = function (x, y, w, h) {
     this.ctx.fillRect(
       this.pxmm * (this.totalWidth / 2 + x),
@@ -96,8 +91,8 @@ function Assembly(canvasWidth, canvasHeight) {
     );
   };
 
-  this.drawCart = function (ctx) {
-    ctx.fillStyle = "Silver";
+  this.drawCart = function () {
+    this.ctx.fillStyle = "Silver";
     this.fillRectRelCenter(
       this.x - dims.CART_MOUNT_PLATE_WIDTH / 2,
       -dims.ROTARY_BEARING_MOUNT_HOLE_LOCATION,
@@ -108,8 +103,17 @@ function Assembly(canvasWidth, canvasHeight) {
     );
   };
 
-  this.drawPendulum = function (ctx) {
-    ctx.fillStyle = "green";
+  this.drawPendulum = function () {
+    this.ctx.fillStyle = "green";
+    this.ctx.translate(
+      this.pxmm * (this.totalWidth / 2 + this.x),
+      this.pxmm * (this.totalHeight / 2)
+    );
+    this.ctx.rotate(this.theta);
+    this.ctx.translate(
+      -this.pxmm * (this.totalWidth / 2 + this.x),
+      -this.pxmm * (this.totalHeight / 2)
+    );
     this.fillRectRelCenter(
       this.x - dims.PENDULUM_WIDTH / 2,
       dims.PENDULUM_HOLE_LOCATION - dims.PENDULUM_HEIGHT,
@@ -118,8 +122,8 @@ function Assembly(canvasWidth, canvasHeight) {
     );
   };
 
-  this.drawLeftBlock = function (ctx) {
-    ctx.fillStyle = "SteelBlue";
+  this.drawLeftBlock = function () {
+    this.ctx.fillStyle = "SteelBlue";
     this.fillRectRelCenter(
       -dims.LINEAR_SHAFT_LENGTH / 2.0 - dims.BLOCK_WIDTH,
       dims.ROTARY_BEARING_MOUNT_HEIGHT -
@@ -132,8 +136,8 @@ function Assembly(canvasWidth, canvasHeight) {
     );
   };
 
-  this.drawRightBlock = function (ctx) {
-    ctx.fillStyle = "SteelBlue";
+  this.drawRightBlock = function () {
+    this.ctx.fillStyle = "SteelBlue";
     this.fillRectRelCenter(
       dims.LINEAR_SHAFT_LENGTH / 2.0,
       -dims.ROTARY_BEARING_MOUNT_HOLE_LOCATION +
@@ -146,8 +150,8 @@ function Assembly(canvasWidth, canvasHeight) {
     );
   };
 
-  this.drawLinearShaft = function (ctx) {
-    ctx.fillStyle = "DarkGrey";
+  this.drawLinearShaft = function () {
+    this.ctx.fillStyle = "DarkGrey";
     this.fillRectRelCenter(
       -dims.LINEAR_SHAFT_LENGTH / 2.0,
       -dims.ROTARY_BEARING_MOUNT_HOLE_LOCATION +

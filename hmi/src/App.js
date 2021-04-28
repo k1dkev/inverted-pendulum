@@ -7,9 +7,12 @@ function App() {
   const draw = (ctx, frameCount) => {
     ctx.canvas.width = assembly.widthPx;
     ctx.canvas.height = assembly.heightPx;
-    console.log(assembly.widthMM, assembly.heightMM);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     assembly.draw(ctx);
+    assembly.updateState({
+      x: (frameCount % assembly.widthPx) - assembly.widthPx / 2,
+      theta: frameCount / 100,
+    });
   };
 
   return <Canvas draw={draw} />;
