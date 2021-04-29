@@ -7,12 +7,10 @@ const useCanvas = (draw) => {
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
-    let frameCount = 0;
     let animationFrameId;
 
     const render = (t) => {
-      frameCount++;
-      draw(context, frameCount);
+      draw(context, t);
       animationFrameId = window.requestAnimationFrame(render);
     };
     render();
