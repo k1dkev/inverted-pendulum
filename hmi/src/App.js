@@ -1,7 +1,9 @@
 import "./App.css";
 import Canvas from "./components/Canvas";
 import Assembly from "./utils/Assembly";
-import { useState, useRef } from "react";
+// import { useState, useRef } from "react";
+import { useEffect, useRef } from "react";
+
 // class Rectangle {
 //   #height = 0;
 //   #width;
@@ -21,8 +23,8 @@ import { useState, useRef } from "react";
 
 function pendulumDynamics(x, u) {
   // x = [x,v,theta, w]
-  const Le = 0.19721; // m
-  const g = 9.81; // m/s^2
+  const Le = 197.21; // m
+  const g = 9810; // m/s^2
   return [x[1], u, x[3], (g * Math.sin(x[2]) + u * Math.cos(x[2])) / Le];
 }
 
@@ -37,29 +39,67 @@ function integrate(x, u, xdot, dt) {
 }
 
 function App() {
-  // const square = new Rectangle(5, 10);
-  // console.log(square.area); // 100
+  const uRef = useRef(0);
 
-  //var _theta = Math.PI;
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      const ACCEL = 1000.0;
+      switch (event.key) {
+        case "ArrowRight":
+          uRef.current = ACCEL;
+          break;
+        case "ArrowLeft":
+          uRef.current = -ACCEL;
+          break;
+        default:
+          uRef.current = 0.0;
+      }
+    };
+
+    const handleKeyUp = (event) => {
+      uRef.current = 0.0;
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
   var assembly = new Assembly(window.innerWidth, window.innerHeight);
   var prevTime = 0;
-  var theta = Math.PI;
-  var x = [0, 0, Math.PI / 3, 0];
-  console.log(pendulumDynamics(x, 0));
+  var x = [0, 0, 0.0, 0];
   const draw = (ctx, t) => {
     [ctx.canvas.width, ctx.canvas.height] = assembly.canvasSizeUpdate(window.innerWidth, window.innerHeight);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     assembly.draw(ctx);
     let currentTime = Number(t / 1000);
     let deltaTime = currentTime - prevTime;
-    // theta = deltaTime ? theta + deltaTime : theta;
-    x = deltaTime ? integrate(x, 0, pendulumDynamics, deltaTime) : x;
-
-    assembly.updateState({ theta: x[2] });
+    const MAX_VEL = 300.0;
+    const MAX_POS = 230.0;
+    if (x[1] > MAX_VEL) {
+      x[1] = MAX_VEL - 1.0;
+      uRef.current = 0.0;
+    }
+    if (x[1] < -MAX_VEL) {
+      x[1] = -MAX_VEL + 1.0;
+      uRef.current = 0.0;
+    }
+    if (x[0] >= MAX_POS) x[0] = MAX_POS;
+    if (x[0] <= -MAX_POS) x[0] = -MAX_POS;
+    x = deltaTime ? integrate(x, uRef.current, pendulumDynamics, deltaTime) : x;
+    assembly.updateState({ x: x[0], theta: x[2] });
     prevTime = currentTime;
   };
 
-  return <Canvas draw={draw} />;
+  return (
+    <>
+      <Canvas draw={draw} />
+      <p>{uRef.current}</p>
+    </>
+  );
 }
 
 export default App;
