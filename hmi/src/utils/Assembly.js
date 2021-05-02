@@ -69,8 +69,8 @@ function Assembly(canvasWidth, canvasHeight) {
   this.updateState = function ({ x, theta }) {
     if (x) this.x = x;
     if (theta) this.theta = theta;
-    const MAX_X_VALUE = (LINEAR_SHAFT_L - CART_PLATE_W) / 2.0;
-    this.x = this.x < -MAX_X_VALUE ? -MAX_X_VALUE : this.x > MAX_X_VALUE ? MAX_X_VALUE : this.x;
+    // const MAX_X_VALUE = (LINEAR_SHAFT_L - CART_PLATE_W) / 2.0;
+    // this.x = this.x < -MAX_X_VALUE ? -MAX_X_VALUE : this.x > MAX_X_VALUE ? MAX_X_VALUE : this.x;
   };
 
   // creates a rounded rectangle

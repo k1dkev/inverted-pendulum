@@ -40,24 +40,30 @@ function integrate(x, u, xdot, dt) {
 
 function App() {
   const uRef = useRef(0);
+  const arrowRightPressedRef = useRef(false);
+  const arrowLeftPressedRef = useRef(false);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      const ACCEL = 1000.0;
       switch (event.key) {
         case "ArrowRight":
-          uRef.current = ACCEL;
+          arrowRightPressedRef.current = true;
           break;
         case "ArrowLeft":
-          uRef.current = -ACCEL;
+          arrowLeftPressedRef.current = true;
           break;
-        default:
-          uRef.current = 0.0;
       }
     };
 
     const handleKeyUp = (event) => {
-      uRef.current = 0.0;
+      switch (event.key) {
+        case "ArrowRight":
+          arrowRightPressedRef.current = false;
+          break;
+        case "ArrowLeft":
+          arrowLeftPressedRef.current = false;
+          break;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -75,20 +81,35 @@ function App() {
     [ctx.canvas.width, ctx.canvas.height] = assembly.canvasSizeUpdate(window.innerWidth, window.innerHeight);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     assembly.draw(ctx);
+
     let currentTime = Number(t / 1000);
     let deltaTime = currentTime - prevTime;
     const MAX_VEL = 300.0;
-    const MAX_POS = 230.0;
-    if (x[1] > MAX_VEL) {
-      x[1] = MAX_VEL - 1.0;
+    const MAX_POS = 224.5;
+    const ACCEL = 1500.0;
+    if (arrowRightPressedRef.current && !arrowLeftPressedRef.current) {
+      uRef.current = ACCEL;
+    } else if (!arrowRightPressedRef.current && arrowLeftPressedRef.current) {
+      uRef.current = -ACCEL;
+    } else {
       uRef.current = 0.0;
+    }
+    if (x[1] > MAX_VEL) {
+      x[1] = MAX_VEL;
+      // uRef.current = 0.0;
     }
     if (x[1] < -MAX_VEL) {
-      x[1] = -MAX_VEL + 1.0;
-      uRef.current = 0.0;
+      x[1] = -MAX_VEL;
+      // uRef.current = 0.0;
     }
-    if (x[0] >= MAX_POS) x[0] = MAX_POS;
-    if (x[0] <= -MAX_POS) x[0] = -MAX_POS;
+    if (x[0] > MAX_POS) {
+      x[0] = MAX_POS;
+      x[1] = 0.0;
+    }
+    if (x[0] < -MAX_POS) {
+      x[0] = -MAX_POS;
+      x[1] = 0.0;
+    }
     x = deltaTime ? integrate(x, uRef.current, pendulumDynamics, deltaTime) : x;
     assembly.updateState({ x: x[0], theta: x[2] });
     prevTime = currentTime;
