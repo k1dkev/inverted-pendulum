@@ -95,7 +95,7 @@ function App() {
 
   var assembly = new Assembly(window.innerWidth, window.innerHeight);
   var prevTime = 0;
-  var x = [0, 0, 0.0, 0];
+  var x = [0, 0, 0, 0];
   function getData() {
     return x[0];
   }
@@ -109,7 +109,7 @@ function App() {
     let deltaTime = currentTime - prevTime;
     const MAX_VEL = 400.0;
     const MAX_POS = 224.5;
-    const ACCEL = 1500.0;
+    const ACCEL = 3000.0;
     if (arrowRightPressedRef.current && !arrowLeftPressedRef.current) {
       uRef.current = ACCEL;
     } else if (!arrowRightPressedRef.current && arrowLeftPressedRef.current) {
