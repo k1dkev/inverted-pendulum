@@ -53,8 +53,8 @@ function Assembly(canvasWidth, canvasHeight) {
   const MARGIN = 5;
 
   // Constructor
-  const W = 2 * (MARGIN + PEND_H - 0.5 * CART_PLATE_W - PEND_O) + LINEAR_SHAFT_L; // TOTAL WIDTH
-  const H = 2 * (MARGIN + PEND_H - PEND_O); // TOTAL HEIGHT
+  const W = 1.35 * (MARGIN + PEND_H - 0.5 * CART_PLATE_W - PEND_O) + LINEAR_SHAFT_L; // TOTAL WIDTH (Note that 2x makes it so that nothing is cut off)
+  const H = 1.35 * (MARGIN + PEND_H - PEND_O); // TOTAL HEIGHT (Note that 2x makes it so that nothing is cut off)
   this.x = 0;
   this.theta = 0;
   var pxPerMM = Math.min(canvasWidth / W, canvasHeight / H);
@@ -69,8 +69,6 @@ function Assembly(canvasWidth, canvasHeight) {
   this.updateState = function ({ x, theta }) {
     if (x) this.x = x;
     if (theta) this.theta = theta;
-    // const MAX_X_VALUE = (LINEAR_SHAFT_L - CART_PLATE_W) / 2.0;
-    // this.x = this.x < -MAX_X_VALUE ? -MAX_X_VALUE : this.x > MAX_X_VALUE ? MAX_X_VALUE : this.x;
   };
 
   // creates a rounded rectangle
@@ -90,7 +88,7 @@ function Assembly(canvasWidth, canvasHeight) {
   // For calling ctx functions and applying scaling and shifting
   CanvasRenderingContext2D.prototype.shiftScaleCall = function (ctxFcn, ...args) {
     args[0] = args[0] + W / 2;
-    args[1] = args[1] + H / 2;
+    args[1] = args[1] + (3 * H) / 4; // 3/4 shifts the center down
     ctxFcn.call(this, ...args.map((arg) => pxPerMM * arg));
     return this;
   };
@@ -162,11 +160,11 @@ function Assembly(canvasWidth, canvasHeight) {
     ctx.fillStyle = "green";
     ctx.shiftScaleCall(ctx.translate, this.x, 0);
     ctx.rotate(this.theta);
-    ctx.shiftScaleCall(ctx.translate, -W - this.x, -H);
+    ctx.shiftScaleCall(ctx.translate, -W - this.x, (-3 * H) / 2); // 3/2 shifts the center down
     ctx.shiftScaleCall(ctx.roundRect, this.x - PEND_W / 2, PEND_O - PEND_H, PEND_W, PEND_H, PEND_R).fill();
     ctx.shiftScaleCall(ctx.translate, this.x, 0);
     ctx.rotate(-this.theta);
-    ctx.shiftScaleCall(ctx.translate, -W - this.x, -H);
+    ctx.shiftScaleCall(ctx.translate, -W - this.x, (-3 * H) / 2); // 3/2 shifts the center down
     ctx.fillStyle = "black";
     ctx.shiftScaleCall(ctx.circle, this.x, 0, ROT_SHAFT_D / 2).fill();
   };

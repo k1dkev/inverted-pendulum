@@ -101,7 +101,7 @@ function App() {
   }
 
   const draw = (ctx, t) => {
-    [ctx.canvas.width, ctx.canvas.height] = assembly.canvasSizeUpdate(window.innerWidth, window.innerHeight);
+    [ctx.canvas.width, ctx.canvas.height] = assembly.canvasSizeUpdate(window.innerWidth - 2, window.innerHeight);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     assembly.draw(ctx);
 
