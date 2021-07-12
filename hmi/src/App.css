@@ -1,8 +1,28 @@
 body {
-  margin: 0;
-  padding: 0;
+  margin: 40px;
+}
+
+.wrapper {
+  display: grid;
+  grid-template-columns: 50% 50%;
+  grid-gap: 10px;
+  background-color: #fff;
+  color: #444;
+  grid-template-rows: 300px;
+}
+
+.box {
+  background-color: #444;
+  color: #fff;
+  border-radius: 5px;
+  padding: 20px;
+  font-size: 150%;
+  position: relative;
 }
 
 canvas {
   border: 1px solid black;
+  position: absolute;
+  height: 100%;
+  width: 100%;
 }

@@ -103,6 +103,9 @@ function Assembly(canvasWidth, canvasHeight) {
 
   // Main draw function
   this.draw = function (ctx) {
+    // Clear canvas
+    //ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
     // draw left block
     ctx.fillStyle = "SteelBlue";
     ctx.shiftScaleCall(ctx.fillRect, -LINEAR_SHAFT_L / 2.0 - BLOCK_W, ROT_BEARING_H - ROT_BEARING_O + CART_PLATE_H + LIN_BEARING_O - BLOCK_O, BLOCK_W, BLOCK_H);

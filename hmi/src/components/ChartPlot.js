@@ -1,5 +1,4 @@
 import React from "react";
-// import { Chart } from "chart.js";
 import { useEffect, useRef } from "react";
 import { Chart, registerables } from "chart.js";
 import "chartjs-adapter-date-fns";
@@ -79,7 +78,6 @@ const ChartPlot = (props) => {
     const myChart = new Chart(ctx, config);
 
     var cnt = 0;
-    console.log(myChart.data);
 
     setInterval(function () {
       let deltaTime = new Date() - initialTime;
