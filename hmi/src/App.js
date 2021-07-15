@@ -104,12 +104,12 @@ function App() {
         <div className="box b">
           <ChartPlot getData={getData} />
         </div>
-        <div className="box c">
-          <p>{uRef.current}</p>
-        </div>
-        <div className="box d">D</div>
+        {/* <div className="box c">
+            <p>{uRef.current}</p>
+          </div> */}
+        {/* <div className="box d">D</div>
         <div className="box e">E</div>
-        <div className="box f">F</div>
+        <div className="box f">F</div> */}
         {/* <Plot getData={getData} /> */}
       </div>
     </>
