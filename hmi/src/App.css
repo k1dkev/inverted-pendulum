@@ -1,28 +1,50 @@
 body {
-  margin: 40px;
+  margin: 2px;
+  background: rgb(130, 180, 255);
 }
 
-.wrapper {
-  display: grid;
-  grid-template-columns: 50% 50%;
-  grid-gap: 10px;
-  background-color: #fff;
-  color: #444;
-  grid-template-rows: 300px;
+.box-row {
+  display: flex;
 }
 
 .box {
-  background-color: #444;
-  color: #fff;
+  background-color: rgb(65, 65, 65);
+  width: 50%;
+  height: 450px;
   border-radius: 5px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
   padding: 20px;
-  font-size: 150%;
-  position: relative;
+  margin: 2px;
+  justify-content: center;
+  color: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 33px;
+  font-weight: 600;
+}
+
+.box-short {
+  height: 200px;
 }
 
 canvas {
   border: 1px solid black;
-  position: absolute;
-  height: 100%;
   width: 100%;
+}
+
+@media (max-width: 1000px) {
+  .box-row {
+    flex-wrap: wrap;
+  }
+  .box {
+    width: 100%;
+    height: 500px;
+  }
+}
+
+@media (max-width: 700px) {
+  .box {
+    height: 350px;
+  }
 }

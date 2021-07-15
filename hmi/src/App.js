@@ -97,19 +97,23 @@ function App() {
 
   return (
     <>
-      <div className="wrapper">
-        <div className="box a">
+      <div className="box-row">
+        <div className="box">
           <Canvas draw={draw} />
         </div>
-        <div className="box b">
+        <div className="box">
           <ChartPlot getData={getData} />
         </div>
-        <div className="box c">
+      </div>
+      <div className="box-row">
+        <div className="box box-short">
           <p>{uRef.current}</p>
         </div>
-        <div className="box d">D</div>
-        <div className="box e">E</div>
-        <div className="box f">F</div>
+        <div className="box box-short">D</div>
+      </div>
+      <div className="box-row">
+        <div className="box box-short">E</div>
+        <div className="box box-short">F</div>
         {/* <Plot getData={getData} /> */}
       </div>
     </>
