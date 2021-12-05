@@ -1,6 +1,7 @@
 import "./App.css";
 import Canvas from "./components/Canvas";
 import ChartPlot from "./components/ChartPlot";
+import BasicTextOutput from "./components/BasicTextOutput";
 import Assembly from "./utils/Assembly";
 import { useEffect, useRef } from "react";
 import pendulum from "./utils/Pendulum";
@@ -9,6 +10,7 @@ function App() {
   const uRef = useRef(0);
   const arrowRightPressedRef = useRef(false);
   const arrowLeftPressedRef = useRef(false);
+  const BasicTextRef = useRef(null);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -93,6 +95,7 @@ function App() {
     x = deltaTime ? pendulum.integrate(x, uRef.current, pendulum.dynamics, deltaTime) : x;
     assembly.updateState({ x: x[0], theta: x[2] });
     prevTime = currentTime;
+    BasicTextRef.current.updateValue(uRef.current);
   };
 
   return (
@@ -107,14 +110,13 @@ function App() {
       </div>
       <div className="box-row">
         <div className="box box-short">
-          <p>{uRef.current}</p>
+          <BasicTextOutput ref={BasicTextRef} />
         </div>
         <div className="box box-short">D</div>
       </div>
       <div className="box-row">
         <div className="box box-short">E</div>
         <div className="box box-short">F</div>
-        {/* <Plot getData={getData} /> */}
       </div>
     </>
   );

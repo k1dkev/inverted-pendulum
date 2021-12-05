@@ -10,7 +10,7 @@ body {
 .box {
   background-color: rgb(65, 65, 65);
   width: 50%;
-  height: 450px;
+  /* height: 450px; */
   border-radius: 5px;
   box-sizing: border-box;
   display: flex;
