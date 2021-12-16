@@ -5,6 +5,8 @@ import BasicTextOutput from "./components/BasicTextOutput";
 import Assembly from "./utils/Assembly";
 import { useEffect, useRef } from "react";
 import pendulum from "./utils/Pendulum";
+import Toggle from "./components/Toggle";
+import RadioText from "./components/RadioText";
 
 function App() {
   const uRef = useRef(0);
@@ -112,7 +114,24 @@ function App() {
         <div className="box box-short">
           <BasicTextOutput ref={BasicTextRef} />
         </div>
-        <div className="box box-short">D</div>
+        <div className="box box-short">
+          <div className="box-column">
+            <div className="box2">
+              <button className="button button1">Green</button>
+            </div>
+            <div className="box2">
+              <div className="box-row">
+                <p style={{ margin: 0, marginRight: 10 }}>Simulation</p>
+                <Toggle />
+              </div>
+            </div>
+            <div className="box2">
+              <div className="box-row">
+                <RadioText />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div className="box-row">
         <div className="box box-short">E</div>

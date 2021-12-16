@@ -5,12 +5,20 @@ body {
 
 .box-row {
   display: flex;
+  align-items: center;
+}
+
+.box-column {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0px;
+  box-sizing: border-box;
 }
 
 .box {
   background-color: rgb(65, 65, 65);
   width: 50%;
-  /* height: 450px; */
   border-radius: 5px;
   box-sizing: border-box;
   display: flex;
@@ -24,8 +32,25 @@ body {
   font-weight: 600;
 }
 
+.box2 {
+  background-color: rgb(200, 22, 22);
+  width: 100%;
+  height: fit-content;
+  border-radius: 5px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0px;
+  margin: 2px;
+  justify-content: left;
+  color: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 33px;
+  font-weight: 600;
+}
+
 .box-short {
-  height: 200px;
+  height: fit-content;
 }
 
 canvas {
@@ -47,4 +72,37 @@ canvas {
   .box {
     height: 350px;
   }
+}
+
+.button {
+  background-color: #4caf50; /* Green */
+  border: none;
+  color: white;
+  padding: 16px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  transition-duration: 0.1s;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.button1 {
+  background-color: #4caf50;
+  color: black;
+  border: 2px solid #4caf50;
+}
+
+.button1:hover {
+  background-color: #468049;
+  color: white;
+  border: 2px solid #468049;
+}
+
+.button1:active {
+  background-color: #4caf50;
+  color: white;
+  border: 2px solid #4caf50;
 }
