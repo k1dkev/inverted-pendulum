@@ -1,9 +1,4 @@
-body {
-  background: #332f35;
-  font-family: roboto;
-}
-
-input[type="radio"] {
+.radio-text {
   position: absolute;
   visibility: hidden;
   display: none;
@@ -17,12 +12,12 @@ input[type="radio"] {
   padding: 5px 20px;
 }
 
-input[type="radio"]:checked + label {
+.radio-text:checked + label {
   color: #ccc8ce;
   background: #675f6b;
 }
 
-label + input[type="radio"] + label {
+label + .radio-text + label {
   border-left: solid 3px #675f6b;
 }
 

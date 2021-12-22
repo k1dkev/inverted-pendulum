@@ -2,12 +2,7 @@ $bg: #332f35;
 $fg: lighten($bg, 20%);
 $borderWidth: 3px;
 
-body {
-  background: $bg;
-  font-family: roboto;
-}
-
-input[type="radio"] {
+.radio-text {
   position: absolute;
   visibility: hidden;
   display: none;
@@ -21,12 +16,12 @@ input[type="radio"] {
   padding: 5px 20px;
 }
 
-input[type="radio"]:checked + label {
+.radio-text:checked + label {
   color: lighten($bg, 60%);
   background: $fg;
 }
 
-label + input[type="radio"] + label {
+label + .radio-text + label {
   border-left: solid $borderWidth $fg;
 }
 .radio-group {
