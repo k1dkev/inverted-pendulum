@@ -1,4 +1,4 @@
-function Assembly(canvasWidth, canvasHeight) {
+function Assembly(pxPerMM) {
   // ********* DIMENSIONS *********
   // BLOCK
   const BLOCK_W = 42; // WIDTH
@@ -57,13 +57,7 @@ function Assembly(canvasWidth, canvasHeight) {
   const H = 1.35 * (MARGIN + PEND_H - PEND_O); // TOTAL HEIGHT (Note that 2x makes it so that nothing is cut off)
   this.x = 0;
   this.theta = 0;
-  var pxPerMM = Math.min(canvasWidth / W, canvasHeight / H);
-
-  // Update canvas size
-  this.canvasSizeUpdate = function (canvasWidth, canvasHeight) {
-    pxPerMM = Math.min(canvasWidth / W, canvasHeight / H);
-    return [pxPerMM * W, pxPerMM * H];
-  };
+  var canvasSizeSet = false;
 
   // Update state
   this.updateState = function ({ x, theta }) {
@@ -103,8 +97,13 @@ function Assembly(canvasWidth, canvasHeight) {
 
   // Main draw function
   this.draw = function (ctx) {
-    // Clear canvas
-    //ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    // Clear canvas (canvas clears when setting the width and height)
+    if (!canvasSizeSet) {
+      ctx.canvas.width = pxPerMM * W;
+      ctx.canvas.height = pxPerMM * H;
+      canvasSizeSet = true;
+    }
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
     // draw left block
     ctx.fillStyle = "SteelBlue";

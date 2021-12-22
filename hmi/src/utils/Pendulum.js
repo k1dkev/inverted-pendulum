@@ -1,5 +1,5 @@
 function dynamics(x, u) {
-  // x = [x,v,theta, w]
+  // x = [x,v,theta,w]
   const Le = 197.21; // m
   const g = 9810; // m/s^2
   const b = 0.25; //

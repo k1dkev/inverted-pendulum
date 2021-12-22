@@ -4,13 +4,13 @@ import "./RadioText.css";
 const RadioText = () => {
   return (
     <form>
-      <div class="radio-group">
+      <div className="radio-group">
         <input className="radio-text" type="radio" id="option-one" name="selector" />
-        <label className="radio-text-label" for="option-one">
+        <label className="radio-text-label" htmlFor="option-one">
           Auto
         </label>
         <input className="radio-text" type="radio" id="option-two" name="selector" />
-        <label className="radio-text-label" for="option-two">
+        <label className="radio-text-label" htmlFor="option-two">
           Manual
         </label>
       </div>

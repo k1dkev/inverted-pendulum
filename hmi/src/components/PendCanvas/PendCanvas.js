@@ -45,13 +45,11 @@ const PendCanvas = (props) => {
     };
   }, []);
 
-  var assembly = new Assembly(window.innerWidth, window.innerHeight);
+  var assembly = new Assembly(5);
   var prevTime = 0;
   var x = [0, 0, 0, 0];
 
   const draw = (ctx, t) => {
-    [ctx.canvas.width, ctx.canvas.height] = assembly.canvasSizeUpdate(window.innerWidth - 50, window.innerHeight);
-    //ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     assembly.draw(ctx);
 
     let currentTime = Number(t / 1000);
