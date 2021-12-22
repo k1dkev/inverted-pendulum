@@ -90,6 +90,11 @@ const ChartPlot = (props) => {
       // removeData(myChart);
       myChart.update("none");
     }, 15);
+
+    // cleanup chart on unmounts
+    // return () => {
+    //   if (myChart) myChart.destroy();
+    // };
   }, [getData]);
 
   return <canvas ref={canvasRef} />;

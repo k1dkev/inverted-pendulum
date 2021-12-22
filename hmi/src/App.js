@@ -10,8 +10,13 @@ function App() {
   var x;
   const BasicTextRef = useRef(null);
   const handlePendCanvasData = (data) => {
-    x = data.x;
-    BasicTextRef.current.updateValue(data.u);
+    if (data) {
+      x = data.x || 0;
+      BasicTextRef.current.updateValue(data.u || 0);
+    } else {
+      x = 0;
+      BasicTextRef.current.updateValue(0);
+    }
   };
   const getData = () => {
     return x ? x[0] : 0;
