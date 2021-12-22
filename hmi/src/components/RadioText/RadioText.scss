@@ -1,0 +1,33 @@
+$bg: #332f35;
+$fg: lighten($bg, 20%);
+$borderWidth: 3px;
+
+.radio-text {
+  position: absolute;
+  visibility: hidden;
+  display: none;
+}
+
+.radio-text-label {
+  color: lighten($bg, 40%);
+  display: inline-block;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 5px 20px;
+}
+
+.radio-text:checked + label {
+  color: lighten($bg, 60%);
+  background: $fg;
+}
+
+label + .radio-text + label {
+  border-left: solid $borderWidth $fg;
+}
+.radio-group {
+  border: solid $borderWidth $fg;
+  display: inline-block;
+  margin: 20px;
+  border-radius: 10px;
+  overflow: hidden;
+}

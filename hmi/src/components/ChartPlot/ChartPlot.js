@@ -7,7 +7,6 @@ Chart.register(...registerables);
 const ChartPlot = (props) => {
   const { getData } = props;
   const canvasRef = useRef(null);
-
   function addData(chart, label, data) {
     chart.data.labels.push(label);
     chart.data.datasets.forEach((dataset) => {

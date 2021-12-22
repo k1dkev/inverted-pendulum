@@ -1,0 +1,31 @@
+.radio-text {
+  position: absolute;
+  visibility: hidden;
+  display: none;
+}
+
+.radio-text-label {
+  color: #9a929e;
+  display: inline-block;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 5px 20px;
+}
+
+.radio-text:checked + label {
+  color: #ccc8ce;
+  background: #675f6b;
+}
+
+label + .radio-text + label {
+  border-left: solid 3px #675f6b;
+}
+
+.radio-group {
+  border: solid 3px #675f6b;
+  display: inline-block;
+  margin: 20px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+/*# sourceMappingURL=RadioText.css.map */
