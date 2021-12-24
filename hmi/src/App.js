@@ -33,10 +33,10 @@ function App() {
         </div>
       </div>
       <div className="box-row">
-        <div className="box box-short">
+        <div className="box">
           <BasicTextOutput ref={BasicTextRef} />
         </div>
-        <div className="box box-short">
+        <div className="box">
           <div className="box-column">
             <div className="box2">
               <button className="button button1">Green</button>
@@ -56,8 +56,8 @@ function App() {
         </div>
       </div>
       <div className="box-row">
-        <div className="box box-short">E</div>
-        <div className="box box-short">F</div>
+        <div className="box">E</div>
+        <div className="box">F</div>
       </div>
     </>
   );

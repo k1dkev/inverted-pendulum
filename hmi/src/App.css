@@ -13,7 +13,6 @@ button {
 
 .box-row {
   display: flex;
-  align-items: center;
 }
 
 .box-column {
@@ -40,7 +39,7 @@ button {
 }
 
 .box2 {
-  background-color: rgb(200, 22, 22);
+  /* background-color: rgb(200, 22, 22); */
   width: 100%;
   height: fit-content;
   border-radius: 5px;
@@ -53,15 +52,6 @@ button {
   color: #fff;
   font-size: 33px;
   font-weight: 600;
-}
-
-.box-short {
-  height: fit-content;
-}
-
-canvas {
-  border: 1px solid black;
-  width: 100%;
 }
 
 @media (max-width: 1000px) {
