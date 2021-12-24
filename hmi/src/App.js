@@ -36,20 +36,30 @@ function App() {
         <div className="box">
           <BasicTextOutput ref={BasicTextRef} />
         </div>
-        <div className="box">
+        <div className="box top">
           <div className="box-column">
             <div className="box2">
-              <button className="button button1">Green</button>
-            </div>
-            <div className="box2">
-              <div className="box-row">
+              <div className="box-row center">
                 <p style={{ margin: 0, marginRight: 10 }}>Simulation</p>
-                <Toggle />
+                <div className="right">
+                  <RadioText label1="On" label2="Off"/>
+                </div>
               </div>
             </div>
             <div className="box2">
-              <div className="box-row">
-                <RadioText />
+              <div className="box-row center">
+                <p style={{ margin: 0, marginRight: 10 }}>Mode</p>
+                <div className="right">
+                  <RadioText className="right" label1="Auto" label2="Manual"/>
+                </div>
+              </div>
+            </div>
+            <div className="box2">
+              <div className="box-row center">
+                <p style={{ margin: 0, marginRight: 10 }}>Run</p>
+                <div className="right">
+                  <RadioText className="right" label1="Start" label2="Stop"/>
+                </div>
               </div>
             </div>
           </div>

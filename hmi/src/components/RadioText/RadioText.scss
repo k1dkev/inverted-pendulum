@@ -1,4 +1,4 @@
-$bg: #332f35;
+$bg: midnightblue;
 $fg: lighten($bg, 20%);
 $borderWidth: 3px;
 
@@ -9,25 +9,27 @@ $borderWidth: 3px;
 }
 
 .radio-text-label {
-  color: lighten($bg, 40%);
+  color: $bg;
   display: inline-block;
   cursor: pointer;
   font-weight: bold;
+  width: 100px;
   padding: 5px 20px;
+  text-align: center;
 }
 
 .radio-text:checked + label {
-  color: lighten($bg, 60%);
-  background: $fg;
+  color: #e7e9eb;
+  background: $bg;
 }
 
 label + .radio-text + label {
-  border-left: solid $borderWidth $fg;
+  border-left: solid $borderWidth $bg;
 }
 .radio-group {
-  border: solid $borderWidth $fg;
+  border: solid $borderWidth $bg;
   display: inline-block;
-  margin: 20px;
+  margin: 0px;
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
 }

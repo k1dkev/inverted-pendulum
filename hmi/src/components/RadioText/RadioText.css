@@ -5,27 +5,29 @@
 }
 
 .radio-text-label {
-  color: #9a929e;
+  color: midnightblue;
   display: inline-block;
   cursor: pointer;
   font-weight: bold;
+  width: 100px;
   padding: 5px 20px;
+  text-align: center;
 }
 
 .radio-text:checked + label {
-  color: #ccc8ce;
-  background: #675f6b;
+  color: #e7e9eb;
+  background: midnightblue;
 }
 
 label + .radio-text + label {
-  border-left: solid 3px #675f6b;
+  border-left: solid 3px midnightblue;
 }
 
 .radio-group {
-  border: solid 3px #675f6b;
+  border: solid 3px midnightblue;
   display: inline-block;
-  margin: 20px;
+  margin: 0px;
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
 }
 /*# sourceMappingURL=RadioText.css.map */
