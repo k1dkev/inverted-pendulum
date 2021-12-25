@@ -2,7 +2,7 @@ import "./App.css";
 import ChartPlot from "./components/ChartPlot/ChartPlot";
 import BasicTextOutput from "./components/BasicTextOutput/BasicTextOutput";
 import { useRef } from "react";
-import Toggle from "./components/Toggle/Toggle";
+import NiceButton from "./components/NiceButton/NiceButton";
 import RadioText from "./components/RadioText/RadioText";
 import PendCanvas from "./components/PendCanvas/PendCanvas";
 
@@ -42,7 +42,7 @@ function App() {
               <div className="box-row center">
                 <p style={{ margin: 0, marginRight: 10 }}>Simulation</p>
                 <div className="right">
-                  <RadioText label1="On" label2="Off"/>
+                  <RadioText label1="On" label2="Off" />
                 </div>
               </div>
             </div>
@@ -50,7 +50,7 @@ function App() {
               <div className="box-row center">
                 <p style={{ margin: 0, marginRight: 10 }}>Mode</p>
                 <div className="right">
-                  <RadioText className="right" label1="Auto" label2="Manual"/>
+                  <RadioText className="right" label1="Auto" label2="Manual" />
                 </div>
               </div>
             </div>
@@ -58,7 +58,8 @@ function App() {
               <div className="box-row center">
                 <p style={{ margin: 0, marginRight: 10 }}>Run</p>
                 <div className="right">
-                  <RadioText className="right" label1="Start" label2="Stop"/>
+                  <NiceButton name="Start" color="green" />
+                  <NiceButton name="Stop" color="red" />
                 </div>
               </div>
             </div>
