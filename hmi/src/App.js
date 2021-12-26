@@ -37,37 +37,85 @@ function App() {
           <BasicTextOutput ref={BasicTextRef} />
         </div>
         <div className="box top">
-          <div className="box-column">
-            <div className="box2">
-              <div className="box-row center">
-                <p style={{ margin: 0, marginRight: 10 }}>Simulation</p>
-                <div className="right">
-                  <RadioText label1="On" label2="Off" />
-                </div>
+          <div className="box-row">
+            <div className="box-column">
+              <p style={{ margin: 0, marginRight: 10 }}>Simulation</p>
+            </div>
+            <div className="box-column">
+              hello
+            </div>
+            <div className="box-column">
+              <div className="right">
+                <RadioText label1="On" label2="Off" />
               </div>
             </div>
-            <div className="box2">
-              <div className="box-row center">
-                <p style={{ margin: 0, marginRight: 10 }}>Mode</p>
-                <div className="right">
-                  <RadioText className="right" label1="Auto" label2="Manual" />
-                </div>
+          </div>
+          <div className="box-row">
+            <div className="box-column">
+              <p style={{ margin: 0, marginRight: 10 }}>Mode</p>
+            </div>
+            <div className="box-column">
+              yo
+            </div>
+            <div className="box-column">
+              <div className="right">
+                <RadioText className="right" label1="Auto" label2="Manual" />
               </div>
             </div>
-            <div className="box2">
-              <div className="box-row center">
-                <p style={{ margin: 0, marginRight: 10 }}>Run</p>
-                <div className="right">
-                  <NiceButton name="Start" color="green" />
-                  <NiceButton name="Stop" color="red" />
-                </div>
+          </div>
+          <div className="box-row">
+            <div className="box-column">
+              <p style={{ margin: 0, marginRight: 10 }}>Run</p>
+            </div>
+            <div className="box-column">
+              <div className="right">
+                <NiceButton name="Start" color="green" />
               </div>
+            </div>
+            <div className="box-column">
+              <div className="right">
+                <NiceButton name="Start" color="green" />
+              </div>              
             </div>
           </div>
         </div>
       </div>
       <div className="box-row">
-        <div className="box">E</div>
+        <div className="box">
+          <div className='some-page-wrapper'>
+            <div className='row'>
+              <div className='column'>
+                <p style={{ margin: 0, marginRight: 10 }}>Simulation</p>
+              </div>
+              <div className='column'>
+                <RadioText label1="On" label2="Off" />
+              </div>
+            </div>
+            <div className='row'>
+              <div className='column'>
+                <p style={{ margin: 0, marginRight: 10 }}>Mode</p>
+              </div>
+              <div className='column'>
+                <RadioText className="right" label1="Auto" label2="Manual" />
+              </div>
+            </div>
+            <div className='row'>
+              <div className='column'>
+                <p style={{ margin: 0, marginRight: 10 }}>Run</p>
+              </div>
+              <div className='column'>
+                <div className='row'>
+                  <div className='container'>
+                    <NiceButton name="Start" color="green" />
+                  </div>
+                  <div className='container'>
+                    <NiceButton name="Stop" color="red" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="box">F</div>
       </div>
     </>

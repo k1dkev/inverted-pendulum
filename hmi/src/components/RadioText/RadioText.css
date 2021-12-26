@@ -4,6 +4,7 @@
   margin: 0px;
   border-radius: 10px;
   overflow: visible;
+  white-space: nowrap;
 }
 
 .radio-text-input {

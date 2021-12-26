@@ -20,6 +20,7 @@ button {
 
 .box-row {
   display: flex;
+  flex-direction: row;
   width: 100%;
 }
 
@@ -29,6 +30,8 @@ button {
   width: 100%;
   padding: 0px;
   box-sizing: border-box;
+  flex-basis: 100%;
+  flex: 1;
 }
 
 .box {
@@ -92,4 +95,30 @@ button {
 
 canvas {
   width: 100%;
+}
+
+
+
+
+
+.some-page-wrapper {
+  margin: 15px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 100%;
+  flex: 1;
+}
+
+.container {
+  display: flex;
 }
