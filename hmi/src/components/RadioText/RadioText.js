@@ -11,12 +11,12 @@ const RadioText = (props) => {
   return (
     <form>
       <div className="radio-group">
-        <input className="radio-text" type="radio" id={id1} name="selector" />
-        <label className="radio-text-label" htmlFor={id1}>
+        <input className="radio-text-input" type="radio" id={id1} name="selector" />
+        <label className="radio-text-label left-radio-label" htmlFor={id1}>
           {props.label1}
         </label>
-        <input className="radio-text" type="radio" id={id2} name="selector" />
-        <label className="radio-text-label" htmlFor={id2}>
+        <input className="radio-text-input" type="radio" id={id2} name="selector" />
+        <label className="radio-text-label right-radio-label" htmlFor={id2}>
         {props.label2}
         </label>
       </div>

@@ -1,8 +1,16 @@
 $bg: midnightblue;
 $fg: lighten($bg, 20%);
-$borderWidth: 3px;
+$borderWidth: 2px;
 
-.radio-text {
+.radio-group {
+  border: solid $borderWidth $bg;
+  display: inline-block;
+  margin: 0px;
+  border-radius: 10px;
+  overflow: visible;
+}
+
+.radio-text-input {
   position: absolute;
   visibility: hidden;
   display: none;
@@ -14,22 +22,23 @@ $borderWidth: 3px;
   cursor: pointer;
   font-weight: bold;
   width: 100px;
-  padding: 5px 20px;
+  padding: 5px 10px;
   text-align: center;
 }
 
-.radio-text:checked + label {
+.radio-text-input:checked + label {
   color: #e7e9eb;
   background: $bg;
 }
 
-label + .radio-text + label {
-  border-left: solid $borderWidth $bg;
+// label + .radio-text-input + label {
+//   border-left: solid $borderWidth $bg;
+// }
+
+.left-radio-label {
+  border-right: solid $borderWidth/2 $bg;
 }
-.radio-group {
-  border: solid $borderWidth $bg;
-  display: inline-block;
-  margin: 0px;
-  border-radius: 10px;
-  overflow: visible;
+
+.right-radio-label {
+  border-left: solid $borderWidth/2 $bg;
 }

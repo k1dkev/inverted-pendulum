@@ -2,7 +2,7 @@
   background-color: #4caf50;
   border: 0px;
   color: black;
-  padding: 5px 20px;
+  padding: 7px 20px;
   text-align: center;
   text-decoration: none;
   display: inline-block;
@@ -11,9 +11,9 @@
   cursor: pointer;
   border-radius: 10px;
   font-weight: bold;
-  width: 140px;
-  margin-left: 2px;
-  margin-right: 2px;
+  width: 122px;
+  margin-left: 0px;
+  margin-right: 1px;
 }
 
 .NiceButtonGreen:hover {
@@ -28,7 +28,7 @@
   background-color: #d00000;
   border: 0px;
   color: black;
-  padding: 5px 20px;
+  padding: 7px 20px;
   text-align: center;
   text-decoration: none;
   display: inline-block;
@@ -37,9 +37,9 @@
   cursor: pointer;
   border-radius: 10px;
   font-weight: bold;
-  width: 140px;
-  margin-left: 2px;
-  margin-right: 2px;
+  width: 122px;
+  margin-left: 1px;
+  margin-right: 0px;
 }
 
 .NiceButtonRed:hover {

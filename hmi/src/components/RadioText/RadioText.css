@@ -1,4 +1,12 @@
-.radio-text {
+.radio-group {
+  border: solid 2px midnightblue;
+  display: inline-block;
+  margin: 0px;
+  border-radius: 10px;
+  overflow: visible;
+}
+
+.radio-text-input {
   position: absolute;
   visibility: hidden;
   display: none;
@@ -10,24 +18,20 @@
   cursor: pointer;
   font-weight: bold;
   width: 100px;
-  padding: 5px 20px;
+  padding: 5px 10px;
   text-align: center;
 }
 
-.radio-text:checked + label {
+.radio-text-input:checked + label {
   color: #e7e9eb;
   background: midnightblue;
 }
 
-label + .radio-text + label {
-  border-left: solid 3px midnightblue;
+.left-radio-label {
+  border-right: solid 1px midnightblue;
 }
 
-.radio-group {
-  border: solid 3px midnightblue;
-  display: inline-block;
-  margin: 0px;
-  border-radius: 10px;
-  overflow: visible;
+.right-radio-label {
+  border-left: solid 1px midnightblue;
 }
 /*# sourceMappingURL=RadioText.css.map */
