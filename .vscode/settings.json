@@ -1,14 +1,4 @@
 {
-    "cSpell.ignoreWords": [
-        "chartjs",
-        "ppmm"
-    ],
-    "cSpell.words": [
-        "plotly",
-        "pxmm",
-        "registerables",
-        "relayout",
-        "xaxis",
-        "xdot"
-    ]
+  "cSpell.ignoreWords": ["chartjs", "ppmm"],
+  "cSpell.words": ["apexcharts", "plotly", "pxmm", "registerables", "relayout", "xaxis", "xdot"]
 }

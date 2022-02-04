@@ -1,0 +1,10 @@
+.ChartPlotCanvas {
+  width: 100%;
+}
+
+.chart-container {
+  width: 100%;
+  position: relative;
+  margin: auto;
+  box-sizing: border-box;
+}

@@ -6,10 +6,11 @@
 
 body {
   font-family: monospace, Sans-Serif;
-  font-size: 9pt;
   margin: 2px;
   background: var(--white-background);
   color: var(--dark-text);
+  font-size: 33px;
+  font-weight: 600;
 }
 
 input,
@@ -18,97 +19,25 @@ button {
   font-family: inherit;
 }
 
-.box-row {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-}
-
-.box-column {
+.container {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  padding: 0px;
-  box-sizing: border-box;
-  flex-basis: 100%;
-  flex: 1;
 }
 
 .box {
   background-color: var(--off-white-background);
   width: 50%;
   border-radius: 5px;
+  border: 1px solid #454746;
   box-sizing: border-box;
-  display: flex;
   align-items: center;
   padding: 20px;
-  margin: 2px;
-  justify-content: center;
-  color: var(--dark-text);
-  font-size: 33px;
-  font-weight: 600;
-}
-
-.top {
-  align-items: start;
-}
-
-.center {
-  align-items: center;
-}
-
-.right {
-  margin-left: auto;
-  margin-right: 0;
-}
-
-.box2 {
-  /* background-color: rgb(200, 22, 22); */
-  width: 100%;
-  height: fit-content;
-  border-radius: 5px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  padding: 0px;
-  margin: 2px;
-  justify-content: left;
-  font-size: 33px;
-  font-weight: 600;
-}
-
-@media (max-width: 1000px) {
-  .box-row {
-    flex-wrap: wrap;
-  }
-  .box {
-    width: 100%;
-    height: 500px;
-  }
-}
-
-@media (max-width: 700px) {
-  .box {
-    height: 350px;
-  }
-}
-
-canvas {
-  width: 100%;
-}
-
-
-
-
-
-.some-page-wrapper {
-  margin: 15px;
+  margin: 4px;
 }
 
 .row {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
   width: 100%;
 }
 
@@ -116,9 +45,33 @@ canvas {
   display: flex;
   flex-direction: column;
   flex-basis: 100%;
-  flex: 1;
+  /* flex: 1; */
 }
 
-.container {
-  display: flex;
+.some-page-wrapper {
+  margin: 0px;
+}
+
+@media (max-width: 1000px) {
+  .row {
+    flex-wrap: wrap;
+  }
+  .box {
+    width: 100%;
+    /* height: 500px; */
+  }
+}
+
+/* @media (max-width: 700px) {
+  .box {
+    height: 350px;
+  }
+} */
+
+/* canvas {
+  width: 100%;
+} */
+
+.p-text {
+  margin: 0px 0px 0px 0px;
 }
