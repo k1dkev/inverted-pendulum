@@ -6,11 +6,11 @@ const useCanvas = (draw) => {
   // Use Effect will run on mount / every re-render or if the dependency array (2nd arg) changes.
   useEffect(() => {
     const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
     let animationFrameId;
 
     const render = (t) => {
-      draw(context, t);
+      // console.log(`Offset Width: ${canvas.offsetWidth}`);
+      draw(canvas, t);
       animationFrameId = window.requestAnimationFrame(render);
     };
     render();

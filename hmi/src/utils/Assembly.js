@@ -96,7 +96,8 @@ function Assembly(pxPerMM) {
   };
 
   // Main draw function
-  this.draw = function (ctx) {
+  this.draw = (canvas, t) => {
+    let ctx = canvas.getContext("2d");
     // Clear canvas (canvas clears when setting the width and height)
     if (!canvasSizeSet) {
       ctx.canvas.width = pxPerMM * W;
@@ -107,23 +108,53 @@ function Assembly(pxPerMM) {
 
     // draw left block
     ctx.fillStyle = "SteelBlue";
-    ctx.shiftScaleCall(ctx.fillRect, -LINEAR_SHAFT_L / 2.0 - BLOCK_W, ROT_BEARING_H - ROT_BEARING_O + CART_PLATE_H + LIN_BEARING_O - BLOCK_O, BLOCK_W, BLOCK_H);
+    ctx.shiftScaleCall(
+      ctx.fillRect,
+      -LINEAR_SHAFT_L / 2.0 - BLOCK_W,
+      ROT_BEARING_H - ROT_BEARING_O + CART_PLATE_H + LIN_BEARING_O - BLOCK_O,
+      BLOCK_W,
+      BLOCK_H
+    );
 
     // draw main plate
     ctx.fillStyle = "DarkGrey";
-    ctx.shiftScaleCall(ctx.fillRect, -LINEAR_SHAFT_L / 2.0 - BLOCK_W, ROT_BEARING_H - ROT_BEARING_O + CART_PLATE_H + LIN_BEARING_O - BLOCK_O + BLOCK_H, MAIN_MOUNT_W, MAIN_MOUNT_H);
+    ctx.shiftScaleCall(
+      ctx.fillRect,
+      -LINEAR_SHAFT_L / 2.0 - BLOCK_W,
+      ROT_BEARING_H - ROT_BEARING_O + CART_PLATE_H + LIN_BEARING_O - BLOCK_O + BLOCK_H,
+      MAIN_MOUNT_W,
+      MAIN_MOUNT_H
+    );
 
     // draw right block
     ctx.fillStyle = "SteelBlue";
-    ctx.shiftScaleCall(ctx.fillRect, LINEAR_SHAFT_L / 2.0, -ROT_BEARING_O + ROT_BEARING_H + CART_PLATE_H + LIN_BEARING_O - BLOCK_O, BLOCK_W, BLOCK_H);
+    ctx.shiftScaleCall(
+      ctx.fillRect,
+      LINEAR_SHAFT_L / 2.0,
+      -ROT_BEARING_O + ROT_BEARING_H + CART_PLATE_H + LIN_BEARING_O - BLOCK_O,
+      BLOCK_W,
+      BLOCK_H
+    );
 
     // draw stepper motor
     ctx.fillStyle = "black";
-    ctx.shiftScaleCall(ctx.fillRect, LINEAR_SHAFT_L / 2.0, -ROT_BEARING_O + ROT_BEARING_H + CART_PLATE_H + LIN_BEARING_O - BLOCK_O - MOTOR_H, MOTOR_W, MOTOR_H);
+    ctx.shiftScaleCall(
+      ctx.fillRect,
+      LINEAR_SHAFT_L / 2.0,
+      -ROT_BEARING_O + ROT_BEARING_H + CART_PLATE_H + LIN_BEARING_O - BLOCK_O - MOTOR_H,
+      MOTOR_W,
+      MOTOR_H
+    );
 
     // draw linear shaft
     ctx.fillStyle = "DarkGrey";
-    ctx.shiftScaleCall(ctx.fillRect, -LINEAR_SHAFT_L / 2.0, -ROT_BEARING_O + ROT_BEARING_H + CART_PLATE_H + LIN_BEARING_O - LIN_SHAFT_D / 2.0, LINEAR_SHAFT_L, LIN_SHAFT_D);
+    ctx.shiftScaleCall(
+      ctx.fillRect,
+      -LINEAR_SHAFT_L / 2.0,
+      -ROT_BEARING_O + ROT_BEARING_H + CART_PLATE_H + LIN_BEARING_O - LIN_SHAFT_D / 2.0,
+      LINEAR_SHAFT_L,
+      LIN_SHAFT_D
+    );
 
     // draw feet risers
     ctx.fillStyle = "DarkGrey";
@@ -151,12 +182,39 @@ function Assembly(pxPerMM) {
 
     // draw cart
     ctx.fillStyle = "Silver";
-    ctx.shiftScaleCall(ctx.roundRect, this.x - ROT_BEARING_W / 2, -ROT_BEARING_O, ROT_BEARING_W, ROT_BEARING_H, ROT_BEARING_R).fill();
-    ctx.shiftScaleCall(ctx.fillRect, this.x - ROT_BEARING_W / 2, -ROT_BEARING_O + ROT_BEARING_H / 2, ROT_BEARING_W, ROT_BEARING_H / 2);
+    ctx
+      .shiftScaleCall(
+        ctx.roundRect,
+        this.x - ROT_BEARING_W / 2,
+        -ROT_BEARING_O,
+        ROT_BEARING_W,
+        ROT_BEARING_H,
+        ROT_BEARING_R
+      )
+      .fill();
+    ctx.shiftScaleCall(
+      ctx.fillRect,
+      this.x - ROT_BEARING_W / 2,
+      -ROT_BEARING_O + ROT_BEARING_H / 2,
+      ROT_BEARING_W,
+      ROT_BEARING_H / 2
+    );
     ctx.fillStyle = "DarkGrey";
-    ctx.shiftScaleCall(ctx.fillRect, this.x - CART_PLATE_W / 2, -ROT_BEARING_O + ROT_BEARING_H, CART_PLATE_W, CART_PLATE_H);
+    ctx.shiftScaleCall(
+      ctx.fillRect,
+      this.x - CART_PLATE_W / 2,
+      -ROT_BEARING_O + ROT_BEARING_H,
+      CART_PLATE_W,
+      CART_PLATE_H
+    );
     ctx.fillStyle = "Silver";
-    ctx.shiftScaleCall(ctx.fillRect, this.x - LIN_BEARING_W / 2, -ROT_BEARING_O + ROT_BEARING_H + CART_PLATE_H, LIN_BEARING_W, LIN_BEARING_H);
+    ctx.shiftScaleCall(
+      ctx.fillRect,
+      this.x - LIN_BEARING_W / 2,
+      -ROT_BEARING_O + ROT_BEARING_H + CART_PLATE_H,
+      LIN_BEARING_W,
+      LIN_BEARING_H
+    );
 
     // draw pendulum
     ctx.fillStyle = "green";

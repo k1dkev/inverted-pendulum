@@ -1,27 +1,32 @@
 import "./App.css";
-import ChartPlot from "./components/ChartPlot/ChartPlot";
+// import ChartPlot from "./components/ChartPlot/ChartPlot";
 import BasicTextOutput from "./components/BasicTextOutput/BasicTextOutput";
 import { useRef } from "react";
 import NiceButton from "./components/NiceButton/NiceButton";
 import RadioText from "./components/RadioText/RadioText";
 import PendCanvas from "./components/PendCanvas/PendCanvas";
-import ChartCanvas from "./components/ChartCanvas/ChartCanvas";
+// import ChartCanvas from "./components/ChartCanvas/ChartCanvas";
+import TestCanvas from "./components/ChartCanvas/kevChart";
+import Canvas from "./components/Canvas/Canvas";
 
 function App() {
-  var x;
+  // var x;
   const BasicTextRef = useRef(null);
   const handlePendCanvasData = (data) => {
     if (data) {
-      x = data.x || 0;
+      // x = data.x || 0;
       BasicTextRef.current.updateValue(data.u || 0);
     } else {
-      x = 0;
+      // x = 0;
       BasicTextRef.current.updateValue(0);
     }
   };
-  const getData = () => {
-    return x ? x[0] : 0;
-  };
+
+  // const getData = () => {
+  //   return x ? x[0] : 0;
+  // };
+
+  var myTestCanvas = new TestCanvas({ W: 3000, H: 2000, numOfPoints: 1000 });
 
   return (
     <>
@@ -31,9 +36,7 @@ function App() {
           <div className="box">
             <PendCanvas passDataToParent={handlePendCanvasData} />
           </div>
-          <div className="box">
-            <ChartPlot getData={getData} />
-          </div>
+          <div className="box">{/* <ChartPlot getData={getData} /> */}</div>
         </div>
 
         {/* Row 2 */}
@@ -41,7 +44,14 @@ function App() {
           <div className="box">
             <BasicTextOutput ref={BasicTextRef} />
           </div>
-          <div className="box">D</div>
+          <div className="box">
+            <p>TestCanvas</p>
+            <Canvas
+              draw={(canvas, t) => {
+                myTestCanvas.draw(canvas, t);
+              }}
+            />
+          </div>
         </div>
 
         {/* Row 3 */}
@@ -79,9 +89,7 @@ function App() {
               </div>
             </div>
           </div>
-          <div className="box">
-            <ChartCanvas />
-          </div>
+          <div className="box">{/* <ChartCanvas /> */}</div>
         </div>
       </div>
     </>
