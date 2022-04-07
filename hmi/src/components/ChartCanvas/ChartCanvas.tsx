@@ -1,13 +1,12 @@
-// import "./App.css";
 import Canvas from "../Canvas/Canvas";
 
-const ChartCanvas = (props) => {
+const ChartCanvas = () => {
   const W = 3000;
   const H = 2000;
   const numOfPoints = 1000;
   var shift = 0;
 
-  const draw = (ctx, t) => {
+  const draw = (ctx: any, t: any) => {
     // console.log(t);
     ctx.canvas.width = W;
     ctx.canvas.height = H;

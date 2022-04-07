@@ -1,9 +1,9 @@
-import { React, useState, forwardRef, useImperativeHandle } from "react";
+import { useState, forwardRef, useImperativeHandle } from "react";
 
 const BasicTextOutput = forwardRef((props, ref) => {
   const [value, setValue] = useState(0);
   useImperativeHandle(ref, () => ({
-    updateValue(inputValue) {
+    updateValue(inputValue: any) {
       setValue(inputValue);
     },
   }));

@@ -1,5 +1,5 @@
 // For calling ctx functions and applying scaling and shifting
-CanvasRenderingContext2D.prototype.rectBorderInside = function (x, y, w, h, t) {
+const rectBorderInside = function (this: any, x: any, y: any, w: any, h: any, t: any): any {
   this.rect(x, y, w, t); // top
   this.rect(x, y + h - t, w, t); // bottom
   this.rect(x, y, t, h); // left
@@ -13,7 +13,7 @@ CanvasRenderingContext2D.prototype.rectBorderInside = function (x, y, w, h, t) {
 class kAxis {
   #params;
   #config;
-  constructor(config) {
+  constructor(config: any) {
     this.#config = {
       pos: {
         availableHeight: 100,
@@ -57,12 +57,12 @@ class kAxis {
           end: 0,
           delta: 0,
         },
-        labels: [],
+        labels: ["hello"],
       },
     };
   }
 
-  updateConfig(config) {
+  updateConfig(config: any) {
     this.#config = { ...this.#config, ...config };
   }
 
@@ -70,7 +70,7 @@ class kAxis {
     return { ...this.#params };
   }
 
-  updateParams(ctx) {
+  updateParams(ctx: any) {
     // tick deltas
     let engTickDelta =
       (this.#config.ticks.maxEngValue - this.#config.ticks.minEngValue) / (this.#config.ticks.count - 1);
@@ -105,15 +105,15 @@ class kAxis {
     this.#params.pos.y = this.#config.pos.y;
   }
 
-  drawOutline(ctx) {
+  drawOutline(ctx: any) {
     if (!this.#config.options.showOutline) return;
     ctx.beginPath();
     ctx.fillStyle = "blue";
-    ctx.rectBorderInside(0, 0, this.#params.pos.width, this.#params.pos.height, 1);
+    rectBorderInside.call(ctx, 0, 0, this.#params.pos.width, this.#params.pos.height, 1);
     ctx.fill();
   }
 
-  drawVerticalLine(ctx) {
+  drawVerticalLine(ctx: any) {
     ctx.beginPath();
     ctx.lineWidth = this.#config.line.thickness;
     ctx.fillStyle = "black";
@@ -126,7 +126,7 @@ class kAxis {
     ctx.fill();
   }
 
-  drawTicks(ctx) {
+  drawTicks(ctx: any) {
     for (let i = 0; i < this.#config.ticks.count; i++) {
       ctx.beginPath();
       ctx.fillStyle = "black";
@@ -140,7 +140,7 @@ class kAxis {
     }
   }
 
-  drawTickLabels(ctx) {
+  drawTickLabels(ctx: any) {
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "black";
@@ -153,7 +153,7 @@ class kAxis {
     }
   }
 
-  draw(ctx) {
+  draw(ctx: any) {
     this.updateParams(ctx);
     ctx.translate(this.#params.pos.x, this.#params.pos.y);
     this.drawOutline(ctx);
@@ -272,46 +272,49 @@ class kAxis {
 //                                TestCanvas
 //------------------------------------------------------------------------------------
 class TestCanvas {
-  constructor({ numOfPoints, W, H, margin, aspectRatio } = {}) {
-    this.aspectRatio = aspectRatio || 1.5;
-    this.totalWidth = W || 1000;
-    this.totalHeight = H || 1000;
-    this.numOfPoints = numOfPoints || 100;
-    this.margin = margin || 10;
-    this.W = this.totalWidth - 2 * this.margin;
-    this.H = this.totalHeight - 2 * this.margin;
-    this.axis = new kAxis({ showOutline: true });
+  #config: any;
+  constructor() {
+    this.#config = {
+      aspectRatio: 1.5,
+      totalWidth: 1000,
+      totalHeight: 1000,
+      numOfPoints: 100,
+      margin: 10,
+      W: 1000 - 2 * 10,
+      H: 1000 - 2 * 10,
+      axis: new kAxis({}),
+    };
   }
 
-  drawLine(ctx, t) {
-    ctx.moveTo(0, this.H / 2);
+  drawLine(ctx: any, t: any) {
+    ctx.moveTo(0, this.#config.H / 2);
     ctx.beginPath();
-    for (let i = 0; i <= this.numOfPoints; i++) {
-      let x = (i * this.W) / this.numOfPoints;
-      let y = (this.H / 4) * Math.sin(x / 100 + t / 500) + this.H / 2;
+    for (let i = 0; i <= this.#config.numOfPoints; i++) {
+      let x = (i * this.#config.W) / this.#config.numOfPoints;
+      let y = (this.#config.H / 4) * Math.sin(x / 100 + t / 500) + this.#config.H / 2;
       ctx.lineTo(x, y);
     }
     ctx.lineWidth = 3;
     ctx.stroke();
   }
 
-  drawAroundCanvas(ctx, t) {
+  drawAroundCanvas(ctx: any, t: any) {
     // ctx.moveTo(0, this.H / 2);
     ctx.beginPath();
-    ctx.rect(0.5, 0.5, this.totalWidth - 1, this.totalHeight - 1);
+    ctx.rect(0.5, 0.5, this.#config.totalWidth - 1, this.#config.totalHeight - 1);
     ctx.lineWidth = 1;
     ctx.stroke();
   }
 
-  draw(canvas, t) {
+  draw(canvas: any, t: any) {
     let ctx = canvas.getContext("2d");
     // console.log(`offset Width: ${canvas.offsetWidth}, offset Height: ${canvas.offsetHeight}`);
-    this.totalWidth = Math.floor(canvas.offsetWidth);
-    this.totalHeight = Math.floor(canvas.offsetWidth / this.aspectRatio);
-    ctx.canvas.width = this.totalWidth;
-    ctx.canvas.height = this.totalHeight;
-    this.W = this.totalWidth - 2 * this.margin;
-    this.H = this.totalHeight - 2 * this.margin;
+    this.#config.totalWidth = Math.floor(canvas.offsetWidth);
+    this.#config.totalHeight = Math.floor(canvas.offsetWidth / this.#config.aspectRatio);
+    ctx.canvas.width = this.#config.totalWidth;
+    ctx.canvas.height = this.#config.totalHeight;
+    this.#config.W = this.#config.totalWidth - 2 * this.#config.margin;
+    this.#config.H = this.#config.totalHeight - 2 * this.#config.margin;
 
     // Save current transform and transform
     let storedTransform = ctx.getTransform();
@@ -341,12 +344,16 @@ class TestCanvas {
     //   options: { showOutline: true },
     // });
 
-    this.axis.updateConfig({
-      pos: { availableHeight: this.totalHeight - 2 * this.margin, x: this.margin, y: this.margin },
+    this.#config.axis.updateConfig({
+      pos: {
+        availableHeight: this.#config.totalHeight - 2 * this.#config.margin,
+        x: this.#config.margin,
+        y: this.#config.margin,
+      },
       options: { showOutline: true },
     });
 
-    this.axis.draw(ctx);
+    this.#config.axis.draw(ctx);
 
     // reset transform to stored
     ctx.setTransform(storedTransform);

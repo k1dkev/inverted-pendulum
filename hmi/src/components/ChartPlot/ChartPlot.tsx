@@ -5,29 +5,29 @@ import "chartjs-adapter-date-fns";
 import "./ChartPlot.css";
 Chart.register(...registerables);
 
-const ChartPlot = (props) => {
+const ChartPlot = (props: any) => {
   const { getData } = props;
   const canvasRef = useRef(null);
-  function addData(chart, label, data) {
+  function addData(chart: any, label: any, data: any) {
     chart.data.labels.push(label);
-    chart.data.datasets.forEach((dataset) => {
+    chart.data.datasets.forEach((dataset: any) => {
       dataset.data.push(data);
     });
   }
 
-  function removeData(chart) {
+  function removeData(chart: any) {
     chart.data.labels.shift();
-    chart.data.datasets.forEach((dataset) => {
+    chart.data.datasets.forEach((dataset: any) => {
       dataset.data.shift();
     });
   }
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    const canvas: any = canvasRef.current;
+    const ctx: any = canvas.getContext("2d");
     const initialTime = new Date();
-    const labels = [];
-    const data = {
+    const labels: any = [];
+    const data: any = {
       labels: labels,
       datasets: [
         {
@@ -39,7 +39,7 @@ const ChartPlot = (props) => {
         },
       ],
     };
-    const config = {
+    const config: any = {
       type: "line",
       data,
       options: {
@@ -73,7 +73,8 @@ const ChartPlot = (props) => {
     var cnt = 0;
 
     setInterval(function () {
-      let deltaTime = new Date() - initialTime;
+      let currentTime = new Date();
+      let deltaTime = Number(currentTime) - Number(initialTime);
       addData(myChart, deltaTime, getData());
       cnt++;
       if (cnt > 500) {

@@ -11,8 +11,8 @@ import Canvas from "./components/Canvas/Canvas";
 
 function App() {
   // var x;
-  const BasicTextRef = useRef(null);
-  const handlePendCanvasData = (data) => {
+  const BasicTextRef: any = useRef(null);
+  const handlePendCanvasData = (data: any) => {
     if (data) {
       // x = data.x || 0;
       BasicTextRef.current.updateValue(data.u || 0);
@@ -52,7 +52,7 @@ function App() {
           <div className="box">
             <p>TestCanvas</p>
             <Canvas
-              draw={(canvas, t) => {
+              draw={(canvas: any, t: any) => {
                 myTestCanvas.draw(canvas, t);
               }}
             />

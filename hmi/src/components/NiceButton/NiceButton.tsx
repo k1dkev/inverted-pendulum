@@ -1,7 +1,7 @@
 import React from "react";
 import "./NiceButton.css";
 
-const NiceButton = (props) => {
+const NiceButton = (props: any) => {
   var clsName;
   switch (props.color) {
     case "green":

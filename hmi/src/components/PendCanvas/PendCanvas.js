@@ -45,7 +45,7 @@ const PendCanvas = (props) => {
     };
   }, []);
 
-  var assembly = new Assembly(5);
+  const assembly = new Assembly(5);
   var prevTime = 0;
   var x = [0, 0, 0, 0];
 
@@ -85,9 +85,7 @@ const PendCanvas = (props) => {
       uRef.current = uRef.current < 0.0 ? 0.0 : uRef.current;
     }
 
-    x = deltaTime
-      ? pendulum.integrate(x, uRef.current, pendulum.dynamics, deltaTime)
-      : x;
+    x = deltaTime ? pendulum.integrate(x, uRef.current, pendulum.dynamics, deltaTime) : x;
     assembly.updateState({ x: x[0], theta: x[2] });
     prevTime = currentTime;
     passDataToParent({ x: x, u: uRef.current });
