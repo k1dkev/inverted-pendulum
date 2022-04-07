@@ -25,8 +25,7 @@ function App() {
   // const getData = () => {
   //   return x ? x[0] : 0;
   // };
-
-  var myTestCanvas = new TestCanvas({ W: 3000, H: 2000, numOfPoints: 1000 });
+  var myTestCanvas = new TestCanvas();
 
   return (
     <>
@@ -42,7 +41,13 @@ function App() {
         {/* Row 2 */}
         <div className="row">
           <div className="box">
+            <p>PixelDraw</p>
             <BasicTextOutput ref={BasicTextRef} />
+            {/* <Canvas
+              draw={(canvas, t) => {
+                myPixelDraw.draw(canvas, t);
+              }}
+            /> */}
           </div>
           <div className="box">
             <p>TestCanvas</p>
