@@ -6,7 +6,7 @@ import NiceButton from "./components/NiceButton/NiceButton";
 import RadioText from "./components/RadioText/RadioText";
 import PendCanvas from "./components/PendCanvas/PendCanvas";
 // import ChartCanvas from "./components/ChartCanvas/ChartCanvas";
-import TestCanvas from "./components/ChartCanvas/kevChart";
+import kChart from "./components/kChart/kChart";
 import Canvas from "./components/Canvas/Canvas";
 
 function App() {
@@ -25,7 +25,7 @@ function App() {
   // const getData = () => {
   //   return x ? x[0] : 0;
   // };
-  var myTestCanvas = new TestCanvas();
+  var mykChart = new kChart();
 
   return (
     <>
@@ -41,19 +41,14 @@ function App() {
         {/* Row 2 */}
         <div className="row">
           <div className="box">
-            <p>PixelDraw</p>
+            <p>u value output</p>
             <BasicTextOutput ref={BasicTextRef} />
-            {/* <Canvas
-              draw={(canvas, t) => {
-                myPixelDraw.draw(canvas, t);
-              }}
-            /> */}
           </div>
           <div className="box">
             <p>TestCanvas</p>
             <Canvas
               draw={(canvas, t) => {
-                myTestCanvas.draw(canvas, t);
+                mykChart.draw(canvas, t);
               }}
             />
           </div>
