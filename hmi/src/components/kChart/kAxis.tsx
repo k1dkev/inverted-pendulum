@@ -56,8 +56,8 @@ interface kAxisParams {
 class kAxis {
   #params: kAxisParams;
   #config: kAxisConfig;
-  constructor() {
-    this.#config = {
+  constructor(config?: kAxisConfig) {
+    const defaultConfig: kAxisConfig = {
       pos: {
         height: 100,
         x: 0,
@@ -86,6 +86,8 @@ class kAxis {
       },
     };
 
+    this.#config = { ...config, ...defaultConfig };
+
     // this.updateConfig(config);
 
     this.#params = {
@@ -106,11 +108,15 @@ class kAxis {
     };
   }
 
-  updateConfig(config: kAxisConfig) {
+  // updateConfig(config: kAxisConfig) {
+  //   this.#config = { ...this.#config, ...config };
+  // }
+
+  set config(config: kAxisConfig) {
     this.#config = { ...this.#config, ...config };
   }
 
-  get config() {
+  get config(): kAxisConfig {
     return { ...this.#config };
   }
 

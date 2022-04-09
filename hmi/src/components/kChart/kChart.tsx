@@ -65,7 +65,7 @@ class kChart {
       },
       options: { showOutline: true },
     };
-    this.axis.updateConfig({ ...this.axis.config, ...axisConfig });
+    this.axis.config = { ...this.axis.config, ...axisConfig };
     this.axis.draw(ctx);
 
     // Draw graph
