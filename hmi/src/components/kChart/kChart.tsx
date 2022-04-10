@@ -64,8 +64,6 @@ class kChart {
         margin: { top: 10, bottom: 10, left: 10, right: 0 },
       });
     this.axis.setConfig({ height: this.height });
-    // this.axis.line.color = "green";
-    console.log(this.axis);
     this.axis.draw();
 
     // Draw graph

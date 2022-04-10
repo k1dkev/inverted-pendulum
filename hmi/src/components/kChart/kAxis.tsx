@@ -1,80 +1,48 @@
 //------------------------------------------------------------------------------------
-//                                kAxisMargin
-//------------------------------------------------------------------------------------
-interface kAxisMargin {
-  top: number;
-  bottom: number;
-  left: number;
-  right: number;
-}
-
-//------------------------------------------------------------------------------------
-//                                kAxisText
-//------------------------------------------------------------------------------------
-interface kAxisText {
-  color: string;
-  height: number;
-  numOfDecimals: number;
-  padding: number;
-}
-
-//------------------------------------------------------------------------------------
-//                                kAxisTicks
-//------------------------------------------------------------------------------------
-interface kAxisTicks {
-  color: string;
-  length: number;
-  count: number;
-  minEngValue: number;
-  maxEngValue: number;
-  start: number;
-  end: number;
-  delta: number;
-  labels: string[];
-}
-
-//------------------------------------------------------------------------------------
-//                                kAxisLine
-//------------------------------------------------------------------------------------
-interface kAxisLine {
-  color: string;
-  thickness: number;
-}
-
-//------------------------------------------------------------------------------------
-//                                kAxisData
+//                                Interfaces
 //------------------------------------------------------------------------------------
 interface kAxisData {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  margin: kAxisMargin;
-  showOutline: boolean;
-  text: kAxisText;
-  ticks: kAxisTicks;
-  line: kAxisLine;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly margin: { readonly top: number; readonly bottom: number; readonly left: number; readonly right: number };
+  readonly showOutline: boolean;
+  readonly text: {
+    readonly color: string;
+    readonly height: number;
+    readonly numOfDecimals: number;
+    readonly padding: number;
+  };
+  readonly ticks: {
+    readonly color: string;
+    readonly length: number;
+    readonly count: number;
+    readonly minEngValue: number;
+    readonly maxEngValue: number;
+    readonly start: number;
+    readonly end: number;
+    readonly delta: number;
+    readonly labels: string[];
+  };
+  readonly line: { readonly color: string; readonly thickness: number };
 }
 
-// interface kAxis extends kAxisData {}
-
-//------------------------------------------------------------------------------------
-//                                kAxisConfigTest
-//------------------------------------------------------------------------------------
-interface kAxisConfig extends Omit<kAxisData, "width" | "ticks"> {
-  ticks: {
-    color: string;
-    length: number;
-    count: number;
-    minEngValue: number;
-    maxEngValue: number;
+interface kAxisConfig extends Omit<kAxisData, "width" | "ticks" | "ctx"> {
+  readonly ticks: {
+    readonly color: string;
+    readonly length: number;
+    readonly count: number;
+    readonly minEngValue: number;
+    readonly maxEngValue: number;
   };
 }
 
 //------------------------------------------------------------------------------------
-//                                kAxis
+//                                Class
 //------------------------------------------------------------------------------------
-class kAxis {
+class kAxis implements kAxisData {
   #config: kAxisConfig = {
     x: 0,
     y: 0,
@@ -110,17 +78,19 @@ class kAxis {
     this.#config = { ...this.#config, ...config };
   }
 
-  get ctx(): CanvasRenderingContext2D {
+  get ctx() {
     return this.#ctx;
   }
 
-  get x(): number {
+  get x() {
     return this.#config.x;
   }
-  get y(): number {
+
+  get y() {
     return this.#config.y;
   }
-  get width(): number {
+
+  get width() {
     // Max text width
     this.#ctx.font = `${this.#config.text.height}px Monospace`;
     let maxTextWidth = Math.ceil(
@@ -138,19 +108,23 @@ class kAxis {
       this.#config.margin.right
     );
   }
-  get height(): number {
+  get height() {
     return this.#config.height;
   }
-  get margin(): kAxisMargin {
+
+  get margin() {
     return this.#config.margin;
   }
-  get showOutline(): boolean {
+
+  get showOutline() {
     return this.#config.showOutline;
   }
-  get text(): kAxisText {
+
+  get text() {
     return this.#config.text;
   }
-  get ticks(): kAxisTicks {
+
+  get ticks() {
     // Tick Labels
     let engTickDelta =
       (this.#config.ticks.maxEngValue - this.#config.ticks.minEngValue) / (this.#config.ticks.count - 1);
@@ -167,7 +141,7 @@ class kAxis {
     return { ...this.#config.ticks, ...{ labels: ticksLabels, start: ticksStart, end: ticksEnd, delta: ticksDelta } };
   }
 
-  get line(): kAxisLine {
+  get line() {
     return this.#config.line;
   }
 
