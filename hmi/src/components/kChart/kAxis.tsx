@@ -92,10 +92,10 @@ class kAxis implements kAxisData {
 
   get width() {
     // Max text width
-    this.#ctx.font = `${this.#config.text.height}px Monospace`;
+    this.ctx.font = `${this.#config.text.height}px Monospace`;
     let maxTextWidth = Math.ceil(
       Math.max(
-        ...Array.from(Array(this.#config.ticks.count).keys(), (i) => this.#ctx.measureText(this.ticks.labels[i]).width)
+        ...Array.from(Array(this.#config.ticks.count).keys(), (i) => this.ctx.measureText(this.ticks.labels[i]).width)
       )
     );
 
@@ -147,46 +147,46 @@ class kAxis implements kAxisData {
 
   private drawOutline() {
     if (!this.showOutline) return;
-    this.#ctx.beginPath();
-    this.#ctx.fillStyle = "red";
-    this.#ctx.rectBorderInside(0, 0, this.width, this.height, 1);
-    this.#ctx.fill();
+    this.ctx.beginPath();
+    this.ctx.fillStyle = "red";
+    this.ctx.rectBorderInside(0, 0, this.width, this.height, 1);
+    this.ctx.fill();
   }
 
   private drawVerticalLine() {
-    this.#ctx.beginPath();
-    this.#ctx.lineWidth = this.line.thickness;
-    this.#ctx.fillStyle = this.line.color;
-    this.#ctx.rect(
+    this.ctx.beginPath();
+    this.ctx.lineWidth = this.line.thickness;
+    this.ctx.fillStyle = this.line.color;
+    this.ctx.rect(
       this.width - this.line.thickness - this.margin.right,
       this.margin.top,
       this.line.thickness,
       this.height - this.margin.top - this.margin.bottom
     );
-    this.#ctx.fill();
+    this.ctx.fill();
   }
 
   private drawTicks() {
     for (let i = 0; i < this.ticks.count; i++) {
-      this.#ctx.beginPath();
-      this.#ctx.fillStyle = this.line.color;
-      this.#ctx.rect(
+      this.ctx.beginPath();
+      this.ctx.fillStyle = this.line.color;
+      this.ctx.rect(
         this.width - this.ticks.length - this.line.thickness - this.margin.right,
         Math.round(this.ticks.start - this.ticks.delta * i - this.line.thickness / 2),
         this.ticks.length,
         this.line.thickness
       );
-      this.#ctx.fill();
+      this.ctx.fill();
     }
   }
 
   private drawTickLabels() {
-    this.#ctx.textAlign = "right";
-    this.#ctx.textBaseline = "middle";
-    this.#ctx.fillStyle = "black";
-    this.#ctx.font = `${this.text.height}px Monospace`;
+    this.ctx.textAlign = "right";
+    this.ctx.textBaseline = "middle";
+    this.ctx.fillStyle = "black";
+    this.ctx.font = `${this.text.height}px Monospace`;
     for (let i = 0; i < this.ticks.count; i++) {
-      this.#ctx.fillText(
+      this.ctx.fillText(
         this.ticks.labels[i],
         this.width - this.ticks.length - this.text.padding - this.line.thickness - this.margin.right,
         this.ticks.start - this.ticks.delta * i + 0.1 * this.text.height
