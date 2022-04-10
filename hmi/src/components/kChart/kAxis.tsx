@@ -1,22 +1,67 @@
 //------------------------------------------------------------------------------------
-//                                kAxisConfig
+//                                kAxisMargin
 //------------------------------------------------------------------------------------
-interface kAxisConfig {
-  pos: {
-    height: number;
-    x: number;
-    y: number;
-    margin: { top: number; bottom: number; left: number; right: number };
-  };
-  options: {
-    showOutline: boolean;
-  };
-  text: {
-    color: string;
-    height: number;
-    numOfDecimals: number;
-    padding: number;
-  };
+interface kAxisMargin {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
+//------------------------------------------------------------------------------------
+//                                kAxisText
+//------------------------------------------------------------------------------------
+interface kAxisText {
+  color: string;
+  height: number;
+  numOfDecimals: number;
+  padding: number;
+}
+
+//------------------------------------------------------------------------------------
+//                                kAxisTicks
+//------------------------------------------------------------------------------------
+interface kAxisTicks {
+  color: string;
+  length: number;
+  count: number;
+  minEngValue: number;
+  maxEngValue: number;
+  start: number;
+  end: number;
+  delta: number;
+  labels: string[];
+}
+
+//------------------------------------------------------------------------------------
+//                                kAxisLine
+//------------------------------------------------------------------------------------
+interface kAxisLine {
+  color: string;
+  thickness: number;
+}
+
+//------------------------------------------------------------------------------------
+//                                kAxisData
+//------------------------------------------------------------------------------------
+interface kAxisData {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  margin: kAxisMargin;
+  showOutline: boolean;
+  text: kAxisText;
+  ticks: kAxisTicks;
+  line: kAxisLine;
+}
+
+// interface kAxis extends kAxisData {}
+
+//------------------------------------------------------------------------------------
+//                                kAxisConfigTest
+//------------------------------------------------------------------------------------
+interface kAxisConfig extends Omit<kAxisData, "width" | "ticks"> {
   ticks: {
     color: string;
     length: number;
@@ -24,212 +69,165 @@ interface kAxisConfig {
     minEngValue: number;
     maxEngValue: number;
   };
-  line: {
-    color: string;
-    thickness: number;
-  };
-}
-
-//------------------------------------------------------------------------------------
-//                                kAxisParams
-//------------------------------------------------------------------------------------
-interface kAxisParams {
-  pos: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  ticks: {
-    pos: {
-      start: number;
-      end: number;
-      delta: number;
-    };
-    labels: string[];
-  };
 }
 
 //------------------------------------------------------------------------------------
 //                                kAxis
 //------------------------------------------------------------------------------------
 class kAxis {
-  #params: kAxisParams;
-  #config: kAxisConfig;
-  constructor(config?: kAxisConfig) {
-    const defaultConfig: kAxisConfig = {
-      pos: {
-        height: 100,
-        x: 0,
-        y: 0,
-        margin: { top: 0, bottom: 0, left: 0, right: 0 },
-      },
-      options: {
-        showOutline: false,
-      },
-      text: {
-        color: "#000000",
-        height: 15,
-        numOfDecimals: 0,
-        padding: 1,
-      },
-      ticks: {
-        color: "#000000",
-        length: 5,
-        count: 11,
-        minEngValue: 0,
-        maxEngValue: 500,
-      },
-      line: {
-        color: "#000000",
-        thickness: 2,
-      },
-    };
+  #config: kAxisConfig = {
+    x: 0,
+    y: 0,
+    height: 100,
+    margin: { top: 0, bottom: 0, left: 0, right: 0 },
+    showOutline: false,
+    text: {
+      color: "#000000",
+      height: 15,
+      numOfDecimals: 0,
+      padding: 1,
+    },
+    ticks: {
+      color: "#000000",
+      length: 5,
+      count: 11,
+      minEngValue: 0,
+      maxEngValue: 500,
+    },
+    line: {
+      color: "#000000",
+      thickness: 2,
+    },
+  };
+  #ctx: CanvasRenderingContext2D;
 
-    this.#config = { ...config, ...defaultConfig };
-
-    // this.updateConfig(config);
-
-    this.#params = {
-      pos: {
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-      },
-      ticks: {
-        pos: {
-          start: 0,
-          end: 0,
-          delta: 0,
-        },
-        labels: [],
-      },
-    };
+  constructor(ctx: CanvasRenderingContext2D, config?: Partial<kAxisConfig>) {
+    this.#ctx = ctx;
+    if (config) this.setConfig(config);
   }
 
-  // updateConfig(config: kAxisConfig) {
-  //   this.#config = { ...this.#config, ...config };
-  // }
-
-  set config(config: kAxisConfig) {
+  setConfig(config: Partial<kAxisConfig>) {
     this.#config = { ...this.#config, ...config };
   }
 
-  get config(): kAxisConfig {
-    return { ...this.#config };
+  get ctx(): CanvasRenderingContext2D {
+    return this.#ctx;
   }
 
-  get params() {
-    return { ...this.#params };
+  get x(): number {
+    return this.#config.x;
   }
-
-  updateParams(ctx: CanvasRenderingContext2D) {
-    // Tick Labels
-    let engTickDelta =
-      (this.#config.ticks.maxEngValue - this.#config.ticks.minEngValue) / (this.#config.ticks.count - 1);
-    this.#params.ticks.labels = [];
-    for (let i = 0; i < this.#config.ticks.count; i++) {
-      let val = this.#config.ticks.minEngValue + engTickDelta * i;
-      this.#params.ticks.labels.push(val.toFixed(this.#config.text.numOfDecimals));
-    }
-
-    // axis start / end
-    this.#params.ticks.pos.start =
-      this.#config.pos.height - this.#config.text.height / 2 - this.#config.pos.margin.bottom;
-    this.#params.ticks.pos.end = this.#config.text.height / 2 + this.#config.pos.margin.top;
-    this.#params.ticks.pos.delta =
-      Math.abs(this.#params.ticks.pos.end - this.#params.ticks.pos.start) / (this.#config.ticks.count - 1);
-
+  get y(): number {
+    return this.#config.y;
+  }
+  get width(): number {
     // Max text width
-    ctx.font = `${this.#config.text.height}px Monospace`;
+    this.#ctx.font = `${this.#config.text.height}px Monospace`;
     let maxTextWidth = Math.ceil(
       Math.max(
-        ...Array.from(
-          Array(this.#config.ticks.count).keys(),
-          (i) => ctx.measureText(this.#params.ticks.labels[i]).width
-        )
+        ...Array.from(Array(this.#config.ticks.count).keys(), (i) => this.#ctx.measureText(this.ticks.labels[i]).width)
       )
     );
 
-    // Positions
-    this.#params.pos.width =
+    return (
       maxTextWidth +
       this.#config.text.padding +
       this.#config.ticks.length +
       this.#config.line.thickness +
-      this.#config.pos.margin.left +
-      this.#config.pos.margin.right;
-    this.#params.pos.height = this.#config.pos.height;
-    this.#params.pos.x = this.#config.pos.x;
-    this.#params.pos.y = this.#config.pos.y;
-  }
-
-  drawOutline(ctx: CanvasRenderingContext2D) {
-    if (!this.#config.options.showOutline) return;
-    ctx.beginPath();
-    ctx.fillStyle = "red";
-    ctx.rectBorderInside(0, 0, this.#params.pos.width, this.#params.pos.height, 1);
-    ctx.fill();
-  }
-
-  drawVerticalLine(ctx: CanvasRenderingContext2D) {
-    ctx.beginPath();
-    ctx.lineWidth = this.#config.line.thickness;
-    ctx.fillStyle = "black";
-    ctx.rect(
-      this.#params.pos.width - this.#config.line.thickness - this.#config.pos.margin.right,
-      this.#config.pos.margin.top,
-      this.#config.line.thickness,
-      this.#params.pos.height - this.#config.pos.margin.top - this.#config.pos.margin.bottom
+      this.#config.margin.left +
+      this.#config.margin.right
     );
-    ctx.fill();
+  }
+  get height(): number {
+    return this.#config.height;
+  }
+  get margin(): kAxisMargin {
+    return this.#config.margin;
+  }
+  get showOutline(): boolean {
+    return this.#config.showOutline;
+  }
+  get text(): kAxisText {
+    return this.#config.text;
+  }
+  get ticks(): kAxisTicks {
+    // Tick Labels
+    let engTickDelta =
+      (this.#config.ticks.maxEngValue - this.#config.ticks.minEngValue) / (this.#config.ticks.count - 1);
+    let ticksLabels = [];
+    for (let i = 0; i < this.#config.ticks.count; i++) {
+      let val = this.#config.ticks.minEngValue + engTickDelta * i;
+      ticksLabels.push(val.toFixed(this.#config.text.numOfDecimals));
+    }
+    // axis start / end
+    let ticksStart = this.#config.height - this.#config.text.height / 2 - this.#config.margin.bottom;
+    let ticksEnd = this.#config.text.height / 2 + this.#config.margin.top;
+    let ticksDelta = Math.abs(ticksEnd - ticksStart) / (this.#config.ticks.count - 1);
+    // return
+    return { ...this.#config.ticks, ...{ labels: ticksLabels, start: ticksStart, end: ticksEnd, delta: ticksDelta } };
   }
 
-  drawTicks(ctx: CanvasRenderingContext2D) {
-    for (let i = 0; i < this.#config.ticks.count; i++) {
-      ctx.beginPath();
-      ctx.fillStyle = "black";
-      ctx.rect(
-        this.#params.pos.width -
-          this.#config.ticks.length -
-          this.#config.line.thickness -
-          this.#config.pos.margin.right,
-        Math.round(this.#params.ticks.pos.start - this.#params.ticks.pos.delta * i - this.#config.line.thickness / 2),
-        this.#config.ticks.length,
-        this.#config.line.thickness
+  get line(): kAxisLine {
+    return this.#config.line;
+  }
+
+  private drawOutline() {
+    if (!this.showOutline) return;
+    this.#ctx.beginPath();
+    this.#ctx.fillStyle = "red";
+    this.#ctx.rectBorderInside(0, 0, this.width, this.height, 1);
+    this.#ctx.fill();
+  }
+
+  private drawVerticalLine() {
+    this.#ctx.beginPath();
+    this.#ctx.lineWidth = this.line.thickness;
+    this.#ctx.fillStyle = this.line.color;
+    this.#ctx.rect(
+      this.width - this.line.thickness - this.margin.right,
+      this.margin.top,
+      this.line.thickness,
+      this.height - this.margin.top - this.margin.bottom
+    );
+    this.#ctx.fill();
+  }
+
+  private drawTicks() {
+    for (let i = 0; i < this.ticks.count; i++) {
+      this.#ctx.beginPath();
+      this.#ctx.fillStyle = this.line.color;
+      this.#ctx.rect(
+        this.width - this.ticks.length - this.line.thickness - this.margin.right,
+        Math.round(this.ticks.start - this.ticks.delta * i - this.line.thickness / 2),
+        this.ticks.length,
+        this.line.thickness
       );
-      ctx.fill();
+      this.#ctx.fill();
     }
   }
 
-  drawTickLabels(ctx: CanvasRenderingContext2D) {
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "black";
-    ctx.font = `${this.#config.text.height}px Monospace`;
-    for (let i = 0; i < this.#config.ticks.count; i++) {
-      ctx.fillText(
-        this.#params.ticks.labels[i],
-        this.#params.pos.width -
-          this.#config.ticks.length -
-          this.#config.text.padding -
-          this.#config.line.thickness -
-          this.#config.pos.margin.right,
-        this.#params.ticks.pos.start - this.#params.ticks.pos.delta * i + 0.1 * this.#config.text.height
+  private drawTickLabels() {
+    this.#ctx.textAlign = "right";
+    this.#ctx.textBaseline = "middle";
+    this.#ctx.fillStyle = "black";
+    this.#ctx.font = `${this.text.height}px Monospace`;
+    for (let i = 0; i < this.ticks.count; i++) {
+      this.#ctx.fillText(
+        this.ticks.labels[i],
+        this.width - this.ticks.length - this.text.padding - this.line.thickness - this.margin.right,
+        this.ticks.start - this.ticks.delta * i + 0.1 * this.text.height
       );
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D) {
-    this.updateParams(ctx);
-    let storedTransform = ctx.getTransform();
-    ctx.translate(this.#params.pos.x, this.#params.pos.y);
-    this.drawOutline(ctx);
-    this.drawVerticalLine(ctx);
-    this.drawTicks(ctx);
-    this.drawTickLabels(ctx);
-    ctx.setTransform(storedTransform);
+  draw() {
+    let storedTransform = this.ctx.getTransform();
+    this.ctx.translate(this.x, this.y);
+    this.drawOutline();
+    this.drawVerticalLine();
+    this.drawTicks();
+    this.drawTickLabels();
+    this.ctx.setTransform(storedTransform);
   }
 }
 

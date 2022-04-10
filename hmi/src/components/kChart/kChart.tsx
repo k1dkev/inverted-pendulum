@@ -26,7 +26,7 @@ class kChart {
     this.height = 1000;
 
     // private
-    this.axis = new kAxis();
+    // this.axis = new kAxis(undefined, { showOutline: true });
     this.graph = new kGraph();
   }
 
@@ -56,24 +56,24 @@ class kChart {
     this.drawOutline(ctx);
 
     // draw axis
-    let axisConfig = {
-      pos: {
-        height: this.height,
+    if (!this.axis)
+      this.axis = new kAxis(ctx, {
+        showOutline: true,
         x: 0,
         y: 0,
         margin: { top: 10, bottom: 10, left: 10, right: 0 },
-      },
-      options: { showOutline: true },
-    };
-    this.axis.config = { ...this.axis.config, ...axisConfig };
-    this.axis.draw(ctx);
+      });
+    this.axis.setConfig({ height: this.height });
+    // this.axis.line.color = "green";
+    console.log(this.axis);
+    this.axis.draw();
 
     // Draw graph
     let graphConfig = {
       pos: {
-        x: this.axis.params.pos.width,
+        x: this.axis.width,
         y: 0,
-        width: this.width - this.axis.params.pos.width,
+        width: this.width - this.axis.width,
         height: this.height,
         margin: 10,
       },
