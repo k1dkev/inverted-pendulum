@@ -1,117 +1,96 @@
+import { kBase } from "./kChartInterfaces";
+
 //------------------------------------------------------------------------------------
-//                                kGraphConfig
+//                                Interfaces
 //------------------------------------------------------------------------------------
-interface kGraphConfig {
-  pos: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    margin: number;
-  };
-  options: {
-    showOutline: boolean;
-  };
-  numOfPoints: number;
+interface kGraphData extends kBase {
+  readonly numOfPoints: number;
 }
 
+interface kGraphConfig extends Omit<kGraphData, "ctx"> {}
+
 //------------------------------------------------------------------------------------
-//                                kAxisParams
+//                                Classes
 //------------------------------------------------------------------------------------
-interface kGraphParams {
-  pos: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    margin: number;
+class kGraph implements kGraphData {
+  #config: kGraphConfig = {
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100,
+    margin: { top: 0, bottom: 0, left: 0, right: 0 },
+    showOutline: false,
+    numOfPoints: 100,
   };
-}
+  #ctx: CanvasRenderingContext2D;
 
-//------------------------------------------------------------------------------------
-//                                kGraph
-//------------------------------------------------------------------------------------
-class kGraph {
-  #config: kGraphConfig;
-  #params: kGraphParams;
-  constructor() {
-    this.#config = {
-      pos: {
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 100,
-        margin: 10,
-      },
-      options: {
-        showOutline: false,
-      },
-      numOfPoints: 100,
-    };
-
-    // this.updateConfig(config);
-
-    this.#params = {
-      pos: {
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-        margin: 0,
-      },
-    };
-
-    this.updateParams();
+  constructor(ctx: CanvasRenderingContext2D, config?: Partial<kGraphConfig>) {
+    this.#ctx = ctx;
+    if (config) this.setConfig(config);
   }
 
-  updateConfig(config: kGraphConfig) {
+  setConfig(config: Partial<kGraphConfig>) {
     this.#config = { ...this.#config, ...config };
   }
 
-  get params() {
-    return { ...this.#params };
+  get ctx() {
+    return this.#ctx;
   }
 
-  get config() {
-    return { ...this.#config };
+  get x() {
+    return this.#config.x;
   }
 
-  updateParams() {
-    // Positions
-    this.#params.pos.x = this.#config.pos.x;
-    this.#params.pos.y = this.#config.pos.y;
-    this.#params.pos.width = this.#config.pos.width;
-    this.#params.pos.height = this.#config.pos.height;
-    this.#params.pos.margin = this.#config.pos.margin;
+  get y() {
+    return this.#config.y;
   }
 
-  drawLine(ctx: CanvasRenderingContext2D, t: number) {
-    ctx.moveTo(0, this.#config.pos.height / 2);
-    ctx.beginPath();
-    for (let i = 0; i <= this.#config.numOfPoints; i++) {
-      let x = (i * this.#config.pos.width) / this.#config.numOfPoints;
-      let y = (this.#config.pos.height / 4) * Math.sin(x / 100 + t / 500) + this.#config.pos.height / 2;
-      ctx.lineTo(x, y);
+  get width() {
+    return this.#config.width;
+  }
+
+  get height() {
+    return this.#config.height;
+  }
+
+  get margin() {
+    return this.#config.margin;
+  }
+
+  get showOutline() {
+    return this.#config.showOutline;
+  }
+
+  get numOfPoints() {
+    return this.#config.numOfPoints;
+  }
+
+  drawLine(t: number) {
+    this.ctx.moveTo(0, this.height / 2);
+    this.ctx.beginPath();
+    for (let i = 0; i <= this.numOfPoints; i++) {
+      let x = (i * this.width) / this.numOfPoints;
+      let y = (this.height / 4) * Math.sin(x / 100 + t / 500) + this.height / 2;
+      this.ctx.lineTo(x, y);
     }
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    this.ctx.lineWidth = 3;
+    this.ctx.stroke();
   }
 
-  drawOutline(ctx: CanvasRenderingContext2D) {
-    if (!this.#config.options.showOutline) return;
-    ctx.beginPath();
-    ctx.fillStyle = "blue";
-    ctx.rectBorderInside(0, 0, this.#params.pos.width, this.#params.pos.height, 1);
-    ctx.fill();
+  drawOutline() {
+    if (!this.showOutline) return;
+    this.ctx.beginPath();
+    this.ctx.fillStyle = "blue";
+    this.ctx.rectBorderInside(0, 0, this.width, this.height, 1);
+    this.ctx.fill();
   }
 
-  draw(ctx: CanvasRenderingContext2D, t: number) {
-    const storedTransform = ctx.getTransform();
-    ctx.translate(this.#params.pos.x, this.#params.pos.y);
-    this.updateParams();
-    this.drawLine(ctx, t);
-    this.drawOutline(ctx);
-    ctx.setTransform(storedTransform);
+  draw(t: number) {
+    const storedTransform = this.ctx.getTransform();
+    this.ctx.translate(this.x, this.y);
+    this.drawLine(t);
+    this.drawOutline();
+    this.ctx.setTransform(storedTransform);
   }
 }
 

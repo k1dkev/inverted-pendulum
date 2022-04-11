@@ -1,14 +1,9 @@
+import { kBase } from "./kChartInterfaces";
+
 //------------------------------------------------------------------------------------
 //                                Interfaces
 //------------------------------------------------------------------------------------
-interface kAxisData {
-  readonly ctx: CanvasRenderingContext2D;
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-  readonly margin: { readonly top: number; readonly bottom: number; readonly left: number; readonly right: number };
-  readonly showOutline: boolean;
+interface kAxisData extends kBase {
   readonly text: {
     readonly color: string;
     readonly height: number;

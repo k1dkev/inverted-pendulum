@@ -24,10 +24,6 @@ class kChart {
     // Calculated
     this.width = 1000;
     this.height = 1000;
-
-    // private
-    // this.axis = new kAxis(undefined, { showOutline: true });
-    this.graph = new kGraph();
   }
 
   updateParams(canvas: HTMLCanvasElement) {
@@ -66,19 +62,17 @@ class kChart {
     this.axis.setConfig({ height: this.height });
     this.axis.draw();
 
-    // Draw graph
-    let graphConfig = {
-      pos: {
+    // draw graph
+    if (!this.graph)
+      this.graph = new kGraph(ctx, {
         x: this.axis.width,
         y: 0,
         width: this.width - this.axis.width,
         height: this.height,
-        margin: 10,
-      },
-      options: { showOutline: true },
-    };
-    this.graph.updateConfig({ ...this.graph.config, ...graphConfig });
-    this.graph.draw(ctx, t);
+        showOutline: true,
+      });
+    this.graph.setConfig({ x: this.axis.width, width: this.width - this.axis.width, height: this.height });
+    this.graph.draw(t);
 
     // reset transform to stored
     ctx.setTransform(storedTransform);
