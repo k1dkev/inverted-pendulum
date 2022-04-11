@@ -1,5 +1,5 @@
 import React from "react";
-import useCanvas from "../../hooks/useCanvas";
+import useCanvas from "./useCanvas";
 import "./Canvas.css";
 
 const Canvas = (props) => {

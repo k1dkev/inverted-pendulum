@@ -47,8 +47,8 @@ function App() {
           <div className="box">
             <p>TestCanvas</p>
             <Canvas
-              draw={(canvas, t) => {
-                mykChart.draw(canvas, t);
+              draw={(ctx, t) => {
+                mykChart.draw(ctx, t);
               }}
             />
           </div>

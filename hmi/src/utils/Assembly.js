@@ -96,8 +96,7 @@ function Assembly(pxPerMM) {
   };
 
   // Main draw function
-  this.draw = (canvas, t) => {
-    let ctx = canvas.getContext("2d");
+  this.draw = (ctx, t) => {
     // Clear canvas (canvas clears when setting the width and height)
     if (!canvasSizeSet) {
       ctx.canvas.width = pxPerMM * W;

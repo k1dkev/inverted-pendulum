@@ -65,7 +65,7 @@ class kGraph implements kGraphData {
     return this.#config.numOfPoints;
   }
 
-  drawLine(t: number) {
+  private drawLine(t: number) {
     this.ctx.moveTo(0, this.height / 2);
     this.ctx.beginPath();
     for (let i = 0; i <= this.numOfPoints; i++) {
@@ -77,7 +77,7 @@ class kGraph implements kGraphData {
     this.ctx.stroke();
   }
 
-  drawOutline() {
+  private drawOutline() {
     if (!this.showOutline) return;
     this.ctx.beginPath();
     this.ctx.fillStyle = "blue";

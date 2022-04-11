@@ -9,8 +9,7 @@ const useCanvas = (draw) => {
     let animationFrameId;
 
     const render = (t) => {
-      // console.log(`Offset Width: ${canvas.offsetWidth}`);
-      draw(canvas, t);
+      draw(canvas.getContext("2d"), t);
       animationFrameId = window.requestAnimationFrame(render);
     };
     render();
