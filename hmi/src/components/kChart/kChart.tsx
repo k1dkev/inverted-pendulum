@@ -3,9 +3,9 @@ import kGraph from "./kGraph";
 import "./CanvasRenderingContext2D.extensions";
 import { kBase } from "./kChartInterfaces";
 
-//------------------------------------------------------------------------------------
-//                                Interfaces
-//------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+//                                                  Interfaces
+//----------------------------------------------------------------------------------------------------------------------
 interface kChartData extends Omit<kBase, "ctx"> {
   readonly ctx: CanvasRenderingContext2D | null;
   readonly aspectRatio: number;
@@ -15,9 +15,9 @@ interface kChartData extends Omit<kBase, "ctx"> {
 
 interface kChartConfig extends Omit<kChartData, "ctx" | "axis" | "graph" | "canvas" | "width" | "height"> {}
 
-//------------------------------------------------------------------------------------
-//                                kChart
-//------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+//                                                  Class
+//----------------------------------------------------------------------------------------------------------------------
 class kChart implements kChartData {
   #config: kChartConfig = {
     x: 0,
@@ -34,7 +34,6 @@ class kChart implements kChartData {
     this.#ctx = null;
     this.#axis = null;
     this.#graph = null;
-
     if (config) this.setConfig(config);
   }
 
