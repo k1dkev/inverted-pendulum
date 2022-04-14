@@ -102,8 +102,8 @@ class kChart implements kChartData {
     this.ctx.canvas.width = this.width;
     this.ctx.canvas.height = this.height;
 
-    // store transform
-    let storedTransform = this.ctx.getTransform();
+    // save
+    this.ctx.save();
 
     // draw outline
     this.drawOutline();
@@ -111,7 +111,7 @@ class kChart implements kChartData {
     // draw axis
     if (!this.#axis) {
       this.#axis = new kAxis(this.ctx, {
-        showOutline: true,
+        showOutline: false,
         x: 0,
         y: 0,
         margin: { top: 10, bottom: 10, left: 10, right: 0 },
@@ -128,7 +128,7 @@ class kChart implements kChartData {
         y: 0,
         width: this.width - this.axis.width,
         height: this.height,
-        showOutline: true,
+        showOutline: false,
       });
     }
     if (!this.graph) return;
@@ -136,7 +136,7 @@ class kChart implements kChartData {
     this.graph.draw(t);
 
     // reset transform to stored
-    this.ctx.setTransform(storedTransform);
+    this.ctx.restore();
   }
 }
 

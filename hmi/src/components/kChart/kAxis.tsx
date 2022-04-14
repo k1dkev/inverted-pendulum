@@ -190,13 +190,23 @@ class kAxis implements kAxisData {
   }
 
   draw() {
-    let storedTransform = this.ctx.getTransform();
+    // save
+    this.ctx.save();
+
+    // Transform and clip
     this.ctx.translate(this.x, this.y);
+    this.ctx.beginPath();
+    this.ctx.rect(0, 0, this.width, this.height);
+    this.ctx.clip();
+
+    // Draw objects
     this.drawOutline();
     this.drawVerticalLine();
     this.drawTicks();
     this.drawTickLabels();
-    this.ctx.setTransform(storedTransform);
+
+    // restore
+    this.ctx.restore();
   }
 }
 

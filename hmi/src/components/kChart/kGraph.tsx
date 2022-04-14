@@ -86,11 +86,21 @@ class kGraph implements kGraphData {
   }
 
   draw(t: number) {
-    const storedTransform = this.ctx.getTransform();
+    // save
+    this.ctx.save();
+
+    // Transform and clip
     this.ctx.translate(this.x, this.y);
+    this.ctx.beginPath();
+    this.ctx.rect(0, 0, this.width, this.height);
+    this.ctx.clip();
+
+    // Draw objects
     this.drawLine(t);
     this.drawOutline();
-    this.ctx.setTransform(storedTransform);
+
+    // restore
+    this.ctx.restore();
   }
 }
 

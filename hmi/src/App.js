@@ -25,7 +25,7 @@ function App() {
   // const getData = () => {
   //   return x ? x[0] : 0;
   // };
-  var mykChart = new kChart();
+  var mykChart = new kChart({ showOutline: true });
 
   return (
     <>
