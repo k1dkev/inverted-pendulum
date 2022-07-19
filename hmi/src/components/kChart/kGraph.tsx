@@ -69,9 +69,9 @@ class kGraph implements kGraphData {
     this.ctx.moveTo(0, this.height / 2);
     this.ctx.beginPath();
     for (let i = 0; i <= this.numOfPoints; i++) {
-      let x = (i * this.width) / this.numOfPoints;
-      let y = (this.height / 4) * Math.sin(x / 100 + t / 500) + this.height / 2;
-      this.ctx.lineTo(x, y);
+      let x = i / this.numOfPoints;
+      let y = 0.5 + 0.25 * Math.sin(10 * x + t / 500);
+      this.ctx.lineTo(x * this.width, y * this.height);
     }
     this.ctx.lineWidth = 3;
     this.ctx.stroke();
