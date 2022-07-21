@@ -13,9 +13,10 @@ export interface kLayout {
   readonly margin: kMargin;
 }
 
-export interface kBase extends kLayout {
-  readonly ctx: CanvasRenderingContext2D;
-  readonly showOutline: boolean;
-}
+export type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: DeepPartial<T[P]>;
+    }
+  : T;
 
 export default {};

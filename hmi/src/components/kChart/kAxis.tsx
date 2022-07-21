@@ -1,48 +1,58 @@
-import { kBase } from "./kChartInterfaces";
+import { kLayout, DeepPartial } from "./kChartInterfaces";
+import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kAxisData extends kBase {
-  readonly text: {
-    readonly color: string;
-    readonly height: number;
-    readonly numOfDecimals: number;
-    readonly padding: number;
-  };
-  readonly ticks: {
-    readonly color: string;
-    readonly length: number;
-    readonly count: number;
-    readonly minEngValue: number;
-    readonly maxEngValue: number;
-    readonly start: number;
-    readonly end: number;
-    readonly delta: number;
-    readonly labels: string[];
-  };
-  readonly line: { readonly color: string; readonly thickness: number };
+interface kAxisTicks {
+  readonly color: string;
+  readonly length: number;
+  readonly count: number;
+  readonly minEngValue: number;
+  readonly maxEngValue: number;
+  readonly start: number;
+  readonly end: number;
+  readonly delta: number;
+  readonly labels: string[];
 }
 
-interface kAxisConfig extends Omit<kAxisData, "width" | "ticks" | "ctx"> {
-  readonly ticks: {
-    readonly color: string;
-    readonly length: number;
-    readonly count: number;
-    readonly minEngValue: number;
-    readonly maxEngValue: number;
-  };
+interface kAxisText {
+  readonly color: string;
+  readonly height: number;
+  readonly numOfDecimals: number;
+  readonly padding: number;
+}
+
+interface kAxisLine {
+  readonly color: string;
+  readonly thickness: number;
+}
+
+interface kAxisInterface {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly layout: kLayout;
+  readonly showOutline: boolean;
+  readonly text: kAxisText;
+  readonly ticks: kAxisTicks;
+  readonly line: kAxisLine;
+}
+
+interface kAxisConfig extends Omit<kAxisInterface, "layout" | "ticks" | "ctx"> {
+  readonly layout: Omit<kLayout, "width">;
+  readonly ticks: Omit<kAxisTicks, "start" | "end" | "delta" | "labels">;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kAxis implements kAxisData {
+class kAxis implements kAxisInterface {
   #config: kAxisConfig = {
-    x: 0,
-    y: 0,
-    height: 100,
-    margin: { top: 0, bottom: 0, left: 0, right: 0 },
+    layout: {
+      x: 0,
+      y: 0,
+      height: 100,
+      margin: { top: 0, bottom: 0, left: 0, right: 0 },
+    },
     showOutline: false,
     text: {
       color: "#000000",
@@ -64,51 +74,34 @@ class kAxis implements kAxisData {
   };
   #ctx: CanvasRenderingContext2D;
 
-  constructor(ctx: CanvasRenderingContext2D, config?: Partial<kAxisConfig>) {
+  constructor(ctx: CanvasRenderingContext2D, config?: DeepPartial<kAxisConfig>) {
     this.#ctx = ctx;
     if (config) this.setConfig(config);
   }
 
-  setConfig(config: Partial<kAxisConfig>) {
-    this.#config = { ...this.#config, ...config };
+  setConfig(config: DeepPartial<kAxisConfig>) {
+    this.#config = merge(this.#config, config);
   }
 
   get ctx() {
     return this.#ctx;
   }
 
-  get x() {
-    return this.#config.x;
-  }
-
-  get y() {
-    return this.#config.y;
-  }
-
-  get width() {
-    // Max text width
+  get layout() {
     this.ctx.font = `${this.#config.text.height}px Monospace`;
     let maxTextWidth = Math.ceil(
       Math.max(
         ...Array.from(Array(this.#config.ticks.count).keys(), (i) => this.ctx.measureText(this.ticks.labels[i]).width)
       )
     );
-
-    return (
+    let width =
       maxTextWidth +
       this.#config.text.padding +
       this.#config.ticks.length +
       this.#config.line.thickness +
-      this.#config.margin.left +
-      this.#config.margin.right
-    );
-  }
-  get height() {
-    return this.#config.height;
-  }
-
-  get margin() {
-    return this.#config.margin;
+      this.#config.layout.margin.left +
+      this.#config.layout.margin.right;
+    return merge(this.#config.layout, { width: width });
   }
 
   get showOutline() {
@@ -129,11 +122,19 @@ class kAxis implements kAxisData {
       ticksLabels.push(val.toFixed(this.#config.text.numOfDecimals));
     }
     // axis start / end
-    let ticksStart = this.#config.height - this.#config.text.height / 2 - this.#config.margin.bottom;
-    let ticksEnd = this.#config.text.height / 2 + this.#config.margin.top;
+    let ticksStart = this.#config.layout.height - this.#config.text.height / 2 - this.#config.layout.margin.bottom;
+    let ticksEnd = this.#config.text.height / 2 + this.#config.layout.margin.top;
     let ticksDelta = Math.abs(ticksEnd - ticksStart) / (this.#config.ticks.count - 1);
     // return
-    return { ...this.#config.ticks, ...{ labels: ticksLabels, start: ticksStart, end: ticksEnd, delta: ticksDelta } };
+    return {
+      ...this.#config.ticks,
+      ...{
+        labels: ticksLabels,
+        start: ticksStart,
+        end: ticksEnd,
+        delta: ticksDelta,
+      },
+    };
   }
 
   get line() {
@@ -144,7 +145,7 @@ class kAxis implements kAxisData {
     if (!this.showOutline) return;
     this.ctx.beginPath();
     this.ctx.fillStyle = "red";
-    this.ctx.rectBorderInside(0, 0, this.width, this.height, 1);
+    this.ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
     this.ctx.fill();
   }
 
@@ -153,10 +154,10 @@ class kAxis implements kAxisData {
     this.ctx.lineWidth = this.line.thickness;
     this.ctx.fillStyle = this.line.color;
     this.ctx.rect(
-      this.width - this.line.thickness - this.margin.right,
-      this.margin.top,
+      this.layout.width - this.line.thickness - this.layout.margin.right,
+      this.layout.margin.top,
       this.line.thickness,
-      this.height - this.margin.top - this.margin.bottom
+      this.layout.height - this.layout.margin.top - this.layout.margin.bottom
     );
     this.ctx.fill();
   }
@@ -166,7 +167,7 @@ class kAxis implements kAxisData {
       this.ctx.beginPath();
       this.ctx.fillStyle = this.line.color;
       this.ctx.rect(
-        this.width - this.ticks.length - this.line.thickness - this.margin.right,
+        this.layout.width - this.ticks.length - this.line.thickness - this.layout.margin.right,
         Math.round(this.ticks.start - this.ticks.delta * i - this.line.thickness / 2),
         this.ticks.length,
         this.line.thickness
@@ -183,7 +184,7 @@ class kAxis implements kAxisData {
     for (let i = 0; i < this.ticks.count; i++) {
       this.ctx.fillText(
         this.ticks.labels[i],
-        this.width - this.ticks.length - this.text.padding - this.line.thickness - this.margin.right,
+        this.layout.width - this.ticks.length - this.text.padding - this.line.thickness - this.layout.margin.right,
         this.ticks.start - this.ticks.delta * i + 0.1 * this.text.height
       );
     }
@@ -194,9 +195,9 @@ class kAxis implements kAxisData {
     this.ctx.save();
 
     // Transform and clip
-    this.ctx.translate(this.x, this.y);
+    this.ctx.translate(this.layout.x, this.layout.y);
     this.ctx.beginPath();
-    this.ctx.rect(0, 0, this.width, this.height);
+    this.ctx.rect(0, 0, this.layout.width, this.layout.height);
     this.ctx.clip();
 
     // Draw objects

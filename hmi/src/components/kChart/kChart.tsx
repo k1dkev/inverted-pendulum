@@ -1,28 +1,35 @@
 import kAxis from "./kAxis";
 import kGraph from "./kGraph";
 import "./CanvasRenderingContext2D.extensions";
-import { kBase } from "./kChartInterfaces";
+import { kLayout, DeepPartial } from "./kChartInterfaces";
+import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kChartData extends Omit<kBase, "ctx"> {
+interface kChartInterface {
   readonly ctx: CanvasRenderingContext2D | null;
+  readonly layout: kLayout;
+  readonly showOutline: boolean;
   readonly aspectRatio: number;
   readonly axis: kAxis | null;
   readonly graph: kGraph | null;
 }
 
-interface kChartConfig extends Omit<kChartData, "ctx" | "axis" | "graph" | "canvas" | "width" | "height"> {}
+interface kChartConfig extends Omit<kChartInterface, "ctx" | "axis" | "graph" | "layout"> {
+  layout: Omit<kLayout, "width" | "height">;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kChart implements kChartData {
+class kChart implements kChartInterface {
   #config: kChartConfig = {
-    x: 0,
-    y: 0,
-    margin: { top: 0, bottom: 0, left: 0, right: 0 },
+    layout: {
+      x: 0,
+      y: 0,
+      margin: { top: 0, bottom: 0, left: 0, right: 0 },
+    },
     showOutline: false,
     aspectRatio: 1.5,
   };
@@ -30,43 +37,25 @@ class kChart implements kChartData {
   #axis: kAxis | null;
   #graph: kGraph | null;
 
-  constructor(config?: Partial<kChartConfig>) {
+  constructor(config?: DeepPartial<kChartConfig>) {
     this.#ctx = null;
     this.#axis = null;
     this.#graph = null;
     if (config) this.setConfig(config);
   }
 
-  setConfig(config: Partial<kChartConfig>) {
-    this.#config = { ...this.#config, ...config };
+  setConfig(config: DeepPartial<kChartConfig>) {
+    this.#config = merge(this.#config, config);
   }
 
   get ctx() {
     return this.#ctx;
   }
 
-  get x() {
-    return this.#config.x;
-  }
-
-  get y() {
-    return this.#config.y;
-  }
-
-  get width() {
-    if (!this.ctx) return 0;
-    let width = Math.floor(this.ctx.canvas.offsetWidth);
-    return width;
-  }
-
-  get height() {
-    if (!this.ctx) return 0;
-    let height = Math.floor(this.ctx.canvas.offsetWidth / this.aspectRatio);
-    return height;
-  }
-
-  get margin() {
-    return this.#config.margin;
+  get layout() {
+    let width = this.ctx ? Math.floor(this.ctx.canvas.offsetWidth) : 0;
+    let height = this.ctx ? Math.floor(this.ctx.canvas.offsetWidth / this.aspectRatio) : 0;
+    return merge(this.#config.layout, { width: width, height: height });
   }
 
   get showOutline() {
@@ -89,7 +78,7 @@ class kChart implements kChartData {
     if (!this.showOutline || !this.ctx) return;
     this.ctx.beginPath();
     this.ctx.fillStyle = "black";
-    this.ctx.rectBorderInside(0, 0, this.width, this.height, 1);
+    this.ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
     this.ctx.fill();
   }
 
@@ -99,8 +88,8 @@ class kChart implements kChartData {
     if (!this.ctx) return;
 
     // set canvas width and height
-    this.ctx.canvas.width = this.width;
-    this.ctx.canvas.height = this.height;
+    this.ctx.canvas.width = this.layout.width;
+    this.ctx.canvas.height = this.layout.height;
 
     // save
     this.ctx.save();
@@ -112,27 +101,37 @@ class kChart implements kChartData {
     if (!this.#axis) {
       this.#axis = new kAxis(this.ctx, {
         showOutline: false,
-        x: 0,
-        y: 0,
-        margin: { top: 10, bottom: 10, left: 10, right: 0 },
+        layout: {
+          x: 0,
+          y: 0,
+          margin: { top: 10, bottom: 10, left: 10, right: 0 },
+        },
       });
     }
     if (!this.axis) return;
-    this.axis.setConfig({ height: this.height });
+    this.axis.setConfig({ layout: { height: this.layout.height } });
     this.axis.draw();
 
     // draw graph
     if (!this.#graph) {
       this.#graph = new kGraph(this.ctx, {
-        x: this.axis.width,
-        y: 0,
-        width: this.width - this.axis.width,
-        height: this.height,
+        layout: {
+          x: this.axis.layout.width,
+          y: 0,
+          width: this.layout.width - this.axis.layout.width,
+          height: this.layout.height,
+        },
         showOutline: false,
       });
     }
     if (!this.graph) return;
-    this.graph.setConfig({ x: this.axis.width, width: this.width - this.axis.width, height: this.height });
+    this.graph.setConfig({
+      layout: {
+        x: this.axis.layout.width,
+        width: this.layout.width - this.axis.layout.width,
+        height: this.layout.height,
+      },
+    });
     this.graph.draw(t);
 
     // reset transform to stored

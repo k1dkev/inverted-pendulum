@@ -1,60 +1,50 @@
-import { kBase } from "./kChartInterfaces";
+import { kLayout, DeepPartial } from "./kChartInterfaces";
+import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kGraphData extends kBase {
+interface kGraphInterface {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly layout: kLayout;
+  readonly showOutline: boolean;
   readonly numOfPoints: number;
 }
 
-interface kGraphConfig extends Omit<kGraphData, "ctx"> {}
+interface kGraphConfig extends Omit<kGraphInterface, "ctx"> {}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kGraph implements kGraphData {
+class kGraph implements kGraphInterface {
   #config: kGraphConfig = {
-    x: 0,
-    y: 0,
-    width: 100,
-    height: 100,
-    margin: { top: 0, bottom: 0, left: 0, right: 0 },
+    layout: {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      margin: { top: 0, bottom: 0, left: 0, right: 0 },
+    },
     showOutline: false,
     numOfPoints: 100,
   };
   #ctx: CanvasRenderingContext2D;
 
-  constructor(ctx: CanvasRenderingContext2D, config?: Partial<kGraphConfig>) {
+  constructor(ctx: CanvasRenderingContext2D, config?: DeepPartial<kGraphConfig>) {
     this.#ctx = ctx;
     if (config) this.setConfig(config);
   }
 
-  setConfig(config: Partial<kGraphConfig>) {
-    this.#config = { ...this.#config, ...config };
+  setConfig(config: DeepPartial<kGraphConfig>) {
+    this.#config = merge(this.#config, config);
   }
 
   get ctx() {
     return this.#ctx;
   }
 
-  get x() {
-    return this.#config.x;
-  }
-
-  get y() {
-    return this.#config.y;
-  }
-
-  get width() {
-    return this.#config.width;
-  }
-
-  get height() {
-    return this.#config.height;
-  }
-
-  get margin() {
-    return this.#config.margin;
+  get layout() {
+    return this.#config.layout;
   }
 
   get showOutline() {
@@ -66,12 +56,12 @@ class kGraph implements kGraphData {
   }
 
   private drawLine(t: number) {
-    this.ctx.moveTo(0, this.height / 2);
+    this.ctx.moveTo(0, this.layout.height / 2);
     this.ctx.beginPath();
     for (let i = 0; i <= this.numOfPoints; i++) {
       let x = i / this.numOfPoints;
       let y = 0.5 + 0.25 * Math.sin(10 * x + t / 500);
-      this.ctx.lineTo(x * this.width, y * this.height);
+      this.ctx.lineTo(x * this.layout.width, y * this.layout.height);
     }
     this.ctx.lineWidth = 3;
     this.ctx.stroke();
@@ -81,7 +71,7 @@ class kGraph implements kGraphData {
     if (!this.showOutline) return;
     this.ctx.beginPath();
     this.ctx.fillStyle = "blue";
-    this.ctx.rectBorderInside(0, 0, this.width, this.height, 1);
+    this.ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
     this.ctx.fill();
   }
 
@@ -90,9 +80,9 @@ class kGraph implements kGraphData {
     this.ctx.save();
 
     // Transform and clip
-    this.ctx.translate(this.x, this.y);
+    this.ctx.translate(this.layout.x, this.layout.y);
     this.ctx.beginPath();
-    this.ctx.rect(0, 0, this.width, this.height);
+    this.ctx.rect(0, 0, this.layout.width, this.layout.height);
     this.ctx.clip();
 
     // Draw objects
