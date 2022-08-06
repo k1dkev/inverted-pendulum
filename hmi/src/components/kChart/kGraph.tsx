@@ -4,19 +4,19 @@ import { merge } from "lodash";
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kGraphInterface {
+interface kGraphData {
   readonly ctx: CanvasRenderingContext2D;
   readonly layout: kLayout;
   readonly showOutline: boolean;
   readonly numOfPoints: number;
 }
 
-interface kGraphConfig extends Omit<kGraphInterface, "ctx"> {}
+interface kGraphConfig extends Omit<kGraphData, "ctx"> {}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kGraph implements kGraphInterface {
+class kGraph implements kGraphData {
   #config: kGraphConfig = {
     layout: {
       x: 0,
@@ -74,6 +74,8 @@ class kGraph implements kGraphInterface {
     this.ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
     this.ctx.fill();
   }
+
+  addDataPoint() {}
 
   draw(t: number) {
     // save

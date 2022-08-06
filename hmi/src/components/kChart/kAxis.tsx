@@ -28,7 +28,7 @@ interface kAxisLine {
   readonly thickness: number;
 }
 
-interface kAxisInterface {
+interface kAxisData {
   readonly ctx: CanvasRenderingContext2D;
   readonly layout: kLayout;
   readonly showOutline: boolean;
@@ -37,7 +37,7 @@ interface kAxisInterface {
   readonly line: kAxisLine;
 }
 
-interface kAxisConfig extends Omit<kAxisInterface, "layout" | "ticks" | "ctx"> {
+interface kAxisConfig extends Omit<kAxisData, "layout" | "ticks" | "ctx"> {
   readonly layout: Omit<kLayout, "width">;
   readonly ticks: Omit<kAxisTicks, "start" | "end" | "delta" | "labels">;
 }
@@ -45,7 +45,7 @@ interface kAxisConfig extends Omit<kAxisInterface, "layout" | "ticks" | "ctx"> {
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kAxis implements kAxisInterface {
+class kAxis implements kAxisData {
   #config: kAxisConfig = {
     layout: {
       x: 0,
@@ -126,15 +126,12 @@ class kAxis implements kAxisInterface {
     let ticksEnd = this.#config.text.height / 2 + this.#config.layout.margin.top;
     let ticksDelta = Math.abs(ticksEnd - ticksStart) / (this.#config.ticks.count - 1);
     // return
-    return {
-      ...this.#config.ticks,
-      ...{
-        labels: ticksLabels,
-        start: ticksStart,
-        end: ticksEnd,
-        delta: ticksDelta,
-      },
-    };
+    return merge(this.#config.ticks, {
+      labels: ticksLabels,
+      start: ticksStart,
+      end: ticksEnd,
+      delta: ticksDelta,
+    });
   }
 
   get line() {

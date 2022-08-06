@@ -7,7 +7,7 @@ import { merge } from "lodash";
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kChartInterface {
+interface kChartData {
   readonly ctx: CanvasRenderingContext2D | null;
   readonly layout: kLayout;
   readonly showOutline: boolean;
@@ -16,14 +16,14 @@ interface kChartInterface {
   readonly graph: kGraph | null;
 }
 
-interface kChartConfig extends Omit<kChartInterface, "ctx" | "axis" | "graph" | "layout"> {
+interface kChartConfig extends Omit<kChartData, "ctx" | "axis" | "graph" | "layout"> {
   layout: Omit<kLayout, "width" | "height">;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kChart implements kChartInterface {
+class kChart implements kChartData {
   #config: kChartConfig = {
     layout: {
       x: 0,

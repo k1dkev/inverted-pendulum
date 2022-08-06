@@ -1,0 +1,16 @@
+Pen
+    - label
+    - data
+    - display/draw/show
+    - color
+    - linked axis
+
+
+dataset
+    - label : string
+    - data : [{x,y}, {x,y}, {x,y}]
+
+Chart
+    - Graph
+    - Axes
+    -
