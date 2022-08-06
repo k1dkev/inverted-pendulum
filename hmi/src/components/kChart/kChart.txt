@@ -12,5 +12,7 @@ dataset
 
 Chart
     - Graph
+        - drawPens()
     - Axes
-    -
+    - Datasets
+    - Pens
