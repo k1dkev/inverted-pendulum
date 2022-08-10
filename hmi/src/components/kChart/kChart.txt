@@ -1,18 +1,25 @@
 Pen
     - label
-    - data
+    - dataset reference
     - display/draw/show
     - color
-    - linked axis
-
+    - axis reference
 
 dataset
     - label : string
     - data : [{x,y}, {x,y}, {x,y}]
 
-Chart
+Chart Class
     - Graph
         - drawPens()
-    - Axes
-    - Datasets
-    - Pens
+    - Axes[]
+        - drawAxes()
+    - Pens[]
+
+Data Class
+    - NumOfPoints
+    - AddDataPoint()
+        - Keeps it to the configured amount of data points
+    - ClearData()
+        - dataset.data = []
+    
