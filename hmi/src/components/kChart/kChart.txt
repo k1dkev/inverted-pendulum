@@ -16,7 +16,7 @@ Axis Class
     - 
 
 Graph Class
-    - drawLine(data, axis, pen)
+    - drawLine(pen)
 
 Chart Class
     - Objects
