@@ -1,25 +1,29 @@
-Pen
+Data Class
+    - numOfPoints : number
+    - label : string
+    - data : array of points
+    - addDataPoint()
+    - clearData()
+
+Pen Class
     - label
     - dataset reference
     - display/draw/show
     - color
     - axis reference
 
-dataset
-    - label : string
-    - data : [{x,y}, {x,y}, {x,y}]
+Axis Class
+    - 
+
+Graph Class
+    - drawLine(data, axis, pen)
 
 Chart Class
-    - Graph
-        - drawPens()
-    - Axes[]
-        - drawAxes()
-    - Pens[]
-
-Data Class
-    - NumOfPoints
-    - AddDataPoint()
-        - Keeps it to the configured amount of data points
-    - ClearData()
-        - dataset.data = []
-    
+    - Objects
+        - Graph
+        - Axes[]
+        - Pens[]
+    - drawPens()
+    - drawAxes()
+    - createAxis()
+    - createPen()

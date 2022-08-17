@@ -1,167 +1,64 @@
-Pen
-    - label
-    - dataset reference
-    - display/draw/show
-    - color
-    - axis reference
-
-dataset
-    - label : string
-    - data : [{x,y}, {x,y}, {x,y}]
-
-Chart Class
-    - Graph
-        - drawPens()
-    - Axes[]
-        - drawAxes()
-    - Pens[]
-
-Data Class
-    - NumOfPoints
-    - AddDataPoint()
-        - Keeps it to the configured amount of data points
-    - ClearData()
-        - dataset.data = []
-
-
-import kAxis from "./kAxis";
-import kGraph from "./kGraph";
 import "./CanvasRenderingContext2D.extensions";
-import { kLayout, DeepPartial } from "./kChartInterfaces";
+import { DeepPartial } from "./kChartInterfaces";
 import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface DataPoint {
+interface kDataPoint {
   readonly x: number;
-     readonly y: number;
-    
-    
-    }
-    
-interface Dataset {
-    readonly label: string;
-    readonly data: Array<DataPoint>;
+  readonly y: number;
 }
+
+interface kDataData {
+  readonly label: string;
+  readonly data: Array<kDataPoint>;
+  readonly maxNumOfPoints: number;
+}
+
+interface kDataConfig extends Omit<kDataData, "data"> {}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kData implements kChartData {
-  #config: kChartConfig = {
-    layout: {
-      x: 0,
-      y: 0,
-      margin: { top: 0, bottom: 0, left: 0, right: 0 },
-    },
-    showOutline: false,
-    aspectRatio: 1.5,
+class kData implements kDataData {
+  #config: kDataConfig = {
+    label: "",
+    maxNumOfPoints: 0,
   };
-  #ctx: CanvasRenderingContext2D | null;
-  #axis: kAxis | null;
-  #graph: kGraph | null;
+  #data: Array<kDataPoint>;
 
-  constructor(config?: DeepPartial<kChartConfig>) {
-    this.#ctx = null;
-    this.#axis = null;
-    this.#graph = null;
+  constructor(config?: DeepPartial<kDataConfig>) {
+    this.#data = [];
     if (config) this.setConfig(config);
   }
 
-  setConfig(config: DeepPartial<kChartConfig>) {
+  setConfig(config: DeepPartial<kDataConfig>) {
     this.#config = merge(this.#config, config);
   }
 
-  get ctx() {
-    return this.#ctx;
-  }
-
-  get layout() {
-    let width = this.ctx ? Math.floor(this.ctx.canvas.offsetWidth) : 0;
-    let height = this.ctx ? Math.floor(this.ctx.canvas.offsetWidth / this.aspectRatio) : 0;
-    return merge(this.#config.layout, { width: width, height: height });
-  }
-
-  get showOutline() {
-    return this.#config.showOutline;
-  }
-
-  get aspectRatio() {
-    return this.#config.aspectRatio;
-  }
-
-  get axis() {
-    return this.#axis;
-  }
-
-  get graph() {
-    return this.#graph;
-  }
-
-  private drawOutline() {
-    if (!this.showOutline || !this.ctx) return;
-    this.ctx.beginPath();
-    this.ctx.fillStyle = "black";
-    this.ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
-    this.ctx.fill();
-  }
-
-  draw(ctx: CanvasRenderingContext2D, t: number) {
-    // set ctx
-    this.#ctx = ctx;
-    if (!this.ctx) return;
-
-    // set canvas width and height
-    this.ctx.canvas.width = this.layout.width;
-    this.ctx.canvas.height = this.layout.height;
-
-    // save
-    this.ctx.save();
-
-    // draw outline
-    this.drawOutline();
-
-    // draw axis
-    if (!this.#axis) {
-      this.#axis = new kAxis(this.ctx, {
-        showOutline: false,
-        layout: {
-          x: 0,
-          y: 0,
-          margin: { top: 10, bottom: 10, left: 10, right: 0 },
-        },
-      });
+  addDataPoint(point: kDataPoint) {
+    this.#data.push(point);
+    while (this.#data.length > this.maxNumOfPoints) {
+      this.#data.pop();
     }
-    if (!this.axis) return;
-    this.axis.setConfig({ layout: { height: this.layout.height } });
-    this.axis.draw();
+  }
 
-    // draw graph
-    if (!this.#graph) {
-      this.#graph = new kGraph(this.ctx, {
-        layout: {
-          x: this.axis.layout.width,
-          y: 0,
-          width: this.layout.width - this.axis.layout.width,
-          height: this.layout.height,
-        },
-        showOutline: false,
-      });
-    }
-    if (!this.graph) return;
-    this.graph.setConfig({
-      layout: {
-        x: this.axis.layout.width,
-        width: this.layout.width - this.axis.layout.width,
-        height: this.layout.height,
-      },
-    });
-    this.graph.draw(t);
+  clearData() {
+    this.#data = [];
+  }
 
-    // reset transform to stored
-    this.ctx.restore();
+  get data() {
+    return this.#data;
+  }
+
+  get label() {
+    return this.#config.label;
+  }
+
+  get maxNumOfPoints() {
+    return this.#config.maxNumOfPoints;
   }
 }
 
-export { kChart as default };
+export { kData as default };
