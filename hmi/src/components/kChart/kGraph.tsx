@@ -1,23 +1,26 @@
-import { kLayout, DeepPartial } from "./kChartInterfaces";
+import { kLayout, DeepPartial, ExcludeMethods } from "./kChartInterfaces";
 import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kGraphData {
+interface kGraphInterface {
   readonly ctx: CanvasRenderingContext2D;
   readonly layout: kLayout;
   readonly showOutline: boolean;
   readonly numOfPoints: number;
+  updateOptions(options?: DeepPartial<kGraphOptions>): void;
+  addDataPoint(): void;
+  draw(t: number): void;
 }
 
-interface kGraphConfig extends Omit<kGraphData, "ctx"> {}
+interface kGraphOptions extends Omit<ExcludeMethods<kGraphInterface>, "ctx"> {}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kGraph implements kGraphData {
-  #config: kGraphConfig = {
+class kGraph implements kGraphInterface {
+  #options: kGraphOptions = {
     layout: {
       x: 0,
       y: 0,
@@ -30,13 +33,9 @@ class kGraph implements kGraphData {
   };
   #ctx: CanvasRenderingContext2D;
 
-  constructor(ctx: CanvasRenderingContext2D, config?: DeepPartial<kGraphConfig>) {
+  constructor(ctx: CanvasRenderingContext2D, options?: DeepPartial<kGraphOptions>) {
     this.#ctx = ctx;
-    if (config) this.setConfig(config);
-  }
-
-  setConfig(config: DeepPartial<kGraphConfig>) {
-    this.#config = merge(this.#config, config);
+    this.updateOptions(options);
   }
 
   get ctx() {
@@ -44,15 +43,15 @@ class kGraph implements kGraphData {
   }
 
   get layout() {
-    return this.#config.layout;
+    return this.#options.layout;
   }
 
   get showOutline() {
-    return this.#config.showOutline;
+    return this.#options.showOutline;
   }
 
   get numOfPoints() {
-    return this.#config.numOfPoints;
+    return this.#options.numOfPoints;
   }
 
   private drawLine(t: number) {
@@ -73,6 +72,10 @@ class kGraph implements kGraphData {
     this.ctx.fillStyle = "blue";
     this.ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
     this.ctx.fill();
+  }
+
+  updateOptions(options?: DeepPartial<kGraphOptions>) {
+    this.#options = merge(this.#options, options);
   }
 
   addDataPoint() {}

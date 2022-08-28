@@ -1,5 +1,3 @@
-import kAxis from "./kAxis";
-
 export interface kMargin {
   readonly top: number;
   readonly bottom: number;
@@ -15,23 +13,12 @@ export interface kLayout {
   readonly margin: kMargin;
 }
 
-export interface DataPoint {
+export interface kDataPoint {
   readonly x: number;
   readonly y: number;
 }
 
-export interface Dataset {
-  readonly label: string;
-  readonly data: Array<DataPoint>;
-}
-
-export interface Pen {
-  readonly label: string;
-  readonly dataset: Dataset;
-  readonly display: boolean;
-  readonly color: string;
-  readonly axis: kAxis;
-}
+export type ExcludeMethods<T> = Pick<T, { [K in keyof T]: T[K] extends Function ? never : K }[keyof T]>;
 
 export type DeepPartial<T> = T extends object
   ? {

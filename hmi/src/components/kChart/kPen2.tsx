@@ -1,6 +1,6 @@
 import "./CanvasRenderingContext2D.extensions";
-import { DeepPartial, ExcludeMethods } from "./kChartInterfaces";
-import { merge } from "lodash";
+import { DeepPartial } from "./kChartInterfaces";
+import { merge, truncate } from "lodash";
 import kAxis from "./kAxis";
 import kData from "./kData";
 
@@ -11,12 +11,12 @@ interface kPenInterface {
   readonly show: boolean;
   readonly label: string;
   readonly color: string;
-  readonly data: kData | undefined;
-  readonly axis: kAxis | undefined;
+  readonly data?: kData;
+  readonly axis?: kAxis;
   updateOptions(options?: DeepPartial<kPenOptions>): void;
 }
 
-interface kPenOptions extends Omit<ExcludeMethods<kPenInterface>, "data" | "axis"> {}
+interface kPenOptions extends Omit<kPenInterface, "updateOptions"> {}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
@@ -26,14 +26,16 @@ class kPen implements kPenInterface {
     show: true,
     label: "",
     color: "black",
+    data: undefined,
+    axis: undefined,
   };
-  data: kData | undefined;
-  axis: kAxis | undefined;
 
-  constructor(options?: DeepPartial<kPenOptions>, data?: kData, axis?: kAxis) {
-    this.data = data;
-    this.axis = axis;
+  constructor(options?: DeepPartial<kPenOptions>) {
     this.updateOptions(options);
+  }
+
+  updateOptions(options?: DeepPartial<kPenOptions>) {
+    this.#options = merge(this.#options, options);
   }
 
   get show() {
@@ -48,8 +50,12 @@ class kPen implements kPenInterface {
     return this.#options.color;
   }
 
-  updateOptions(options?: DeepPartial<kPenOptions>) {
-    this.#options = merge(this.#options, options);
+  get data() {
+    return this.#options.data;
+  }
+
+  get axis() {
+    return this.#options.axis;
   }
 }
 

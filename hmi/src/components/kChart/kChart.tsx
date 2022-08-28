@@ -1,30 +1,32 @@
 import kAxis from "./kAxis";
 import kGraph from "./kGraph";
 import "./CanvasRenderingContext2D.extensions";
-import { kLayout, DeepPartial } from "./kChartInterfaces";
+import { kLayout, DeepPartial, ExcludeMethods } from "./kChartInterfaces";
 import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kChartData {
-  readonly ctx: CanvasRenderingContext2D | null;
+interface kChartInterface {
+  readonly ctx: CanvasRenderingContext2D | undefined;
   readonly layout: kLayout;
   readonly showOutline: boolean;
   readonly aspectRatio: number;
-  readonly axis: kAxis | null;
-  readonly graph: kGraph | null;
+  readonly axis: kAxis | undefined;
+  readonly graph: kGraph | undefined;
+  updateOptions(options?: DeepPartial<kChartOptions>): void;
+  draw(ctx: CanvasRenderingContext2D, t: number): void;
 }
 
-interface kChartConfig extends Omit<kChartData, "ctx" | "axis" | "graph" | "layout"> {
+interface kChartOptions extends Omit<ExcludeMethods<kChartInterface>, "ctx" | "axis" | "graph" | "layout"> {
   layout: Omit<kLayout, "width" | "height">;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kChart implements kChartData {
-  #config: kChartConfig = {
+class kChart implements kChartInterface {
+  #options: kChartOptions = {
     layout: {
       x: 0,
       y: 0,
@@ -33,19 +35,15 @@ class kChart implements kChartData {
     showOutline: false,
     aspectRatio: 1.5,
   };
-  #ctx: CanvasRenderingContext2D | null;
-  #axis: kAxis | null;
-  #graph: kGraph | null;
+  #ctx: CanvasRenderingContext2D | undefined;
+  #axis: kAxis | undefined;
+  #graph: kGraph | undefined;
 
-  constructor(config?: DeepPartial<kChartConfig>) {
-    this.#ctx = null;
-    this.#axis = null;
-    this.#graph = null;
-    if (config) this.setConfig(config);
-  }
-
-  setConfig(config: DeepPartial<kChartConfig>) {
-    this.#config = merge(this.#config, config);
+  constructor(options?: DeepPartial<kChartOptions>) {
+    this.#ctx = undefined;
+    this.#axis = undefined;
+    this.#graph = undefined;
+    this.updateOptions(options);
   }
 
   get ctx() {
@@ -55,15 +53,15 @@ class kChart implements kChartData {
   get layout() {
     let width = this.ctx ? Math.floor(this.ctx.canvas.offsetWidth) : 0;
     let height = this.ctx ? Math.floor(this.ctx.canvas.offsetWidth / this.aspectRatio) : 0;
-    return merge(this.#config.layout, { width: width, height: height });
+    return merge(this.#options.layout, { width: width, height: height });
   }
 
   get showOutline() {
-    return this.#config.showOutline;
+    return this.#options.showOutline;
   }
 
   get aspectRatio() {
-    return this.#config.aspectRatio;
+    return this.#options.aspectRatio;
   }
 
   get axis() {
@@ -72,6 +70,10 @@ class kChart implements kChartData {
 
   get graph() {
     return this.#graph;
+  }
+
+  updateOptions(options?: DeepPartial<kChartOptions>) {
+    this.#options = merge(this.#options, options);
   }
 
   private drawOutline() {
@@ -109,7 +111,7 @@ class kChart implements kChartData {
       });
     }
     if (!this.axis) return;
-    this.axis.setConfig({ layout: { height: this.layout.height } });
+    this.axis.updateOptions({ layout: { height: this.layout.height } });
     this.axis.draw();
 
     // draw graph
@@ -125,7 +127,7 @@ class kChart implements kChartData {
       });
     }
     if (!this.graph) return;
-    this.graph.setConfig({
+    this.graph.updateOptions({
       layout: {
         x: this.axis.layout.width,
         width: this.layout.width - this.axis.layout.width,

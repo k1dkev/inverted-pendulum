@@ -1,40 +1,50 @@
 import "./CanvasRenderingContext2D.extensions";
-import { DeepPartial } from "./kChartInterfaces";
+import { DeepPartial, ExcludeMethods, kDataPoint } from "./kChartInterfaces";
 import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kDataPoint {
-  readonly x: number;
-  readonly y: number;
-}
-
-interface kDataData {
+interface kDataInterface {
   readonly label: string;
   readonly data: Array<kDataPoint>;
   readonly maxNumOfPoints: number;
+  updateOptions(options: DeepPartial<kDataOptions>): void;
+  addDataPoint(point: kDataPoint): void;
+  clearData(): void;
 }
 
-interface kDataConfig extends Omit<kDataData, "data"> {}
+interface kDataOptions extends Omit<ExcludeMethods<kDataInterface>, "data"> {}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kData implements kDataData {
-  #config: kDataConfig = {
+class kData implements kDataInterface {
+  #options: kDataOptions = {
     label: "",
     maxNumOfPoints: 0,
   };
   #data: Array<kDataPoint>;
 
-  constructor(config?: DeepPartial<kDataConfig>) {
+  constructor(options?: DeepPartial<kDataOptions>) {
     this.#data = [];
-    if (config) this.setConfig(config);
+    this.updateOptions(options);
   }
 
-  setConfig(config: DeepPartial<kDataConfig>) {
-    this.#config = merge(this.#config, config);
+  get data() {
+    return this.#data;
+  }
+
+  get label() {
+    return this.#options.label;
+  }
+
+  get maxNumOfPoints() {
+    return this.#options.maxNumOfPoints;
+  }
+
+  updateOptions(options?: DeepPartial<kDataOptions>) {
+    this.#options = merge(this.#options, options);
   }
 
   addDataPoint(point: kDataPoint) {
@@ -46,18 +56,6 @@ class kData implements kDataData {
 
   clearData() {
     this.#data = [];
-  }
-
-  get data() {
-    return this.#data;
-  }
-
-  get label() {
-    return this.#config.label;
-  }
-
-  get maxNumOfPoints() {
-    return this.#config.maxNumOfPoints;
   }
 }
 

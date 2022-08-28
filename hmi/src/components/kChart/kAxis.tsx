@@ -28,7 +28,7 @@ interface kAxisLine {
   readonly thickness: number;
 }
 
-interface kAxisData {
+interface kAxisInterface {
   readonly ctx: CanvasRenderingContext2D;
   readonly layout: kLayout;
   readonly showOutline: boolean;
@@ -37,7 +37,7 @@ interface kAxisData {
   readonly line: kAxisLine;
 }
 
-interface kAxisConfig extends Omit<kAxisData, "layout" | "ticks" | "ctx"> {
+interface kAxisOptions extends Omit<kAxisInterface, "layout" | "ticks" | "ctx"> {
   readonly layout: Omit<kLayout, "width">;
   readonly ticks: Omit<kAxisTicks, "start" | "end" | "delta" | "labels">;
 }
@@ -45,8 +45,8 @@ interface kAxisConfig extends Omit<kAxisData, "layout" | "ticks" | "ctx"> {
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kAxis implements kAxisData {
-  #config: kAxisConfig = {
+class kAxis implements kAxisInterface {
+  #options: kAxisOptions = {
     layout: {
       x: 0,
       y: 0,
@@ -74,13 +74,13 @@ class kAxis implements kAxisData {
   };
   #ctx: CanvasRenderingContext2D;
 
-  constructor(ctx: CanvasRenderingContext2D, config?: DeepPartial<kAxisConfig>) {
+  constructor(ctx: CanvasRenderingContext2D, options?: DeepPartial<kAxisOptions>) {
     this.#ctx = ctx;
-    if (config) this.setConfig(config);
+    this.updateOptions(options);
   }
 
-  setConfig(config: DeepPartial<kAxisConfig>) {
-    this.#config = merge(this.#config, config);
+  updateOptions(options?: DeepPartial<kAxisOptions>) {
+    this.#options = merge(this.#options, options);
   }
 
   get ctx() {
@@ -88,45 +88,45 @@ class kAxis implements kAxisData {
   }
 
   get layout() {
-    this.ctx.font = `${this.#config.text.height}px Monospace`;
+    this.ctx.font = `${this.#options.text.height}px Monospace`;
     let maxTextWidth = Math.ceil(
       Math.max(
-        ...Array.from(Array(this.#config.ticks.count).keys(), (i) => this.ctx.measureText(this.ticks.labels[i]).width)
+        ...Array.from(Array(this.#options.ticks.count).keys(), (i) => this.ctx.measureText(this.ticks.labels[i]).width)
       )
     );
     let width =
       maxTextWidth +
-      this.#config.text.padding +
-      this.#config.ticks.length +
-      this.#config.line.thickness +
-      this.#config.layout.margin.left +
-      this.#config.layout.margin.right;
-    return merge(this.#config.layout, { width: width });
+      this.#options.text.padding +
+      this.#options.ticks.length +
+      this.#options.line.thickness +
+      this.#options.layout.margin.left +
+      this.#options.layout.margin.right;
+    return merge(this.#options.layout, { width: width });
   }
 
   get showOutline() {
-    return this.#config.showOutline;
+    return this.#options.showOutline;
   }
 
   get text() {
-    return this.#config.text;
+    return this.#options.text;
   }
 
   get ticks() {
     // Tick Labels
     let engTickDelta =
-      (this.#config.ticks.maxEngValue - this.#config.ticks.minEngValue) / (this.#config.ticks.count - 1);
+      (this.#options.ticks.maxEngValue - this.#options.ticks.minEngValue) / (this.#options.ticks.count - 1);
     let ticksLabels = [];
-    for (let i = 0; i < this.#config.ticks.count; i++) {
-      let val = this.#config.ticks.minEngValue + engTickDelta * i;
-      ticksLabels.push(val.toFixed(this.#config.text.numOfDecimals));
+    for (let i = 0; i < this.#options.ticks.count; i++) {
+      let val = this.#options.ticks.minEngValue + engTickDelta * i;
+      ticksLabels.push(val.toFixed(this.#options.text.numOfDecimals));
     }
     // axis start / end
-    let ticksStart = this.#config.layout.height - this.#config.text.height / 2 - this.#config.layout.margin.bottom;
-    let ticksEnd = this.#config.text.height / 2 + this.#config.layout.margin.top;
-    let ticksDelta = Math.abs(ticksEnd - ticksStart) / (this.#config.ticks.count - 1);
+    let ticksStart = this.#options.layout.height - this.#options.text.height / 2 - this.#options.layout.margin.bottom;
+    let ticksEnd = this.#options.text.height / 2 + this.#options.layout.margin.top;
+    let ticksDelta = Math.abs(ticksEnd - ticksStart) / (this.#options.ticks.count - 1);
     // return
-    return merge(this.#config.ticks, {
+    return merge(this.#options.ticks, {
       labels: ticksLabels,
       start: ticksStart,
       end: ticksEnd,
@@ -135,7 +135,7 @@ class kAxis implements kAxisData {
   }
 
   get line() {
-    return this.#config.line;
+    return this.#options.line;
   }
 
   private drawOutline() {
