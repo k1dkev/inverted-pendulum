@@ -134,7 +134,7 @@ class kChart implements kChartInterface {
         height: this.layout.height,
       },
     });
-    this.graph.draw(t);
+    this.graph.draw();
 
     // reset transform to stored
     this.ctx.restore();

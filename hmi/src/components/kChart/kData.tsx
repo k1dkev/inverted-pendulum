@@ -7,14 +7,14 @@ import { merge } from "lodash";
 //----------------------------------------------------------------------------------------------------------------------
 interface kDataInterface {
   readonly label: string;
-  readonly data: Array<kDataPoint>;
+  readonly dataset: Array<kDataPoint>;
   readonly maxNumOfPoints: number;
   updateOptions(options: DeepPartial<kDataOptions>): void;
   addDataPoint(point: kDataPoint): void;
   clearData(): void;
 }
 
-interface kDataOptions extends Omit<ExcludeMethods<kDataInterface>, "data"> {}
+interface kDataOptions extends Omit<ExcludeMethods<kDataInterface>, "dataset"> {}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
@@ -24,15 +24,15 @@ class kData implements kDataInterface {
     label: "",
     maxNumOfPoints: 0,
   };
-  #data: Array<kDataPoint>;
+  #dataset: Array<kDataPoint>;
 
   constructor(options?: DeepPartial<kDataOptions>) {
-    this.#data = [];
+    this.#dataset = [];
     this.updateOptions(options);
   }
 
-  get data() {
-    return this.#data;
+  get dataset() {
+    return this.#dataset;
   }
 
   get label() {
@@ -48,14 +48,14 @@ class kData implements kDataInterface {
   }
 
   addDataPoint(point: kDataPoint) {
-    this.#data.push(point);
-    while (this.#data.length > this.maxNumOfPoints) {
-      this.#data.pop();
+    this.#dataset.push(point);
+    while (this.#dataset.length > this.maxNumOfPoints) {
+      this.#dataset.pop();
     }
   }
 
   clearData() {
-    this.#data = [];
+    this.#dataset = [];
   }
 }
 

@@ -7,13 +7,23 @@ Data Class
 
 Pen Class
     - label
-    - dataset reference
     - display/draw/show
-    - color
-    - axis reference
+    - line
+        - color     (**NEW**)
+        - thickness (**NEW**)
+    - dataset reference
+    - xAxis reference (**NEW**)
+    - yAxis reference (**NEW**)
 
 Axis Class
-    - 
+    - ctx
+    - layout
+    - showOutline
+    - text
+    - ticks
+    - line
+    - orientation -> x or y (horz or vert) **NEW**
+    - draw()
 
 Graph Class
     - drawLine(pen)

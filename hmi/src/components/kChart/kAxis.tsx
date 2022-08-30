@@ -1,4 +1,4 @@
-import { kLayout, DeepPartial } from "./kChartInterfaces";
+import { kLayout, DeepPartial, ExcludeMethods } from "./kChartInterfaces";
 import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -35,9 +35,11 @@ interface kAxisInterface {
   readonly text: kAxisText;
   readonly ticks: kAxisTicks;
   readonly line: kAxisLine;
+  scaleValue(value: number): number;
+  draw(): void;
 }
 
-interface kAxisOptions extends Omit<kAxisInterface, "layout" | "ticks" | "ctx"> {
+interface kAxisOptions extends Omit<ExcludeMethods<kAxisInterface>, "layout" | "ticks" | "ctx"> {
   readonly layout: Omit<kLayout, "width">;
   readonly ticks: Omit<kAxisTicks, "start" | "end" | "delta" | "labels">;
 }
@@ -185,6 +187,22 @@ class kAxis implements kAxisInterface {
         this.ticks.start - this.ticks.delta * i + 0.1 * this.text.height
       );
     }
+  }
+
+  scaleValue(value: number): number {
+    if (this.ticks.minEngValue == this.ticks.maxEngValue) {
+      throw "Invalid engineering scaling for ticks";
+    }
+
+    if (this.ticks.start == this.ticks.end) {
+      throw "Invalid start and end pixel values for ticks";
+    }
+
+    let x1 = this.ticks.minEngValue;
+    let x2 = this.ticks.maxEngValue;
+    let y1 = this.ticks.start;
+    let y2 = this.ticks.end;
+    return (value - x1) * ((y2 - y1) / (x2 - x1)) + y1;
   }
 
   draw() {

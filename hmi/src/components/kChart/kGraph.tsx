@@ -8,10 +8,9 @@ interface kGraphInterface {
   readonly ctx: CanvasRenderingContext2D;
   readonly layout: kLayout;
   readonly showOutline: boolean;
-  readonly numOfPoints: number;
+  // readonly numOfPoints: number;
   updateOptions(options?: DeepPartial<kGraphOptions>): void;
-  addDataPoint(): void;
-  draw(t: number): void;
+  draw(): void;
 }
 
 interface kGraphOptions extends Omit<ExcludeMethods<kGraphInterface>, "ctx"> {}
@@ -29,7 +28,7 @@ class kGraph implements kGraphInterface {
       margin: { top: 0, bottom: 0, left: 0, right: 0 },
     },
     showOutline: false,
-    numOfPoints: 100,
+    // numOfPoints: 100,
   };
   #ctx: CanvasRenderingContext2D;
 
@@ -50,21 +49,25 @@ class kGraph implements kGraphInterface {
     return this.#options.showOutline;
   }
 
-  get numOfPoints() {
-    return this.#options.numOfPoints;
+  // get numOfPoints() {
+  //   return this.#options.numOfPoints;
+  // }
+
+  updateOptions(options?: DeepPartial<kGraphOptions>) {
+    this.#options = merge(this.#options, options);
   }
 
-  private drawLine(t: number) {
-    this.ctx.moveTo(0, this.layout.height / 2);
-    this.ctx.beginPath();
-    for (let i = 0; i <= this.numOfPoints; i++) {
-      let x = i / this.numOfPoints;
-      let y = 0.5 + 0.25 * Math.sin(10 * x + t / 500);
-      this.ctx.lineTo(x * this.layout.width, y * this.layout.height);
-    }
-    this.ctx.lineWidth = 3;
-    this.ctx.stroke();
-  }
+  // private drawLine(t: number) {
+  //   this.ctx.moveTo(0, this.layout.height / 2);
+  //   this.ctx.beginPath();
+  //   for (let i = 0; i <= this.numOfPoints; i++) {
+  //     let x = i / this.numOfPoints;
+  //     let y = 0.5 + 0.25 * Math.sin(10 * x + t / 500);
+  //     this.ctx.lineTo(x * this.layout.width, y * this.layout.height);
+  //   }
+  //   this.ctx.lineWidth = 3;
+  //   this.ctx.stroke();
+  // }
 
   private drawOutline() {
     if (!this.showOutline) return;
@@ -74,13 +77,7 @@ class kGraph implements kGraphInterface {
     this.ctx.fill();
   }
 
-  updateOptions(options?: DeepPartial<kGraphOptions>) {
-    this.#options = merge(this.#options, options);
-  }
-
-  addDataPoint() {}
-
-  draw(t: number) {
+  draw() {
     // save
     this.ctx.save();
 
@@ -91,7 +88,7 @@ class kGraph implements kGraphInterface {
     this.ctx.clip();
 
     // Draw objects
-    this.drawLine(t);
+    // this.drawLine(t);
     this.drawOutline();
 
     // restore
