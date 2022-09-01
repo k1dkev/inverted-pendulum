@@ -12,8 +12,9 @@ Pen Class
         - color     (**NEW**)
         - thickness (**NEW**)
     - dataset reference
-    - xAxis reference (**NEW**)
-    - yAxis reference (**NEW**)
+    - xAxis reference
+    - yAxis reference
+    - draw
 
 Axis Class
     - ctx
@@ -22,11 +23,15 @@ Axis Class
     - text
     - ticks
     - line
-    - orientation -> x or y (horz or vert) **NEW**
+    - orientation -> x or y (horz or vert) (**NEW**)
     - draw()
 
 Graph Class
-    - drawLine(pen)
+    - ctx
+    - layout
+    - showOutline
+    - updateOptions()
+    - draw()
 
 Chart Class
     - Objects

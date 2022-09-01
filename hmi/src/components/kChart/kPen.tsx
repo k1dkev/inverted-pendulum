@@ -16,6 +16,7 @@ interface kPenInterface {
   readonly xAxis: kAxis | undefined;
   readonly yAxis: kAxis | undefined;
   updateOptions(options?: DeepPartial<kPenOptions>): void;
+  draw(): void;
 }
 
 interface kPenOptions extends Omit<ExcludeMethods<kPenInterface>, "data" | "xAxis" | "yAxis" | "ctx"> {}
@@ -68,8 +69,9 @@ class kPen implements kPenInterface {
     this.#options = merge(this.#options, options);
   }
 
-  // draw line
   draw() {
+    if (!this.show) return;
+
     if (!this.data || !this.xAxis || !this.yAxis) {
       throw "Drawing pen failed. Data and x and y axis must be defined.";
     }
@@ -77,10 +79,9 @@ class kPen implements kPenInterface {
     let xScale = this.xAxis.scaleValue;
     let yScale = this.yAxis.scaleValue;
 
-    // save
     this.ctx.save();
 
-    // Draw Line
+    // draw line
     this.data.dataset.forEach((point, index) => {
       let x = xScale(point.x);
       let y = yScale(point.y);
@@ -93,7 +94,6 @@ class kPen implements kPenInterface {
     this.ctx.lineWidth = 3; // todo: add thickess
     this.ctx.stroke();
 
-    // restore
     this.ctx.restore();
   }
 }
