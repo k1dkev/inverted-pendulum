@@ -1,5 +1,6 @@
 import kAxis from "./kAxis";
 import kGraph from "./kGraph";
+import kPen from "./kPen";
 import "./CanvasRenderingContext2D.extensions";
 import { kLayout, DeepPartial, ExcludeMethods } from "./kChartInterfaces";
 import { merge } from "lodash";
@@ -12,8 +13,9 @@ interface kChartInterface {
   readonly layout: kLayout;
   readonly showOutline: boolean;
   readonly aspectRatio: number;
-  readonly axis: kAxis | undefined;
-  readonly graph: kGraph | undefined;
+  readonly Axes: Array<kAxis> | undefined;
+  readonly Pens: Array<kPen> | undefined;
+  readonly graph: kGraph;
   updateOptions(options?: DeepPartial<kChartOptions>): void;
   draw(ctx: CanvasRenderingContext2D, t: number): void;
 }
@@ -37,7 +39,7 @@ class kChart implements kChartInterface {
   };
   #ctx: CanvasRenderingContext2D | undefined;
   #axis: kAxis | undefined;
-  #graph: kGraph | undefined;
+  #graph: kGraph;
 
   constructor(options?: DeepPartial<kChartOptions>) {
     this.#ctx = undefined;
