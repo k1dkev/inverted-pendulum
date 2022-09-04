@@ -4,7 +4,7 @@ import { merge } from "lodash";
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kAxisTicks {
+export interface kAxisTicks {
   readonly color: string;
   readonly length: number;
   readonly count: number;
@@ -16,30 +16,29 @@ interface kAxisTicks {
   readonly labels: string[];
 }
 
-interface kAxisText {
+export interface kAxisText {
   readonly color: string;
   readonly height: number;
   readonly numOfDecimals: number;
   readonly padding: number;
 }
 
-interface kAxisLine {
+export interface kAxisLine {
   readonly color: string;
   readonly thickness: number;
 }
 
-interface kAxisInterface {
-  readonly ctx: CanvasRenderingContext2D;
+export interface kAxisInterface {
   readonly layout: kLayout;
   readonly showOutline: boolean;
   readonly text: kAxisText;
   readonly ticks: kAxisTicks;
   readonly line: kAxisLine;
   scaleValue(value: number): number;
-  draw(): void;
+  draw(ctx: CanvasRenderingContext2D): void;
 }
 
-interface kAxisOptions extends Omit<ExcludeMethods<kAxisInterface>, "layout" | "ticks" | "ctx"> {
+export interface kAxisOptions extends Omit<ExcludeMethods<kAxisInterface>, "layout" | "ticks"> {
   readonly layout: Omit<kLayout, "width">;
   readonly ticks: Omit<kAxisTicks, "start" | "end" | "delta" | "labels">;
 }
@@ -47,37 +46,38 @@ interface kAxisOptions extends Omit<ExcludeMethods<kAxisInterface>, "layout" | "
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kAxis implements kAxisInterface {
-  #options: kAxisOptions = {
-    layout: {
-      x: 0,
-      y: 0,
-      height: 100,
-      margin: { top: 0, bottom: 0, left: 0, right: 0 },
-    },
-    showOutline: false,
-    text: {
-      color: "#000000",
-      height: 15,
-      numOfDecimals: 0,
-      padding: 1,
-    },
-    ticks: {
-      color: "#000000",
-      length: 5,
-      count: 11,
-      minEngValue: 0,
-      maxEngValue: 500,
-    },
-    line: {
-      color: "#000000",
-      thickness: 2,
-    },
-  };
-  #ctx: CanvasRenderingContext2D;
+export class kAxis implements kAxisInterface {
+  #options: kAxisOptions;
+  #width: number;
 
-  constructor(ctx: CanvasRenderingContext2D, options?: DeepPartial<kAxisOptions>) {
-    this.#ctx = ctx;
+  constructor(options?: DeepPartial<kAxisOptions>) {
+    this.#options = {
+      layout: {
+        x: 0,
+        y: 0,
+        height: 100,
+        margin: { top: 0, bottom: 0, left: 0, right: 0 },
+      },
+      showOutline: false,
+      text: {
+        color: "#000000",
+        height: 15,
+        numOfDecimals: 0,
+        padding: 1,
+      },
+      ticks: {
+        color: "#000000",
+        length: 5,
+        count: 11,
+        minEngValue: 0,
+        maxEngValue: 500,
+      },
+      line: {
+        color: "#000000",
+        thickness: 2,
+      },
+    };
+    this.#width = 0;
     this.updateOptions(options);
   }
 
@@ -85,25 +85,8 @@ class kAxis implements kAxisInterface {
     this.#options = merge(this.#options, options);
   }
 
-  get ctx() {
-    return this.#ctx;
-  }
-
   get layout() {
-    this.ctx.font = `${this.#options.text.height}px Monospace`;
-    let maxTextWidth = Math.ceil(
-      Math.max(
-        ...Array.from(Array(this.#options.ticks.count).keys(), (i) => this.ctx.measureText(this.ticks.labels[i]).width)
-      )
-    );
-    let width =
-      maxTextWidth +
-      this.#options.text.padding +
-      this.#options.ticks.length +
-      this.#options.line.thickness +
-      this.#options.layout.margin.left +
-      this.#options.layout.margin.right;
-    return merge(this.#options.layout, { width: width });
+    return merge(this.#options.layout, { width: this.#width });
   }
 
   get showOutline() {
@@ -140,48 +123,66 @@ class kAxis implements kAxisInterface {
     return this.#options.line;
   }
 
-  private drawOutline() {
-    if (!this.showOutline) return;
-    this.ctx.beginPath();
-    this.ctx.fillStyle = "red";
-    this.ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
-    this.ctx.fill();
+  private updateLayout(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    ctx.font = `${this.#options.text.height}px Monospace`;
+    let maxTextWidth = Math.ceil(
+      Math.max(
+        ...Array.from(Array(this.#options.ticks.count).keys(), (i) => ctx.measureText(this.ticks.labels[i]).width)
+      )
+    );
+    this.#width =
+      maxTextWidth +
+      this.#options.text.padding +
+      this.#options.ticks.length +
+      this.#options.line.thickness +
+      this.#options.layout.margin.left +
+      this.#options.layout.margin.right;
+    ctx.restore();
   }
 
-  private drawVerticalLine() {
-    this.ctx.beginPath();
-    this.ctx.lineWidth = this.line.thickness;
-    this.ctx.fillStyle = this.line.color;
-    this.ctx.rect(
+  private drawOutline(ctx: CanvasRenderingContext2D) {
+    if (!this.showOutline) return;
+    ctx.beginPath();
+    ctx.fillStyle = "red";
+    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
+    ctx.fill();
+  }
+
+  private drawVerticalLine(ctx: CanvasRenderingContext2D) {
+    ctx.beginPath();
+    ctx.lineWidth = this.line.thickness;
+    ctx.fillStyle = this.line.color;
+    ctx.rect(
       this.layout.width - this.line.thickness - this.layout.margin.right,
       this.layout.margin.top,
       this.line.thickness,
       this.layout.height - this.layout.margin.top - this.layout.margin.bottom
     );
-    this.ctx.fill();
+    ctx.fill();
   }
 
-  private drawTicks() {
+  private drawTicks(ctx: CanvasRenderingContext2D) {
     for (let i = 0; i < this.ticks.count; i++) {
-      this.ctx.beginPath();
-      this.ctx.fillStyle = this.line.color;
-      this.ctx.rect(
+      ctx.beginPath();
+      ctx.fillStyle = this.line.color;
+      ctx.rect(
         this.layout.width - this.ticks.length - this.line.thickness - this.layout.margin.right,
         Math.round(this.ticks.start - this.ticks.delta * i - this.line.thickness / 2),
         this.ticks.length,
         this.line.thickness
       );
-      this.ctx.fill();
+      ctx.fill();
     }
   }
 
-  private drawTickLabels() {
-    this.ctx.textAlign = "right";
-    this.ctx.textBaseline = "middle";
-    this.ctx.fillStyle = "black";
-    this.ctx.font = `${this.text.height}px Monospace`;
+  private drawTickLabels(ctx: CanvasRenderingContext2D) {
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "black";
+    ctx.font = `${this.text.height}px Monospace`;
     for (let i = 0; i < this.ticks.count; i++) {
-      this.ctx.fillText(
+      ctx.fillText(
         this.ticks.labels[i],
         this.layout.width - this.ticks.length - this.text.padding - this.line.thickness - this.layout.margin.right,
         this.ticks.start - this.ticks.delta * i + 0.1 * this.text.height
@@ -205,25 +206,28 @@ class kAxis implements kAxisInterface {
     return (value - x1) * ((y2 - y1) / (x2 - x1)) + y1;
   }
 
-  draw() {
+  draw(ctx: CanvasRenderingContext2D) {
     // save
-    this.ctx.save();
+    ctx.save();
+
+    // update width
+    this.updateLayout(ctx);
 
     // Transform and clip
-    this.ctx.translate(this.layout.x, this.layout.y);
-    this.ctx.beginPath();
-    this.ctx.rect(0, 0, this.layout.width, this.layout.height);
-    this.ctx.clip();
+    ctx.translate(this.layout.x, this.layout.y);
+    ctx.beginPath();
+    ctx.rect(0, 0, this.layout.width, this.layout.height);
+    ctx.clip();
 
     // Draw objects
-    this.drawOutline();
-    this.drawVerticalLine();
-    this.drawTicks();
-    this.drawTickLabels();
+    this.drawOutline(ctx);
+    this.drawVerticalLine(ctx);
+    this.drawTicks(ctx);
+    this.drawTickLabels(ctx);
 
     // restore
-    this.ctx.restore();
+    ctx.restore();
   }
 }
 
-export { kAxis as default };
+export default {};

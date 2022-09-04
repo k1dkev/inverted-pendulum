@@ -4,39 +4,37 @@ import { merge } from "lodash";
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kGraphInterface {
-  readonly ctx: CanvasRenderingContext2D;
+export interface kGraphInterface {
   readonly layout: kLayout;
   readonly showOutline: boolean;
   updateOptions(options?: DeepPartial<kGraphOptions>): void;
-  draw(): void;
+  draw(ctx: CanvasRenderingContext2D): void;
 }
 
-interface kGraphOptions extends Omit<ExcludeMethods<kGraphInterface>, "ctx"> {}
+export interface kGraphOptions extends ExcludeMethods<kGraphInterface> {}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kGraph implements kGraphInterface {
-  #options: kGraphOptions = {
-    layout: {
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 100,
-      margin: { top: 0, bottom: 0, left: 0, right: 0 },
-    },
-    showOutline: false,
-  };
-  #ctx: CanvasRenderingContext2D;
+export class kGraph implements kGraphInterface {
+  #options: kGraphOptions;
 
-  constructor(ctx: CanvasRenderingContext2D, options?: DeepPartial<kGraphOptions>) {
-    this.#ctx = ctx;
+  constructor(options?: DeepPartial<kGraphOptions>) {
+    this.#options = {
+      layout: {
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        margin: { top: 0, bottom: 0, left: 0, right: 0 },
+      },
+      showOutline: false,
+    };
     this.updateOptions(options);
   }
 
-  get ctx() {
-    return this.#ctx;
+  updateOptions(options?: DeepPartial<kGraphOptions>) {
+    this.#options = merge(this.#options, options);
   }
 
   get layout() {
@@ -47,34 +45,30 @@ class kGraph implements kGraphInterface {
     return this.#options.showOutline;
   }
 
-  updateOptions(options?: DeepPartial<kGraphOptions>) {
-    this.#options = merge(this.#options, options);
-  }
-
-  private drawOutline() {
+  private drawOutline(ctx: CanvasRenderingContext2D) {
     if (!this.showOutline) return;
-    this.ctx.beginPath();
-    this.ctx.fillStyle = "blue";
-    this.ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
-    this.ctx.fill();
+    ctx.beginPath();
+    ctx.fillStyle = "blue";
+    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
+    ctx.fill();
   }
 
-  draw() {
+  draw(ctx: CanvasRenderingContext2D) {
     // save
-    this.ctx.save();
+    ctx.save();
 
     // Transform and clip
-    this.ctx.translate(this.layout.x, this.layout.y);
-    this.ctx.beginPath();
-    this.ctx.rect(0, 0, this.layout.width, this.layout.height);
-    this.ctx.clip();
+    ctx.translate(this.layout.x, this.layout.y);
+    ctx.beginPath();
+    ctx.rect(0, 0, this.layout.width, this.layout.height);
+    ctx.clip();
 
     // Outline
-    this.drawOutline();
+    this.drawOutline(ctx);
 
     // restore
-    this.ctx.restore();
+    ctx.restore();
   }
 }
 
-export { kGraph as default };
+export default {};

@@ -5,7 +5,7 @@ import { merge } from "lodash";
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kDataInterface {
+export interface kDataInterface {
   readonly label: string;
   readonly dataset: Array<kDataPoint>;
   readonly maxNumOfPoints: number;
@@ -14,12 +14,12 @@ interface kDataInterface {
   clearData(): void;
 }
 
-interface kDataOptions extends Omit<ExcludeMethods<kDataInterface>, "dataset"> {}
+export interface kDataOptions extends Omit<ExcludeMethods<kDataInterface>, "dataset"> {}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kData implements kDataInterface {
+export class kData implements kDataInterface {
   #options: kDataOptions = {
     label: "",
     maxNumOfPoints: 0,
@@ -59,4 +59,4 @@ class kData implements kDataInterface {
   }
 }
 
-export { kData as default };
+export default {};

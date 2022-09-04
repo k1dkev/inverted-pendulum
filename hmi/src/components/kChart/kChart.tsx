@@ -1,6 +1,6 @@
-import kAxis from "./kAxis";
-import kGraph from "./kGraph";
-import kPen from "./kPen";
+import { kAxis, kAxisOptions } from "./kAxis";
+import { kGraph } from "./kGraph";
+import { kPen, kPenOptions } from "./kPen";
 import "./CanvasRenderingContext2D.extensions";
 import { kLayout, DeepPartial, ExcludeMethods } from "./kChartInterfaces";
 import { merge } from "lodash";
@@ -8,54 +8,60 @@ import { merge } from "lodash";
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kChartInterface {
-  readonly ctx: CanvasRenderingContext2D | undefined;
+export interface kChartInterface {
   readonly layout: kLayout;
   readonly showOutline: boolean;
   readonly aspectRatio: number;
-  readonly Axes: Array<kAxis> | undefined;
-  readonly Pens: Array<kPen> | undefined;
-  readonly graph: kGraph;
+  readonly axes: Array<kAxis>;
+  readonly pens: Array<kPen>;
+  readonly graph: kGraph | undefined;
   updateOptions(options?: DeepPartial<kChartOptions>): void;
-  draw(ctx: CanvasRenderingContext2D, t: number): void;
+  createAxis(options?: DeepPartial<kAxisOptions>): void;
+  deleteAxis(index: number): void;
+  createPen(options?: DeepPartial<kPenOptions>): void;
+  deletePen(index: number): void;
+  draw(ctx: CanvasRenderingContext2D): void;
 }
 
-interface kChartOptions extends Omit<ExcludeMethods<kChartInterface>, "ctx" | "axis" | "graph" | "layout"> {
+export interface kChartOptions extends Omit<ExcludeMethods<kChartInterface>, "axes" | "graph" | "layout" | "pens"> {
   layout: Omit<kLayout, "width" | "height">;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kChart implements kChartInterface {
-  #options: kChartOptions = {
-    layout: {
-      x: 0,
-      y: 0,
-      margin: { top: 0, bottom: 0, left: 0, right: 0 },
-    },
-    showOutline: false,
-    aspectRatio: 1.5,
-  };
-  #ctx: CanvasRenderingContext2D | undefined;
-  #axis: kAxis | undefined;
+export class kChart implements kChartInterface {
+  #options: kChartOptions;
+  #axes: Array<kAxis>;
+  #pens: Array<kPen>;
   #graph: kGraph;
+  #width: number;
+  #height: number;
 
   constructor(options?: DeepPartial<kChartOptions>) {
-    this.#ctx = undefined;
-    this.#axis = undefined;
-    this.#graph = undefined;
+    this.#options = {
+      layout: {
+        x: 0,
+        y: 0,
+        margin: { top: 0, bottom: 0, left: 0, right: 0 },
+      },
+      showOutline: false,
+      aspectRatio: 1.5,
+    };
+    this.#axes = [];
+    this.#pens = [];
+    this.#graph = new kGraph();
+    this.#width = 0;
+    this.#height = 0;
     this.updateOptions(options);
   }
 
-  get ctx() {
-    return this.#ctx;
+  updateOptions(options?: DeepPartial<kChartOptions>) {
+    this.#options = merge(this.#options, options);
   }
 
   get layout() {
-    let width = this.ctx ? Math.floor(this.ctx.canvas.offsetWidth) : 0;
-    let height = this.ctx ? Math.floor(this.ctx.canvas.offsetWidth / this.aspectRatio) : 0;
-    return merge(this.#options.layout, { width: width, height: height });
+    return merge(this.#options.layout, { width: this.#width, height: this.#height });
   }
 
   get showOutline() {
@@ -66,81 +72,93 @@ class kChart implements kChartInterface {
     return this.#options.aspectRatio;
   }
 
-  get axis() {
-    return this.#axis;
+  get axes() {
+    return this.#axes;
+  }
+
+  get pens() {
+    return this.#pens;
   }
 
   get graph() {
     return this.#graph;
   }
 
-  updateOptions(options?: DeepPartial<kChartOptions>) {
-    this.#options = merge(this.#options, options);
+  private updateLayout(ctx: CanvasRenderingContext2D) {
+    this.#width = ctx ? Math.floor(ctx.canvas.offsetWidth) : 0;
+    this.#height = ctx ? Math.floor(ctx.canvas.offsetWidth / this.aspectRatio) : 0;
+    ctx.canvas.width = this.layout.width;
+    ctx.canvas.height = this.layout.height;
   }
 
-  private drawOutline() {
-    if (!this.showOutline || !this.ctx) return;
-    this.ctx.beginPath();
-    this.ctx.fillStyle = "black";
-    this.ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
-    this.ctx.fill();
+  private drawOutline(ctx: CanvasRenderingContext2D) {
+    if (!this.showOutline) return;
+    ctx.beginPath();
+    ctx.fillStyle = "black";
+    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
+    ctx.fill();
   }
 
-  draw(ctx: CanvasRenderingContext2D, t: number) {
-    // set ctx
-    this.#ctx = ctx;
-    if (!this.ctx) return;
-
-    // set canvas width and height
-    this.ctx.canvas.width = this.layout.width;
-    this.ctx.canvas.height = this.layout.height;
-
-    // save
-    this.ctx.save();
-
-    // draw outline
-    this.drawOutline();
-
-    // draw axis
-    if (!this.#axis) {
-      this.#axis = new kAxis(this.ctx, {
-        showOutline: false,
+  private drawAxes(ctx: CanvasRenderingContext2D) {
+    for (let i = 0; i < this.#axes.length; i++) {
+      let prevAxis = this.#axes[i - 1];
+      this.#axes[i].updateOptions({
         layout: {
-          x: 0,
-          y: 0,
-          margin: { top: 10, bottom: 10, left: 10, right: 0 },
-        },
-      });
-    }
-    if (!this.axis) return;
-    this.axis.updateOptions({ layout: { height: this.layout.height } });
-    this.axis.draw();
-
-    // draw graph
-    if (!this.#graph) {
-      this.#graph = new kGraph(this.ctx, {
-        layout: {
-          x: this.axis.layout.width,
-          y: 0,
-          width: this.layout.width - this.axis.layout.width,
+          x: this.layout.x + (prevAxis ? prevAxis.layout.x + prevAxis.layout.width : 0),
+          y: this.layout.y,
           height: this.layout.height,
         },
-        showOutline: false,
       });
+      this.#axes[i].draw(ctx);
     }
-    if (!this.graph) return;
+  }
+
+  private drawPens(ctx: CanvasRenderingContext2D) {
+    this.#pens.forEach((pen) => {
+      pen.draw(ctx);
+    });
+  }
+
+  private drawGraph(ctx: CanvasRenderingContext2D) {
+    let lastAxis = this.#axes[this.#axes.length - 1];
     this.graph.updateOptions({
       layout: {
-        x: this.axis.layout.width,
-        width: this.layout.width - this.axis.layout.width,
+        x: lastAxis ? lastAxis.layout.x + lastAxis.layout.width : 0,
+        y: this.layout.y,
+        width: this.layout.width - (lastAxis ? lastAxis.layout.x + lastAxis.layout.width : 0),
         height: this.layout.height,
       },
     });
-    this.graph.draw();
+    this.graph.draw(ctx);
+  }
 
-    // reset transform to stored
-    this.ctx.restore();
+  createAxis(options?: DeepPartial<kAxisOptions>) {
+    this.#axes.push(new kAxis(options));
+  }
+
+  deleteAxis(index: number) {
+    if (!this.#axes[index]) throw "Index does not exist!";
+    this.#axes.splice(index, 1);
+  }
+
+  createPen(options?: DeepPartial<kPenOptions>) {
+    this.#pens.push(new kPen(options));
+  }
+
+  deletePen(index: number) {
+    if (!this.#pens[index]) throw "Index does not exist!";
+    this.#pens.splice(index, 1);
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    this.updateLayout(ctx);
+    ctx.save();
+    this.drawOutline(ctx);
+    this.drawPens(ctx);
+    this.drawAxes(ctx);
+    this.drawGraph(ctx);
+    ctx.restore();
   }
 }
 
-export { kChart as default };
+export default {};

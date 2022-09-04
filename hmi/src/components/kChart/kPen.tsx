@@ -1,14 +1,13 @@
 import "./CanvasRenderingContext2D.extensions";
-import { DeepPartial, ExcludeMethods, kLayout } from "./kChartInterfaces";
+import { DeepPartial, ExcludeMethods } from "./kChartInterfaces";
 import { merge } from "lodash";
-import kAxis from "./kAxis";
-import kData from "./kData";
+import { kAxis } from "./kAxis";
+import { kData } from "./kData";
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
 //----------------------------------------------------------------------------------------------------------------------
-interface kPenInterface {
-  readonly ctx: CanvasRenderingContext2D;
+export interface kPenInterface {
   readonly show: boolean;
   readonly label: string;
   readonly color: string;
@@ -16,41 +15,34 @@ interface kPenInterface {
   readonly xAxis: kAxis | undefined;
   readonly yAxis: kAxis | undefined;
   updateOptions(options?: DeepPartial<kPenOptions>): void;
-  draw(): void;
+  draw(ctx: CanvasRenderingContext2D): void;
 }
 
-interface kPenOptions extends Omit<ExcludeMethods<kPenInterface>, "data" | "xAxis" | "yAxis" | "ctx"> {}
+export interface kPenOptions extends Omit<ExcludeMethods<kPenInterface>, "data" | "xAxis" | "yAxis"> {}
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Class
 //----------------------------------------------------------------------------------------------------------------------
-class kPen implements kPenInterface {
-  #options: kPenOptions = {
-    show: true,
-    label: "",
-    color: "black",
-  };
+export class kPen implements kPenInterface {
+  #options: kPenOptions;
   data: kData | undefined;
   xAxis: kAxis | undefined;
   yAxis: kAxis | undefined;
-  #ctx: CanvasRenderingContext2D;
 
-  constructor(
-    ctx: CanvasRenderingContext2D,
-    options?: DeepPartial<kPenOptions>,
-    data?: kData,
-    xAxis?: kAxis,
-    yAxis?: kAxis
-  ) {
-    this.#ctx = ctx;
+  constructor(options?: DeepPartial<kPenOptions>, data?: kData, xAxis?: kAxis, yAxis?: kAxis) {
+    this.#options = {
+      show: true,
+      label: "",
+      color: "black",
+    };
     this.data = data;
     this.xAxis = xAxis;
     this.yAxis = yAxis;
     this.updateOptions(options);
   }
 
-  get ctx() {
-    return this.#ctx;
+  updateOptions(options?: DeepPartial<kPenOptions>) {
+    this.#options = merge(this.#options, options);
   }
 
   get show() {
@@ -65,11 +57,7 @@ class kPen implements kPenInterface {
     return this.#options.color;
   }
 
-  updateOptions(options?: DeepPartial<kPenOptions>) {
-    this.#options = merge(this.#options, options);
-  }
-
-  draw() {
+  draw(ctx: CanvasRenderingContext2D) {
     if (!this.show) return;
 
     if (!this.data || !this.xAxis || !this.yAxis) {
@@ -79,23 +67,23 @@ class kPen implements kPenInterface {
     let xScale = this.xAxis.scaleValue;
     let yScale = this.yAxis.scaleValue;
 
-    this.ctx.save();
+    ctx.save();
 
     // draw line
     this.data.dataset.forEach((point, index) => {
       let x = xScale(point.x);
       let y = yScale(point.y);
       if (index == 0) {
-        this.ctx.moveTo(x, y);
-        this.ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.beginPath();
       }
-      this.ctx.lineTo(x, y);
+      ctx.lineTo(x, y);
     });
-    this.ctx.lineWidth = 3; // todo: add thickess
-    this.ctx.stroke();
+    ctx.lineWidth = 3; // todo: add thickess
+    ctx.stroke();
 
-    this.ctx.restore();
+    ctx.restore();
   }
 }
 
-export { kPen as default };
+export default {};
