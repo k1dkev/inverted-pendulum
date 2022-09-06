@@ -4,6 +4,7 @@ import { kPen, kPenOptions } from "./kPen";
 import "./CanvasRenderingContext2D.extensions";
 import { kLayout, DeepPartial, ExcludeMethods } from "./kChartInterfaces";
 import { merge } from "lodash";
+import { kData } from "./kData";
 
 //----------------------------------------------------------------------------------------------------------------------
 //                                                  Interfaces
@@ -16,9 +17,9 @@ export interface kChartInterface {
   readonly pens: Array<kPen>;
   readonly graph: kGraph | undefined;
   updateOptions(options?: DeepPartial<kChartOptions>): void;
-  createAxis(options?: DeepPartial<kAxisOptions>): void;
+  createAxis(options?: DeepPartial<kAxisOptions>): kAxis;
   deleteAxis(index: number): void;
-  createPen(options?: DeepPartial<kPenOptions>): void;
+  createPen(options?: DeepPartial<kPenOptions>): kPen;
   deletePen(index: number): void;
   draw(ctx: CanvasRenderingContext2D): void;
 }
@@ -133,20 +134,24 @@ export class kChart implements kChartInterface {
   }
 
   createAxis(options?: DeepPartial<kAxisOptions>) {
-    this.#axes.push(new kAxis(options));
+    const axis = new kAxis(options);
+    this.#axes.push(axis);
+    return axis;
   }
 
   deleteAxis(index: number) {
-    if (!this.#axes[index]) throw "Index does not exist!";
+    if (!this.#axes[index]) throw new Error("Index does not exist!");
     this.#axes.splice(index, 1);
   }
 
-  createPen(options?: DeepPartial<kPenOptions>) {
-    this.#pens.push(new kPen(options));
+  createPen(options?: DeepPartial<kPenOptions>, data?: kData, xAxis?: kAxis, yAxis?: kAxis) {
+    const pen = new kPen(options, data, xAxis, yAxis);
+    this.#pens.push(pen);
+    return pen;
   }
 
   deletePen(index: number) {
-    if (!this.#pens[index]) throw "Index does not exist!";
+    if (!this.#pens[index]) throw new Error("Index does not exist!");
     this.#pens.splice(index, 1);
   }
 
@@ -160,5 +165,3 @@ export class kChart implements kChartInterface {
     ctx.restore();
   }
 }
-
-export default {};

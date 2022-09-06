@@ -6,8 +6,9 @@ import NiceButton from "./components/NiceButton/NiceButton";
 import RadioText from "./components/RadioText/RadioText";
 import PendCanvas from "./components/PendCanvas/PendCanvas";
 // import ChartCanvas from "./components/ChartCanvas/ChartCanvas";
-import kChart from "./components/kChart/kChart";
+import { kChart } from "./components/kChart/kChart";
 import Canvas from "./components/Canvas/Canvas";
+import { kData } from "./components/kChart/kData";
 
 function App() {
   // var x;
@@ -25,7 +26,11 @@ function App() {
   // const getData = () => {
   //   return x ? x[0] : 0;
   // };
-  var mykChart = new kChart({ showOutline: true });
+  var chart = new kChart({ showOutline: true });
+  const data = new kData({ label: "x", maxNumOfPoints: 500 });
+  const xAxis = chart.createAxis({ showOutline: true });
+  const yAxis = chart.createAxis({ showOutline: true });
+  chart.createPen({}, data, xAxis, yAxis);
 
   return (
     <>
@@ -47,8 +52,8 @@ function App() {
           <div className="box">
             <p>TestCanvas</p>
             <Canvas
-              draw={(ctx, t) => {
-                mykChart.draw(ctx, t);
+              draw={(ctx) => {
+                chart.draw(ctx);
               }}
             />
           </div>

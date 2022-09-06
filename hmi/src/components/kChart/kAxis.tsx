@@ -191,12 +191,12 @@ export class kAxis implements kAxisInterface {
   }
 
   scaleValue(value: number): number {
-    if (this.ticks.minEngValue == this.ticks.maxEngValue) {
-      throw "Invalid engineering scaling for ticks";
+    if (this.ticks.minEngValue === this.ticks.maxEngValue) {
+      throw new Error("Invalid engineering scaling for ticks");
     }
 
-    if (this.ticks.start == this.ticks.end) {
-      throw "Invalid start and end pixel values for ticks";
+    if (this.ticks.start === this.ticks.end) {
+      throw new Error("Invalid start and end pixel values for ticks");
     }
 
     let x1 = this.ticks.minEngValue;
@@ -229,5 +229,3 @@ export class kAxis implements kAxisInterface {
     ctx.restore();
   }
 }
-
-export default {};

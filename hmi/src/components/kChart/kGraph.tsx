@@ -70,5 +70,3 @@ export class kGraph implements kGraphInterface {
     ctx.restore();
   }
 }
-
-export default {};

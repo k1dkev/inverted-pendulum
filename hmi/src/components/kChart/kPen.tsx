@@ -61,7 +61,7 @@ export class kPen implements kPenInterface {
     if (!this.show) return;
 
     if (!this.data || !this.xAxis || !this.yAxis) {
-      throw "Drawing pen failed. Data and x and y axis must be defined.";
+      throw new Error("Drawing pen failed. Data and x and y axis must be defined.");
     }
 
     let xScale = this.xAxis.scaleValue;
@@ -73,7 +73,7 @@ export class kPen implements kPenInterface {
     this.data.dataset.forEach((point, index) => {
       let x = xScale(point.x);
       let y = yScale(point.y);
-      if (index == 0) {
+      if (index === 0) {
         ctx.moveTo(x, y);
         ctx.beginPath();
       }
@@ -85,5 +85,3 @@ export class kPen implements kPenInterface {
     ctx.restore();
   }
 }
-
-export default {};

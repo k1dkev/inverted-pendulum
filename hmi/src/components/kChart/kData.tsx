@@ -21,8 +21,8 @@ export interface kDataOptions extends Omit<ExcludeMethods<kDataInterface>, "data
 //----------------------------------------------------------------------------------------------------------------------
 export class kData implements kDataInterface {
   #options: kDataOptions = {
-    label: "",
-    maxNumOfPoints: 0,
+    label: "default label",
+    maxNumOfPoints: 100,
   };
   #dataset: Array<kDataPoint>;
 
@@ -58,5 +58,3 @@ export class kData implements kDataInterface {
     this.#dataset = [];
   }
 }
-
-export default {};
