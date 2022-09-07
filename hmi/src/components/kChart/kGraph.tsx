@@ -1,4 +1,4 @@
-import { kLayout, DeepPartial, ExcludeMethods } from "./kChartInterfaces";
+import { kLayout, DeepPartial, ExcludeMethods, randColor, kOutline } from "./kChartInterfaces";
 import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -6,7 +6,7 @@ import { merge } from "lodash";
 //----------------------------------------------------------------------------------------------------------------------
 export interface kGraphInterface {
   readonly layout: kLayout;
-  readonly showOutline: boolean;
+  readonly outline: kOutline;
   updateOptions(options?: DeepPartial<kGraphOptions>): void;
   draw(ctx: CanvasRenderingContext2D): void;
 }
@@ -28,7 +28,7 @@ export class kGraph implements kGraphInterface {
         height: 100,
         margin: { top: 0, bottom: 0, left: 0, right: 0 },
       },
-      showOutline: false,
+      outline: { show: false, color: randColor(), thickness: 1 },
     };
     this.updateOptions(options);
   }
@@ -41,32 +41,27 @@ export class kGraph implements kGraphInterface {
     return this.#options.layout;
   }
 
-  get showOutline() {
-    return this.#options.showOutline;
+  get outline() {
+    return this.#options.outline;
   }
 
-  private drawOutline(ctx: CanvasRenderingContext2D) {
-    if (!this.showOutline) return;
-    ctx.beginPath();
-    ctx.fillStyle = "blue";
-    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
-    ctx.fill();
-  }
-
-  draw(ctx: CanvasRenderingContext2D) {
-    // save
-    ctx.save();
-
-    // Transform and clip
+  private translateAndClear(ctx: CanvasRenderingContext2D) {
     ctx.translate(this.layout.x, this.layout.y);
     ctx.beginPath();
     ctx.rect(0, 0, this.layout.width, this.layout.height);
     ctx.clip();
+  }
 
-    // Outline
+  private drawOutline(ctx: CanvasRenderingContext2D) {
+    if (!this.outline.show) return;
+    ctx.fillStyle = this.outline.color;
+    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, this.outline.thickness);
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    this.translateAndClear(ctx);
     this.drawOutline(ctx);
-
-    // restore
     ctx.restore();
   }
 }

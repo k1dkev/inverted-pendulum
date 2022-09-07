@@ -2,7 +2,7 @@ import { kAxis, kAxisOptions } from "./kAxis";
 import { kGraph } from "./kGraph";
 import { kPen, kPenOptions } from "./kPen";
 import "./CanvasRenderingContext2D.extensions";
-import { kLayout, DeepPartial, ExcludeMethods } from "./kChartInterfaces";
+import { kLayout, DeepPartial, ExcludeMethods, randColor, kOutline } from "./kChartInterfaces";
 import { merge } from "lodash";
 import { kData } from "./kData";
 
@@ -11,7 +11,7 @@ import { kData } from "./kData";
 //----------------------------------------------------------------------------------------------------------------------
 export interface kChartInterface {
   readonly layout: kLayout;
-  readonly showOutline: boolean;
+  readonly outline: kOutline;
   readonly aspectRatio: number;
   readonly axes: Array<kAxis>;
   readonly pens: Array<kPen>;
@@ -46,7 +46,7 @@ export class kChart implements kChartInterface {
         y: 0,
         margin: { top: 0, bottom: 0, left: 0, right: 0 },
       },
-      showOutline: false,
+      outline: { show: false, color: randColor(), thickness: 1 },
       aspectRatio: 1.5,
     };
     this.#axes = [];
@@ -65,8 +65,8 @@ export class kChart implements kChartInterface {
     return merge(this.#options.layout, { width: this.#width, height: this.#height });
   }
 
-  get showOutline() {
-    return this.#options.showOutline;
+  get outline() {
+    return this.#options.outline;
   }
 
   get aspectRatio() {
@@ -86,27 +86,23 @@ export class kChart implements kChartInterface {
   }
 
   private updateLayout(ctx: CanvasRenderingContext2D) {
-    console.log(
-      "local width: ",
-      this.#width,
-      "local height: ",
-      this.#height,
-      "canvas width: ",
-      ctx.canvas.width,
-      "canvas height: ",
-      ctx.canvas.height
-    );
-
     this.#width = ctx ? Math.floor(ctx.canvas.offsetWidth) : 0;
     this.#height = ctx ? Math.floor(ctx.canvas.offsetWidth / this.aspectRatio) : 0;
     ctx.canvas.width = this.layout.width;
     ctx.canvas.height = this.layout.height;
   }
 
+  private translateAndClear(ctx: CanvasRenderingContext2D) {
+    ctx.translate(this.layout.x, this.layout.y);
+    ctx.beginPath();
+    ctx.rect(0, 0, this.layout.width, this.layout.height);
+    ctx.clip();
+  }
+
   private drawOutline(ctx: CanvasRenderingContext2D) {
-    if (!this.showOutline) return;
-    ctx.fillStyle = "black";
-    ctx.rectBorderInside(this.layout.x, this.layout.y, this.layout.width, this.layout.height, 1);
+    if (!this.outline.show) return;
+    ctx.fillStyle = this.outline.color;
+    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, this.outline.thickness);
   }
 
   private drawAxes(ctx: CanvasRenderingContext2D) {
@@ -165,12 +161,12 @@ export class kChart implements kChartInterface {
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    this.updateLayout(ctx);
     ctx.save();
-    this.drawOutline(ctx);
+    this.updateLayout(ctx);
     this.drawPens(ctx);
     this.drawAxes(ctx);
     this.drawGraph(ctx);
+    this.drawOutline(ctx);
     ctx.restore();
   }
 }

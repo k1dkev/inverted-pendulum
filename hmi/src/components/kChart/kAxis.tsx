@@ -1,4 +1,4 @@
-import { kLayout, DeepPartial, ExcludeMethods } from "./kChartInterfaces";
+import { kLayout, DeepPartial, ExcludeMethods, randColor, kOutline } from "./kChartInterfaces";
 import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -28,9 +28,15 @@ export interface kAxisLine {
   readonly thickness: number;
 }
 
+export enum axisType {
+  x = "x",
+  y = "y",
+}
+
 export interface kAxisInterface {
   readonly layout: kLayout;
-  readonly showOutline: boolean;
+  readonly outline: kOutline;
+  readonly axisType: axisType;
   readonly text: kAxisText;
   readonly ticks: kAxisTicks;
   readonly line: kAxisLine;
@@ -49,18 +55,8 @@ export interface kAxisOptions extends Omit<ExcludeMethods<kAxisInterface>, "layo
 export class kAxis implements kAxisInterface {
   #options: kAxisOptions;
   #width: number;
-  #outlineColor: string;
 
   constructor(options?: DeepPartial<kAxisOptions>) {
-    function getRandomColor() {
-      var letters = "0123456789ABCDEF";
-      var color = "#";
-      for (var i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * 16)];
-      }
-      return color;
-    }
-
     this.#options = {
       layout: {
         x: 0,
@@ -68,7 +64,8 @@ export class kAxis implements kAxisInterface {
         height: 100,
         margin: { top: 0, bottom: 0, left: 0, right: 0 },
       },
-      showOutline: false,
+      outline: { show: false, color: randColor(), thickness: 1 },
+      axisType: axisType.x,
       text: {
         color: "#000000",
         height: 15,
@@ -88,7 +85,6 @@ export class kAxis implements kAxisInterface {
       },
     };
     this.#width = 0;
-    this.#outlineColor = getRandomColor();
     this.updateOptions(options);
   }
 
@@ -100,8 +96,12 @@ export class kAxis implements kAxisInterface {
     return merge(this.#options.layout, { width: this.#width });
   }
 
-  get showOutline() {
-    return this.#options.showOutline;
+  get outline() {
+    return this.#options.outline;
+  }
+
+  get axisType() {
+    return this.#options.axisType;
   }
 
   get text() {
@@ -135,7 +135,6 @@ export class kAxis implements kAxisInterface {
   }
 
   private updateLayout(ctx: CanvasRenderingContext2D) {
-    ctx.save();
     ctx.font = `${this.#options.text.height}px Monospace`;
     let maxTextWidth = Math.ceil(
       Math.max(
@@ -149,15 +148,19 @@ export class kAxis implements kAxisInterface {
       this.#options.line.thickness +
       this.#options.layout.margin.left +
       this.#options.layout.margin.right;
-    ctx.restore();
+  }
+
+  private translateAndClear(ctx: CanvasRenderingContext2D) {
+    ctx.translate(this.layout.x, this.layout.y);
+    ctx.beginPath();
+    ctx.rect(0, 0, this.layout.width, this.layout.height);
+    ctx.clip();
   }
 
   private drawOutline(ctx: CanvasRenderingContext2D) {
-    if (!this.showOutline) return;
-    ctx.beginPath();
-    ctx.fillStyle = this.#outlineColor;
-    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
-    ctx.fill();
+    if (!this.outline.show) return;
+    ctx.fillStyle = this.outline.color;
+    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, this.outline.thickness);
   }
 
   private drawVerticalLine(ctx: CanvasRenderingContext2D) {
@@ -218,25 +221,13 @@ export class kAxis implements kAxisInterface {
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    // save
     ctx.save();
-
-    // update width
     this.updateLayout(ctx);
-
-    // Transform and clip
-    ctx.translate(this.layout.x, this.layout.y);
-    ctx.beginPath();
-    ctx.rect(0, 0, this.layout.width, this.layout.height);
-    ctx.clip();
-
-    // Draw objects
+    this.translateAndClear(ctx);
     this.drawVerticalLine(ctx);
     this.drawTicks(ctx);
     this.drawTickLabels(ctx);
     this.drawOutline(ctx);
-
-    // restore
     ctx.restore();
   }
 }
