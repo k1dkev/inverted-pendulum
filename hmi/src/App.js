@@ -28,7 +28,7 @@ function App() {
   // };
   var chart = new kChart({ showOutline: true });
   const data = new kData({ label: "x", maxNumOfPoints: 500 });
-  const xAxis = chart.createAxis({ showOutline: true });
+  const xAxis = chart.createAxis({ showOutline: true, color: "#008000" });
   const yAxis = chart.createAxis({ showOutline: true });
   chart.createPen({}, data, xAxis, yAxis);
 

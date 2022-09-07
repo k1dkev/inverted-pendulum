@@ -11,10 +11,10 @@ CanvasRenderingContext2D.prototype.rectBorderInside = function (
   h: number,
   t: number
 ): CanvasRenderingContext2D {
-  this.rect(x, y, w, t); // top
-  this.rect(x, y + h - t, w, t); // bottom
-  this.rect(x, y, t, h); // left
-  this.rect(x + w - t, y, t, h); // right
+  this.fillRect(x, y, w, t); // top
+  this.fillRect(x, y + h - t, w, t); // bottom
+  this.fillRect(x, y, t, h); // left
+  this.fillRect(x + w - t, y, t, h); // right
   return this;
 };
 

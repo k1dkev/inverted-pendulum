@@ -49,8 +49,18 @@ export interface kAxisOptions extends Omit<ExcludeMethods<kAxisInterface>, "layo
 export class kAxis implements kAxisInterface {
   #options: kAxisOptions;
   #width: number;
+  #outlineColor: string;
 
   constructor(options?: DeepPartial<kAxisOptions>) {
+    function getRandomColor() {
+      var letters = "0123456789ABCDEF";
+      var color = "#";
+      for (var i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    }
+
     this.#options = {
       layout: {
         x: 0,
@@ -78,6 +88,7 @@ export class kAxis implements kAxisInterface {
       },
     };
     this.#width = 0;
+    this.#outlineColor = getRandomColor();
     this.updateOptions(options);
   }
 
@@ -144,7 +155,7 @@ export class kAxis implements kAxisInterface {
   private drawOutline(ctx: CanvasRenderingContext2D) {
     if (!this.showOutline) return;
     ctx.beginPath();
-    ctx.fillStyle = "red";
+    ctx.fillStyle = this.#outlineColor;
     ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
     ctx.fill();
   }
@@ -220,10 +231,10 @@ export class kAxis implements kAxisInterface {
     ctx.clip();
 
     // Draw objects
-    this.drawOutline(ctx);
     this.drawVerticalLine(ctx);
     this.drawTicks(ctx);
     this.drawTickLabels(ctx);
+    this.drawOutline(ctx);
 
     // restore
     ctx.restore();

@@ -86,6 +86,17 @@ export class kChart implements kChartInterface {
   }
 
   private updateLayout(ctx: CanvasRenderingContext2D) {
+    console.log(
+      "local width: ",
+      this.#width,
+      "local height: ",
+      this.#height,
+      "canvas width: ",
+      ctx.canvas.width,
+      "canvas height: ",
+      ctx.canvas.height
+    );
+
     this.#width = ctx ? Math.floor(ctx.canvas.offsetWidth) : 0;
     this.#height = ctx ? Math.floor(ctx.canvas.offsetWidth / this.aspectRatio) : 0;
     ctx.canvas.width = this.layout.width;
@@ -94,10 +105,8 @@ export class kChart implements kChartInterface {
 
   private drawOutline(ctx: CanvasRenderingContext2D) {
     if (!this.showOutline) return;
-    ctx.beginPath();
     ctx.fillStyle = "black";
-    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, 1);
-    ctx.fill();
+    ctx.rectBorderInside(this.layout.x, this.layout.y, this.layout.width, this.layout.height, 1);
   }
 
   private drawAxes(ctx: CanvasRenderingContext2D) {
