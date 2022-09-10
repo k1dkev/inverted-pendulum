@@ -1,4 +1,4 @@
-import { kLayout, DeepPartial, ExcludeMethods, randColor, kOutline } from "./kChartInterfaces";
+import { kLayout, DeepPartial, ExcludeMethods, randColor, kBorder } from "./kChartInterfaces";
 import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ export enum axisType {
 
 export interface kAxisInterface {
   readonly layout: kLayout;
-  readonly outline: kOutline;
+  readonly border: kBorder;
   readonly axisType: axisType;
   readonly text: kAxisText;
   readonly ticks: kAxisTicks;
@@ -57,6 +57,7 @@ export class kAxis implements kAxisInterface {
   #width: number;
 
   constructor(options?: DeepPartial<kAxisOptions>) {
+    console.log(options);
     this.#options = {
       layout: {
         x: 0,
@@ -64,7 +65,7 @@ export class kAxis implements kAxisInterface {
         height: 100,
         margin: { top: 0, bottom: 0, left: 0, right: 0 },
       },
-      outline: { show: false, color: randColor(), thickness: 1 },
+      border: { show: false, color: randColor(), thickness: 1 },
       axisType: axisType.x,
       text: {
         color: "#000000",
@@ -96,8 +97,8 @@ export class kAxis implements kAxisInterface {
     return merge(this.#options.layout, { width: this.#width });
   }
 
-  get outline() {
-    return this.#options.outline;
+  get border() {
+    return this.#options.border;
   }
 
   get axisType() {
@@ -157,10 +158,11 @@ export class kAxis implements kAxisInterface {
     ctx.clip();
   }
 
-  private drawOutline(ctx: CanvasRenderingContext2D) {
-    if (!this.outline.show) return;
-    ctx.fillStyle = this.outline.color;
-    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, this.outline.thickness);
+  private drawBorder(ctx: CanvasRenderingContext2D) {
+    if (!this.border.show) return;
+    console.log("color", this.border.color);
+    ctx.fillStyle = this.border.color;
+    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, this.border.thickness);
   }
 
   private drawVerticalLine(ctx: CanvasRenderingContext2D) {
@@ -227,7 +229,7 @@ export class kAxis implements kAxisInterface {
     this.drawVerticalLine(ctx);
     this.drawTicks(ctx);
     this.drawTickLabels(ctx);
-    this.drawOutline(ctx);
+    this.drawBorder(ctx);
     ctx.restore();
   }
 }

@@ -1,4 +1,4 @@
-import { kLayout, DeepPartial, ExcludeMethods, randColor, kOutline } from "./kChartInterfaces";
+import { kLayout, DeepPartial, ExcludeMethods, randColor, kBorder } from "./kChartInterfaces";
 import { merge } from "lodash";
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -6,7 +6,7 @@ import { merge } from "lodash";
 //----------------------------------------------------------------------------------------------------------------------
 export interface kGraphInterface {
   readonly layout: kLayout;
-  readonly outline: kOutline;
+  readonly border: kBorder;
   updateOptions(options?: DeepPartial<kGraphOptions>): void;
   draw(ctx: CanvasRenderingContext2D): void;
 }
@@ -28,7 +28,7 @@ export class kGraph implements kGraphInterface {
         height: 100,
         margin: { top: 0, bottom: 0, left: 0, right: 0 },
       },
-      outline: { show: false, color: randColor(), thickness: 1 },
+      border: { show: false, color: randColor(), thickness: 1 },
     };
     this.updateOptions(options);
   }
@@ -41,8 +41,8 @@ export class kGraph implements kGraphInterface {
     return this.#options.layout;
   }
 
-  get outline() {
-    return this.#options.outline;
+  get border() {
+    return this.#options.border;
   }
 
   private translateAndClear(ctx: CanvasRenderingContext2D) {
@@ -52,16 +52,16 @@ export class kGraph implements kGraphInterface {
     ctx.clip();
   }
 
-  private drawOutline(ctx: CanvasRenderingContext2D) {
-    if (!this.outline.show) return;
-    ctx.fillStyle = this.outline.color;
-    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, this.outline.thickness);
+  private drawBorder(ctx: CanvasRenderingContext2D) {
+    if (!this.border.show) return;
+    ctx.fillStyle = this.border.color;
+    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, this.border.thickness);
   }
 
   draw(ctx: CanvasRenderingContext2D) {
     ctx.save();
     this.translateAndClear(ctx);
-    this.drawOutline(ctx);
+    this.drawBorder(ctx);
     ctx.restore();
   }
 }

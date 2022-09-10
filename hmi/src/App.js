@@ -26,10 +26,10 @@ function App() {
   // const getData = () => {
   //   return x ? x[0] : 0;
   // };
-  var chart = new kChart({ showOutline: true });
+  var chart = new kChart({ border: { show: true } });
   const data = new kData({ label: "x", maxNumOfPoints: 500 });
-  const xAxis = chart.createAxis({ showOutline: true, color: "#008000" });
-  const yAxis = chart.createAxis({ showOutline: true });
+  const xAxis = chart.createAxis({ border: { show: true, color: "#008000" } });
+  const yAxis = chart.createAxis({ border: { show: true } });
   chart.createPen({}, data, xAxis, yAxis);
 
   return (

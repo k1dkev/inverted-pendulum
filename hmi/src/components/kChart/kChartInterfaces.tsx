@@ -1,5 +1,3 @@
-import { NumericDictionary } from "lodash";
-
 export interface kMargin {
   readonly top: number;
   readonly bottom: number;
@@ -20,7 +18,7 @@ export interface kDataPoint {
   readonly y: number;
 }
 
-export interface kOutline {
+export interface kBorder {
   readonly show: boolean;
   readonly color: string;
   readonly thickness: number;

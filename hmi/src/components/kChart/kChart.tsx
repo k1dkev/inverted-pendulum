@@ -2,7 +2,7 @@ import { kAxis, kAxisOptions } from "./kAxis";
 import { kGraph } from "./kGraph";
 import { kPen, kPenOptions } from "./kPen";
 import "./CanvasRenderingContext2D.extensions";
-import { kLayout, DeepPartial, ExcludeMethods, randColor, kOutline } from "./kChartInterfaces";
+import { kLayout, DeepPartial, ExcludeMethods, randColor, kBorder } from "./kChartInterfaces";
 import { merge } from "lodash";
 import { kData } from "./kData";
 
@@ -11,7 +11,7 @@ import { kData } from "./kData";
 //----------------------------------------------------------------------------------------------------------------------
 export interface kChartInterface {
   readonly layout: kLayout;
-  readonly outline: kOutline;
+  readonly border: kBorder;
   readonly aspectRatio: number;
   readonly axes: Array<kAxis>;
   readonly pens: Array<kPen>;
@@ -46,7 +46,7 @@ export class kChart implements kChartInterface {
         y: 0,
         margin: { top: 0, bottom: 0, left: 0, right: 0 },
       },
-      outline: { show: false, color: randColor(), thickness: 1 },
+      border: { show: false, color: randColor(), thickness: 1 },
       aspectRatio: 1.5,
     };
     this.#axes = [];
@@ -65,8 +65,8 @@ export class kChart implements kChartInterface {
     return merge(this.#options.layout, { width: this.#width, height: this.#height });
   }
 
-  get outline() {
-    return this.#options.outline;
+  get border() {
+    return this.#options.border;
   }
 
   get aspectRatio() {
@@ -99,10 +99,10 @@ export class kChart implements kChartInterface {
     ctx.clip();
   }
 
-  private drawOutline(ctx: CanvasRenderingContext2D) {
-    if (!this.outline.show) return;
-    ctx.fillStyle = this.outline.color;
-    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, this.outline.thickness);
+  private drawBorder(ctx: CanvasRenderingContext2D) {
+    if (!this.border.show) return;
+    ctx.fillStyle = this.border.color;
+    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, this.border.thickness);
   }
 
   private drawAxes(ctx: CanvasRenderingContext2D) {
@@ -162,11 +162,12 @@ export class kChart implements kChartInterface {
 
   draw(ctx: CanvasRenderingContext2D) {
     ctx.save();
+    this.translateAndClear(ctx);
     this.updateLayout(ctx);
     this.drawPens(ctx);
     this.drawAxes(ctx);
     this.drawGraph(ctx);
-    this.drawOutline(ctx);
+    this.drawBorder(ctx);
     ctx.restore();
   }
 }
