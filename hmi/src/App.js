@@ -1,13 +1,14 @@
 import "./App.css";
 // import ChartPlot from "./components/ChartPlot/ChartPlot";
 import BasicTextOutput from "./components/BasicTextOutput/BasicTextOutput";
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 import NiceButton from "./components/NiceButton/NiceButton";
 import RadioText from "./components/RadioText/RadioText";
 import PendCanvas from "./components/PendCanvas/PendCanvas";
 // import ChartCanvas from "./components/ChartCanvas/ChartCanvas";
 import { kChart } from "./components/kChart/kChart";
-import Canvas from "./components/Canvas/Canvas";
+// import Canvas from "./components/Canvas/Canvas";
+import Canvas from "./components/CanvasCtx/Canvas";
 import { kData } from "./components/kChart/kData";
 
 function App() {
@@ -23,14 +24,28 @@ function App() {
     }
   };
 
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const ctx = canvasRef.current.getContext("2d");
+    const chart = new kChart(ctx);
+    const data = new kData();
+    const xAxis = chart.createAxis();
+    const yAxis = chart.createAxis();
+    const pen = chart.createPen(data, xAxis, yAxis);
+    const render = () => {
+      chart.draw();
+      window.requestAnimationFrame(render);
+    };
+    render();
+  }, []);
   // const getData = () => {
   //   return x ? x[0] : 0;
   // };
-  var chart = new kChart({ border: { show: true } });
-  const data = new kData({ label: "x", maxNumOfPoints: 500 });
-  const xAxis = chart.createAxis({ border: { show: true, color: "#008000" } });
-  const yAxis = chart.createAxis({ border: { show: true } });
-  chart.createPen({}, data, xAxis, yAxis);
+  // var chart = new kChart();
+  // const data = new kData({ label: "x", maxNumOfPoints: 500 });
+  // const xAxis = chart.createAxis({ border: { show: true, color: "#008000" } });
+  // const yAxis = chart.createAxis({ border: { show: true } });
+  // chart.createPen({}, data, xAxis, yAxis);
 
   return (
     <>
@@ -51,11 +66,7 @@ function App() {
           </div>
           <div className="box">
             <p>TestCanvas</p>
-            <Canvas
-              draw={(ctx) => {
-                chart.draw(ctx);
-              }}
-            />
+            <Canvas canvasRef={canvasRef} />
           </div>
         </div>
 

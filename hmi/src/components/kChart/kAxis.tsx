@@ -1,235 +1,149 @@
-import { kLayout, DeepPartial, ExcludeMethods, randColor, kBorder } from "./kChartInterfaces";
-import { merge } from "lodash";
-
-//----------------------------------------------------------------------------------------------------------------------
-//                                                  Interfaces
-//----------------------------------------------------------------------------------------------------------------------
-export interface kAxisTicks {
-  readonly color: string;
-  readonly length: number;
-  readonly count: number;
-  readonly minEngValue: number;
-  readonly maxEngValue: number;
-  readonly start: number;
-  readonly end: number;
-  readonly delta: number;
-  readonly labels: string[];
-}
-
-export interface kAxisText {
-  readonly color: string;
-  readonly height: number;
-  readonly numOfDecimals: number;
-  readonly padding: number;
-}
-
-export interface kAxisLine {
-  readonly color: string;
-  readonly thickness: number;
-}
+import { randColor } from "./kChartInterfaces";
 
 export enum axisType {
   x = "x",
   y = "y",
 }
 
-export interface kAxisInterface {
-  readonly layout: kLayout;
-  readonly border: kBorder;
-  readonly axisType: axisType;
-  readonly text: kAxisText;
-  readonly ticks: kAxisTicks;
-  readonly line: kAxisLine;
-  scaleValue(value: number): number;
-  draw(ctx: CanvasRenderingContext2D): void;
-}
+export class kAxis {
+  x: number = 0;
+  y: number = 0;
+  height: number = 100;
+  marginTop: number = 0;
+  marginBottom: number = 0;
+  marginLeft: number = 0;
+  marginRight: number = 0;
+  borderShow: boolean = true;
+  borderColor: string = randColor();
+  borderThickness: number = 1;
+  axisType: axisType = axisType.x;
+  textColor: string = "#000000";
+  textHeight: number = 15;
+  textNumOfDecimals: number = 0;
+  textPadding: number = 1;
+  textFont: string = "Monospace";
+  ticksColor: string = "#000000";
+  ticksLength: number = 5;
+  ticksCount: number = 11;
+  ticksMinEngValue: number = 0;
+  ticksMaxEngValue: number = 500;
+  lineColor: string = "#000000";
+  lineThickness: number = 1;
 
-export interface kAxisOptions extends Omit<ExcludeMethods<kAxisInterface>, "layout" | "ticks"> {
-  readonly layout: Omit<kLayout, "width">;
-  readonly ticks: Omit<kAxisTicks, "start" | "end" | "delta" | "labels">;
-}
+  constructor(private ctx: CanvasRenderingContext2D) {}
 
-//----------------------------------------------------------------------------------------------------------------------
-//                                                  Class
-//----------------------------------------------------------------------------------------------------------------------
-export class kAxis implements kAxisInterface {
-  #options: kAxisOptions;
-  #width: number;
-
-  constructor(options?: DeepPartial<kAxisOptions>) {
-    console.log(options);
-    this.#options = {
-      layout: {
-        x: 0,
-        y: 0,
-        height: 100,
-        margin: { top: 0, bottom: 0, left: 0, right: 0 },
-      },
-      border: { show: false, color: randColor(), thickness: 1 },
-      axisType: axisType.x,
-      text: {
-        color: "#000000",
-        height: 15,
-        numOfDecimals: 0,
-        padding: 1,
-      },
-      ticks: {
-        color: "#000000",
-        length: 5,
-        count: 11,
-        minEngValue: 0,
-        maxEngValue: 500,
-      },
-      line: {
-        color: "#000000",
-        thickness: 2,
-      },
-    };
-    this.#width = 0;
-    this.updateOptions(options);
+  get width() {
+    this.ctx.font = `${this.textHeight}px ${this.textFont}`;
+    let maxTextWidth = this.ticksLabels
+      .map((label) => this.ctx.measureText(label).width)
+      .reduce((prev, curr) => Math.max(prev, curr));
+    return maxTextWidth + this.textPadding + this.ticksLength + this.lineThickness + this.marginLeft + this.marginRight;
   }
 
-  updateOptions(options?: DeepPartial<kAxisOptions>) {
-    this.#options = merge(this.#options, options);
-  }
-
-  get layout() {
-    return merge(this.#options.layout, { width: this.#width });
-  }
-
-  get border() {
-    return this.#options.border;
-  }
-
-  get axisType() {
-    return this.#options.axisType;
-  }
-
-  get text() {
-    return this.#options.text;
-  }
-
-  get ticks() {
-    // Tick Labels
-    let engTickDelta =
-      (this.#options.ticks.maxEngValue - this.#options.ticks.minEngValue) / (this.#options.ticks.count - 1);
+  get ticksLabels() {
+    let engTickDelta = (this.ticksMaxEngValue - this.ticksMinEngValue) / (this.ticksCount - 1);
     let ticksLabels = [];
-    for (let i = 0; i < this.#options.ticks.count; i++) {
-      let val = this.#options.ticks.minEngValue + engTickDelta * i;
-      ticksLabels.push(val.toFixed(this.#options.text.numOfDecimals));
+    for (let i = 0; i < this.ticksCount; i++) {
+      let val = this.ticksMinEngValue + engTickDelta * i;
+      ticksLabels.push(val.toFixed(this.textNumOfDecimals));
     }
-    // axis start / end
-    let ticksStart = this.#options.layout.height - this.#options.text.height / 2 - this.#options.layout.margin.bottom;
-    let ticksEnd = this.#options.text.height / 2 + this.#options.layout.margin.top;
-    let ticksDelta = Math.abs(ticksEnd - ticksStart) / (this.#options.ticks.count - 1);
-    // return
-    return merge(this.#options.ticks, {
-      labels: ticksLabels,
-      start: ticksStart,
-      end: ticksEnd,
-      delta: ticksDelta,
-    });
+    return ticksLabels;
   }
 
-  get line() {
-    return this.#options.line;
+  get ticksStart() {
+    return this.height - this.textHeight / 2 - this.marginBottom;
   }
 
-  private updateLayout(ctx: CanvasRenderingContext2D) {
-    ctx.font = `${this.#options.text.height}px Monospace`;
-    let maxTextWidth = Math.ceil(
-      Math.max(
-        ...Array.from(Array(this.#options.ticks.count).keys(), (i) => ctx.measureText(this.ticks.labels[i]).width)
-      )
+  get ticksEnd() {
+    return this.textHeight / 2 + this.marginTop;
+  }
+
+  get ticksDelta() {
+    return Math.abs(this.ticksEnd - this.ticksStart) / (this.ticksCount - 1);
+  }
+
+  private translateAndClear() {
+    if (!this.ctx) return;
+    this.ctx.translate(this.x, this.y);
+    this.ctx.beginPath();
+    this.ctx.rect(0, 0, this.width, this.height);
+    this.ctx.clip();
+  }
+
+  private drawBorder() {
+    if (!this.ctx) return;
+    if (!this.borderShow) return;
+    this.ctx.fillStyle = this.borderColor;
+    this.ctx.rectBorderInside(0, 0, this.width, this.height, this.borderThickness);
+  }
+
+  private drawVerticalLine() {
+    if (!this.ctx) return;
+    this.ctx.beginPath();
+    this.ctx.lineWidth = this.lineThickness;
+    this.ctx.fillStyle = this.lineColor;
+    this.ctx.rect(
+      this.width - this.lineThickness - this.marginRight,
+      this.marginTop,
+      this.lineThickness,
+      this.height - this.marginTop - this.marginBottom
     );
-    this.#width =
-      maxTextWidth +
-      this.#options.text.padding +
-      this.#options.ticks.length +
-      this.#options.line.thickness +
-      this.#options.layout.margin.left +
-      this.#options.layout.margin.right;
+    this.ctx.fill();
   }
 
-  private translateAndClear(ctx: CanvasRenderingContext2D) {
-    ctx.translate(this.layout.x, this.layout.y);
-    ctx.beginPath();
-    ctx.rect(0, 0, this.layout.width, this.layout.height);
-    ctx.clip();
-  }
-
-  private drawBorder(ctx: CanvasRenderingContext2D) {
-    if (!this.border.show) return;
-    console.log("color", this.border.color);
-    ctx.fillStyle = this.border.color;
-    ctx.rectBorderInside(0, 0, this.layout.width, this.layout.height, this.border.thickness);
-  }
-
-  private drawVerticalLine(ctx: CanvasRenderingContext2D) {
-    ctx.beginPath();
-    ctx.lineWidth = this.line.thickness;
-    ctx.fillStyle = this.line.color;
-    ctx.rect(
-      this.layout.width - this.line.thickness - this.layout.margin.right,
-      this.layout.margin.top,
-      this.line.thickness,
-      this.layout.height - this.layout.margin.top - this.layout.margin.bottom
-    );
-    ctx.fill();
-  }
-
-  private drawTicks(ctx: CanvasRenderingContext2D) {
-    for (let i = 0; i < this.ticks.count; i++) {
-      ctx.beginPath();
-      ctx.fillStyle = this.line.color;
-      ctx.rect(
-        this.layout.width - this.ticks.length - this.line.thickness - this.layout.margin.right,
-        Math.round(this.ticks.start - this.ticks.delta * i - this.line.thickness / 2),
-        this.ticks.length,
-        this.line.thickness
+  private drawTicks() {
+    if (!this.ctx) return;
+    for (let i = 0; i < this.ticksCount; i++) {
+      this.ctx.beginPath();
+      this.ctx.fillStyle = this.lineColor;
+      this.ctx.rect(
+        this.width - this.ticksLength - this.lineThickness - this.marginRight,
+        Math.round(this.ticksStart - this.ticksDelta * i - this.lineThickness / 2),
+        this.ticksLength,
+        this.lineThickness
       );
-      ctx.fill();
+      this.ctx.fill();
     }
   }
 
-  private drawTickLabels(ctx: CanvasRenderingContext2D) {
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "black";
-    ctx.font = `${this.text.height}px Monospace`;
-    for (let i = 0; i < this.ticks.count; i++) {
-      ctx.fillText(
-        this.ticks.labels[i],
-        this.layout.width - this.ticks.length - this.text.padding - this.line.thickness - this.layout.margin.right,
-        this.ticks.start - this.ticks.delta * i + 0.1 * this.text.height
+  private drawTickLabels() {
+    if (!this.ctx) return;
+    this.ctx.textAlign = "right";
+    this.ctx.textBaseline = "middle";
+    this.ctx.fillStyle = "black";
+    this.ctx.font = `${this.textHeight}px Monospace`;
+    for (let i = 0; i < this.ticksCount; i++) {
+      this.ctx.fillText(
+        this.ticksLabels[i],
+        this.width - this.ticksLength - this.textPadding - this.lineThickness - this.marginRight,
+        this.ticksStart - this.ticksDelta * i + 0.1 * this.textHeight
       );
     }
   }
 
   scaleValue(value: number): number {
-    if (this.ticks.minEngValue === this.ticks.maxEngValue) {
+    if (this.ticksMinEngValue === this.ticksMaxEngValue) {
       throw new Error("Invalid engineering scaling for ticks");
     }
 
-    if (this.ticks.start === this.ticks.end) {
+    if (this.ticksStart === this.ticksEnd) {
       throw new Error("Invalid start and end pixel values for ticks");
     }
 
-    let x1 = this.ticks.minEngValue;
-    let x2 = this.ticks.maxEngValue;
-    let y1 = this.ticks.start;
-    let y2 = this.ticks.end;
+    let x1 = this.ticksMinEngValue;
+    let x2 = this.ticksMaxEngValue;
+    let y1 = this.ticksStart;
+    let y2 = this.ticksEnd;
     return (value - x1) * ((y2 - y1) / (x2 - x1)) + y1;
   }
 
-  draw(ctx: CanvasRenderingContext2D) {
-    ctx.save();
-    this.updateLayout(ctx);
-    this.translateAndClear(ctx);
-    this.drawVerticalLine(ctx);
-    this.drawTicks(ctx);
-    this.drawTickLabels(ctx);
-    this.drawBorder(ctx);
-    ctx.restore();
+  draw() {
+    this.ctx.save();
+    this.translateAndClear();
+    this.drawVerticalLine();
+    this.drawTicks();
+    this.drawTickLabels();
+    this.drawBorder();
+    this.ctx.restore();
   }
 }
