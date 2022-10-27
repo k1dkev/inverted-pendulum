@@ -1,14 +1,11 @@
 import "./App.css";
-// import ChartPlot from "./components/ChartPlot/ChartPlot";
 import BasicTextOutput from "./components/BasicTextOutput/BasicTextOutput";
 import { useRef } from "react";
 import NiceButton from "./components/NiceButton/NiceButton";
 import RadioText from "./components/RadioText/RadioText";
 import PendCanvas from "./components/PendCanvas/PendCanvas";
-// import ChartCanvas from "./components/ChartCanvas/ChartCanvas";
 import { kChart } from "./components/kChart/kChart";
-// import Canvas from "./components/Canvas/Canvas";
-import Canvas from "./components/CanvasCtx/Canvas";
+import Canvas from "./components/Canvas/Canvas";
 import { kData } from "./components/kChart/kData";
 
 function App() {

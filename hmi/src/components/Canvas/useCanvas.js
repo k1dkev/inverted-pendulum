@@ -1,24 +1,24 @@
 import { useRef, useEffect } from "react";
 
-const useCanvas = (draw) => {
+const useCanvas = (getDraw) => {
   const canvasRef = useRef(null);
 
-  // Use Effect will run on mount / every re-render or if the dependency array (2nd arg) changes.
   useEffect(() => {
     const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const draw = getDraw(ctx);
     let animationFrameId;
 
     const render = (t) => {
-      draw(canvas.getContext("2d"), t);
+      draw(t);
       animationFrameId = window.requestAnimationFrame(render);
     };
-    render();
+    render(0);
 
-    // If useEffect returns a function, that function will be called on unmount of the component
     return () => {
       window.cancelAnimationFrame(animationFrameId);
     };
-  }, [draw]);
+  }, [getDraw]);
 
   return canvasRef;
 };
