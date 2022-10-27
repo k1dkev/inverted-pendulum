@@ -1,7 +1,7 @@
 import "./App.css";
 // import ChartPlot from "./components/ChartPlot/ChartPlot";
 import BasicTextOutput from "./components/BasicTextOutput/BasicTextOutput";
-import { useRef, useEffect, useState } from "react";
+import { useRef } from "react";
 import NiceButton from "./components/NiceButton/NiceButton";
 import RadioText from "./components/RadioText/RadioText";
 import PendCanvas from "./components/PendCanvas/PendCanvas";
@@ -24,28 +24,16 @@ function App() {
     }
   };
 
-  const canvasRef = useRef(null);
-  useEffect(() => {
-    const ctx = canvasRef.current.getContext("2d");
+  const getChartDraw = (ctx) => {
     const chart = new kChart(ctx);
     const data = new kData();
     const xAxis = chart.createAxis();
     const yAxis = chart.createAxis();
-    const pen = chart.createPen(data, xAxis, yAxis);
-    const render = () => {
-      chart.draw();
-      window.requestAnimationFrame(render);
+    chart.createPen(data, xAxis, yAxis);
+    return (t) => {
+      chart.draw(t);
     };
-    render();
-  }, []);
-  // const getData = () => {
-  //   return x ? x[0] : 0;
-  // };
-  // var chart = new kChart();
-  // const data = new kData({ label: "x", maxNumOfPoints: 500 });
-  // const xAxis = chart.createAxis({ border: { show: true, color: "#008000" } });
-  // const yAxis = chart.createAxis({ border: { show: true } });
-  // chart.createPen({}, data, xAxis, yAxis);
+  };
 
   return (
     <>
@@ -66,7 +54,7 @@ function App() {
           </div>
           <div className="box">
             <p>TestCanvas</p>
-            <Canvas canvasRef={canvasRef} />
+            <Canvas getDraw={getChartDraw} />
           </div>
         </div>
 
