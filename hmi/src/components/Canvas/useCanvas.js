@@ -13,7 +13,7 @@ const useCanvas = (getDraw) => {
       draw(t);
       animationFrameId = window.requestAnimationFrame(render);
     };
-    render(0);
+    animationFrameId = window.requestAnimationFrame(render);
 
     return () => {
       window.cancelAnimationFrame(animationFrameId);

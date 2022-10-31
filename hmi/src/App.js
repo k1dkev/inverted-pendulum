@@ -1,35 +1,42 @@
 import "./App.css";
-import BasicTextOutput from "./components/BasicTextOutput/BasicTextOutput";
-import { useRef } from "react";
+// import BasicTextOutput from "./components/BasicTextOutput/BasicTextOutput";
+import { useEffect } from "react";
 import NiceButton from "./components/NiceButton/NiceButton";
 import RadioText from "./components/RadioText/RadioText";
 import PendCanvas from "./components/PendCanvas/PendCanvas";
-import { kChart } from "./components/kChart/kChart";
-import Canvas from "./components/Canvas/Canvas";
-import { kData } from "./components/kChart/kData";
+// import PendStateText from "./components/PendStateText/PendStateText";
+import useKeys from "./hooks/useKeys";
+import ChartCanvas from "./components/ChartCanvas/ChartCanvas";
+import usePendSimulation from "./hooks/usePendSimulation";
 
 function App() {
-  // var x;
-  const BasicTextRef = useRef(null);
-  const handlePendCanvasData = (data) => {
-    if (data) {
-      // x = data.x || 0;
-      BasicTextRef.current.updateValue(data.u || 0);
-    } else {
-      // x = 0;
-      BasicTextRef.current.updateValue(0);
-    }
+  const keys = useKeys();
+  const updatePendState = usePendSimulation();
+
+  const handleResize = (value, e) => {
+    // this.setState({
+    //   screen: {
+    //     width: window.innerWidth,
+    //     height: window.innerHeight,
+    //     ratio: window.devicePixelRatio || 1,
+    //   },
+    // });
   };
 
-  const getChartDraw = (ctx) => {
-    const chart = new kChart(ctx);
-    const data = new kData();
-    const xAxis = chart.createAxis();
-    const yAxis = chart.createAxis();
-    chart.createPen(data, xAxis, yAxis);
-    return (t) => {
-      chart.draw(t);
-    };
+  useEffect(() => {
+    window.addEventListener("resize", handleResize);
+  }, []);
+
+  // const BasicTextRef = useRef(null);
+
+  // const onPendStateChange = (state) => {
+  //   // setPendState(state);
+  //   BasicTextRef.current.updateValue(state.u);
+  // };
+
+  const pendStateHandler = (t) => {
+    const pendState = updatePendState(t, keys);
+    return { x: pendState.x[0], theta: pendState.x[2] };
   };
 
   return (
@@ -38,7 +45,7 @@ function App() {
         {/* Row 1 */}
         <div className="row">
           <div className="box">
-            <PendCanvas passDataToParent={handlePendCanvasData} />
+            <PendCanvas onRequestNewState={pendStateHandler} />
           </div>
           <div className="box">{/* <ChartPlot getData={getData} /> */}</div>
         </div>
@@ -47,11 +54,13 @@ function App() {
         <div className="row">
           <div className="box">
             <p>u value output</p>
-            <BasicTextOutput ref={BasicTextRef} />
+            {/* <BasicTextOutput ref={BasicTextRef} /> */}
+            {/* <PendStateText pendState={pendState} /> */}
           </div>
           <div className="box">
             <p>TestCanvas</p>
-            <Canvas getDraw={getChartDraw} />
+            <ChartCanvas onRequestNewState={pendStateHandler} />
+            {/* <Canvas getDraw={getChartDraw} /> */}
           </div>
         </div>
 
