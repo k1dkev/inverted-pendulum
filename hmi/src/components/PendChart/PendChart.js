@@ -1,10 +1,9 @@
-// import "./App.css";
-import Canvas from "../NewCanvas/Canvas";
+import Canvas from "../Canvas/Canvas";
 import { useEffect, useRef } from "react";
 import { kChart } from "../kChart/kChart";
 import { kData } from "../kChart/kData";
 
-const ChartCanvas = (props) => {
+const PendChart = (props) => {
   const { onRequestNewState } = props;
 
   const canvasRef = useRef(null);
@@ -19,10 +18,11 @@ const ChartCanvas = (props) => {
     const xAxis = chartRef.current.createAxis();
     const yAxis = chartRef.current.createAxis();
     chartRef.current.createPen(dataRef.current, xAxis, yAxis);
+    // setup interval and get state
   }, []);
 
-  const canvasHandler = (t) => {
-    stateRef.current = onRequestNewState(t);
+  const canvasHandler = (t, deltaTime) => {
+    stateRef.current = onRequestNewState(t, deltaTime);
     // data.add(stateRef.current)
     chartRef.current.draw(t);
   };
@@ -30,4 +30,4 @@ const ChartCanvas = (props) => {
   return <Canvas ref={canvasRef} onRequestFrame={canvasHandler} />;
 };
 
-export default ChartCanvas;
+export default PendChart;

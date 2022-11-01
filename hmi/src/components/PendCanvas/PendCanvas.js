@@ -1,5 +1,5 @@
 // import "./App.css";
-import Canvas from "../NewCanvas/Canvas";
+import Canvas from "../Canvas/Canvas";
 import Assembly from "../../utils/Assembly";
 import { useEffect, useRef } from "react";
 
@@ -14,9 +14,9 @@ const PendCanvas = (props) => {
     assemblyRef.current = new Assembly(5);
   }, []);
 
-  const canvasHandler = (t) => {
+  const canvasHandler = (t, deltaTime) => {
     const ctx = canvasRef.current.getContext("2d");
-    stateRef.current = onRequestNewState(t);
+    stateRef.current = onRequestNewState(t, deltaTime);
     assemblyRef.current.updateState(stateRef.current);
     assemblyRef.current.draw(ctx, t);
   };

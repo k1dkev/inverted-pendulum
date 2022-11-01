@@ -1,17 +1,16 @@
 import "./App.css";
-// import BasicTextOutput from "./components/BasicTextOutput/BasicTextOutput";
-import { useEffect } from "react";
-import NiceButton from "./components/NiceButton/NiceButton";
-import RadioText from "./components/RadioText/RadioText";
+import { useEffect, useRef, useState } from "react";
+import PendChart from "./components/PendChart/PendChart";
 import PendCanvas from "./components/PendCanvas/PendCanvas";
-// import PendStateText from "./components/PendStateText/PendStateText";
+import PendStateText from "./components/PendStateText/PendStateText";
+import PendControls from "./components/PendControls/PendControls";
 import useKeys from "./hooks/useKeys";
-import ChartCanvas from "./components/ChartCanvas/ChartCanvas";
-import usePendSimulation from "./hooks/usePendSimulation";
+import { integratePendulumDynamics } from "./utils/Pendulum";
 
 function App() {
   const keys = useKeys();
-  const updatePendState = usePendSimulation();
+  const [activeState, setActiveState] = useState({ x: [0, 0, 0, 0], u: 0 });
+  const simState = useRef({ x: [0, 0, 0, 0], u: 0 });
 
   const handleResize = (value, e) => {
     // this.setState({
@@ -27,82 +26,54 @@ function App() {
     window.addEventListener("resize", handleResize);
   }, []);
 
-  // const BasicTextRef = useRef(null);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveState(simState.current);
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
 
-  // const onPendStateChange = (state) => {
-  //   // setPendState(state);
-  //   BasicTextRef.current.updateValue(state.u);
-  // };
+  const pendCanvasHandler = (t, dt) => {
+    simState.current = integratePendulumDynamics(simState.current.x, dt, keys);
+    return { x: simState.current.x[0], theta: simState.current.x[2] };
+  };
 
-  const pendStateHandler = (t) => {
-    const pendState = updatePendState(t, keys);
-    return { x: pendState.x[0], theta: pendState.x[2] };
+  const pendChartHandler = (t, deltaTime) => {
+    return { x: 0, theta: 0 };
   };
 
   return (
-    <>
-      <div className="container">
-        {/* Row 1 */}
-        <div className="row">
-          <div className="box">
-            <PendCanvas onRequestNewState={pendStateHandler} />
-          </div>
-          <div className="box">{/* <ChartPlot getData={getData} /> */}</div>
+    <div className="container">
+      {/* Row 1 */}
+      <div className="row">
+        <div className="box">
+          <p>box 1</p>
         </div>
-
-        {/* Row 2 */}
-        <div className="row">
-          <div className="box">
-            <p>u value output</p>
-            {/* <BasicTextOutput ref={BasicTextRef} /> */}
-            {/* <PendStateText pendState={pendState} /> */}
-          </div>
-          <div className="box">
-            <p>TestCanvas</p>
-            <ChartCanvas onRequestNewState={pendStateHandler} />
-            {/* <Canvas getDraw={getChartDraw} /> */}
-          </div>
-        </div>
-
-        {/* Row 3 */}
-        <div className="row">
-          <div className="box">
-            <div className="row">
-              <div className="column">
-                <p className="p-text">Simulation</p>
-              </div>
-              <div className="column">
-                <RadioText label1="On" label2="Off" />
-              </div>
-            </div>
-            <div className="row">
-              <div className="column">
-                <p style={{ margin: 0, marginRight: 10 }}>Mode</p>
-              </div>
-              <div className="column">
-                <RadioText className="right" label1="Auto" label2="Manual" />
-              </div>
-            </div>
-            <div className="row">
-              <div className="column">
-                <p style={{ margin: 0, marginRight: 10 }}>Run</p>
-              </div>
-              <div className="column">
-                <div className="row">
-                  <div className="container">
-                    <NiceButton name="Start" color="green" />
-                  </div>
-                  <div className="container">
-                    <NiceButton name="Stop" color="red" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="box">{/* <ChartCanvas /> */}</div>
+        <div className="box">
+          <PendCanvas onRequestNewState={pendCanvasHandler} />
         </div>
       </div>
-    </>
+
+      {/* Row 2 */}
+      <div className="row">
+        <div className="box">
+          <PendStateText pendState={activeState} />
+        </div>
+        <div className="box">
+          <PendChart onRequestNewState={pendChartHandler} />
+        </div>
+      </div>
+
+      {/* Row 3 */}
+      <div className="row">
+        <div className="box">
+          <PendControls />
+        </div>
+        <div className="box">
+          <p>box 6</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
