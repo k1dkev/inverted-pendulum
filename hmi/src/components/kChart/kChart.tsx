@@ -1,4 +1,4 @@
-import { kAxis } from "./kAxis";
+import { axisType, kAxis } from "./kAxis";
 import { kGraph } from "./kGraph";
 import { kPen } from "./kPen";
 import "./CanvasRenderingContext2D.extensions";
@@ -52,8 +52,14 @@ export class kChart {
     for (let i = 0; i < this.axes.length; i++) {
       let prevAxis = this.axes[i - 1];
       this.axes[i].x = this.x + (prevAxis ? prevAxis.x + prevAxis.width : 0);
-      this.axes[i].y = this.y;
-      this.axes[i].height = this.height;
+      if (this.axes[i].axisType === axisType.y) {
+        this.axes[i].y = this.y;
+        this.axes[i].height = this.height;
+      }
+      if (this.axes[i].axisType === axisType.x) {
+        this.axes[i].y = this.y + this.height - this.axes[i].height;
+        this.axes[i].width = this.width;
+      }
       this.axes[i].draw();
     }
   }

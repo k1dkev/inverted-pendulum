@@ -15,8 +15,12 @@ const PendChart = (props) => {
     const ctx = canvasRef.current.getContext("2d");
     chartRef.current = new kChart(ctx);
     dataRef.current = new kData();
-    const xAxis = chartRef.current.createAxis();
     const yAxis = chartRef.current.createAxis();
+    const xAxis = chartRef.current.createAxis();
+    xAxis.axisType = "x";
+    xAxis.borderShow = false;
+    yAxis.borderShow = false;
+    yAxis.axisType = "y";
     chartRef.current.createPen(dataRef.current, xAxis, yAxis);
     // setup interval and get state
   }, []);

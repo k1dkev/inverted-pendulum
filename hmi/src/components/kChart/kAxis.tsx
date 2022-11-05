@@ -8,7 +8,8 @@ export enum axisType {
 export class kAxis {
   x: number = 0;
   y: number = 0;
-  height: number = 100;
+  #width: number = 100;
+  #height: number = 100;
   marginTop: number = 0;
   marginBottom: number = 0;
   marginLeft: number = 0;
@@ -25,19 +26,34 @@ export class kAxis {
   ticksColor: string = "#000000";
   ticksLength: number = 5;
   ticksCount: number = 11;
-  ticksMinEngValue: number = 0;
+  ticksMinEngValue: number = 7777;
   ticksMaxEngValue: number = 500;
   lineColor: string = "#000000";
   lineThickness: number = 1;
 
   constructor(private ctx: CanvasRenderingContext2D) {}
 
+  set width(width: number) {
+    this.#width = width;
+  }
+
   get width() {
+    if (this.axisType === axisType.x) return this.#width;
     this.ctx.font = `${this.textHeight}px ${this.textFont}`;
-    let maxTextWidth = this.ticksLabels
-      .map((label) => this.ctx.measureText(label).width)
-      .reduce((prev, curr) => Math.max(prev, curr));
-    return maxTextWidth + this.textPadding + this.ticksLength + this.lineThickness + this.marginLeft + this.marginRight;
+    return (
+      this.maxTextWidth + this.textPadding + this.ticksLength + this.lineThickness + this.marginLeft + this.marginRight
+    );
+  }
+
+  set height(height: number) {
+    this.#height = height;
+  }
+
+  get height() {
+    if (this.axisType === axisType.y) return this.#height;
+    return (
+      this.textHeight + this.textPadding + this.ticksLength + this.lineThickness + this.marginTop + this.marginBottom
+    );
   }
 
   get ticksLabels() {
@@ -50,12 +66,24 @@ export class kAxis {
     return ticksLabels;
   }
 
+  private get maxTextWidth() {
+    this.ctx.font = `${this.textHeight}px Monospace`;
+    let maxTextWidth = this.ticksLabels
+      .map((label) => this.ctx.measureText(label).width)
+      .reduce((prev, curr) => Math.max(prev, curr));
+    return maxTextWidth;
+  }
+
   get ticksStart() {
-    return this.height - this.textHeight / 2 - this.marginBottom;
+    if (this.axisType === axisType.y) return this.height - this.textHeight / 2 - this.marginBottom;
+    if (this.axisType === axisType.x) return this.maxTextWidth / 2 + this.marginLeft;
+    throw new Error("invalid axisType");
   }
 
   get ticksEnd() {
-    return this.textHeight / 2 + this.marginTop;
+    if (this.axisType === axisType.y) return this.textHeight / 2 + this.marginTop;
+    if (this.axisType === axisType.x) return this.width - this.maxTextWidth / 2 - this.marginRight;
+    throw new Error("invalid axisType");
   }
 
   get ticksDelta() {
@@ -63,7 +91,6 @@ export class kAxis {
   }
 
   private translateAndClear() {
-    if (!this.ctx) return;
     this.ctx.translate(this.x, this.y);
     this.ctx.beginPath();
     this.ctx.rect(0, 0, this.width, this.height);
@@ -71,53 +98,82 @@ export class kAxis {
   }
 
   private drawBorder() {
-    if (!this.ctx) return;
     if (!this.borderShow) return;
     this.ctx.fillStyle = this.borderColor;
     this.ctx.rectBorderInside(0, 0, this.width, this.height, this.borderThickness);
   }
 
-  private drawVerticalLine() {
-    if (!this.ctx) return;
+  private drawAxisLine() {
     this.ctx.beginPath();
     this.ctx.lineWidth = this.lineThickness;
     this.ctx.fillStyle = this.lineColor;
-    this.ctx.rect(
-      this.width - this.lineThickness - this.marginRight,
-      this.marginTop,
-      this.lineThickness,
-      this.height - this.marginTop - this.marginBottom
-    );
+    if (this.axisType === axisType.y) {
+      this.ctx.rect(
+        this.width - this.lineThickness - this.marginRight,
+        this.marginTop,
+        this.lineThickness,
+        this.height - this.marginTop - this.marginBottom
+      );
+    }
+    if (this.axisType === axisType.x) {
+      this.ctx.rect(
+        this.marginRight,
+        this.marginTop,
+        this.width - this.marginLeft - this.marginRight,
+        this.lineThickness
+      );
+    }
     this.ctx.fill();
   }
 
   private drawTicks() {
-    if (!this.ctx) return;
     for (let i = 0; i < this.ticksCount; i++) {
       this.ctx.beginPath();
       this.ctx.fillStyle = this.lineColor;
-      this.ctx.rect(
-        this.width - this.ticksLength - this.lineThickness - this.marginRight,
-        Math.round(this.ticksStart - this.ticksDelta * i - this.lineThickness / 2),
-        this.ticksLength,
-        this.lineThickness
-      );
+      if (this.axisType === axisType.y) {
+        this.ctx.rect(
+          this.width - this.ticksLength - this.lineThickness - this.marginRight,
+          Math.round(this.ticksStart - this.ticksDelta * i - this.lineThickness / 2),
+          this.ticksLength,
+          this.lineThickness
+        );
+      }
+      if (this.axisType === axisType.x) {
+        this.ctx.rect(
+          Math.round(this.ticksStart + this.ticksDelta * i + this.lineThickness / 2),
+          this.lineThickness + this.marginTop,
+          this.lineThickness,
+          this.ticksLength
+        );
+      }
       this.ctx.fill();
     }
   }
 
   private drawTickLabels() {
-    if (!this.ctx) return;
-    this.ctx.textAlign = "right";
-    this.ctx.textBaseline = "middle";
     this.ctx.fillStyle = "black";
     this.ctx.font = `${this.textHeight}px Monospace`;
-    for (let i = 0; i < this.ticksCount; i++) {
-      this.ctx.fillText(
-        this.ticksLabels[i],
-        this.width - this.ticksLength - this.textPadding - this.lineThickness - this.marginRight,
-        this.ticksStart - this.ticksDelta * i + 0.1 * this.textHeight
-      );
+    if (this.axisType === axisType.y) {
+      this.ctx.textAlign = "right";
+      this.ctx.textBaseline = "middle";
+      for (let i = 0; i < this.ticksCount; i++) {
+        this.ctx.fillText(
+          this.ticksLabels[i],
+          this.width - this.ticksLength - this.textPadding - this.lineThickness - this.marginRight,
+          this.ticksStart - this.ticksDelta * i + 0.1 * this.textHeight
+        );
+      }
+    }
+    if (this.axisType === axisType.x) {
+      this.ctx.textAlign = "center";
+      this.ctx.textBaseline = "top";
+      for (let i = 0; i < this.ticksCount; i++) {
+        this.ctx.fillText(
+          this.ticksLabels[i],
+          this.ticksStart + this.ticksDelta * i,
+          this.marginTop + this.ticksLength + this.textPadding + this.lineThickness
+        );
+      }
     }
   }
 
@@ -140,7 +196,7 @@ export class kAxis {
   draw() {
     this.ctx.save();
     this.translateAndClear();
-    this.drawVerticalLine();
+    this.drawAxisLine();
     this.drawTicks();
     this.drawTickLabels();
     this.drawBorder();

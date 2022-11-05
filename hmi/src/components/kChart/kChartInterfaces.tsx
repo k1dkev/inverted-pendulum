@@ -1,29 +1,3 @@
-export interface kMargin {
-  readonly top: number;
-  readonly bottom: number;
-  readonly left: number;
-  readonly right: number;
-}
-
-export interface kLayout {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-  readonly margin: kMargin;
-}
-
-export interface kDataPoint {
-  readonly x: number;
-  readonly y: number;
-}
-
-export interface kBorder {
-  readonly show: boolean;
-  readonly color: string;
-  readonly thickness: number;
-}
-
 export function randColor() {
   var letters = "0123456789ABCDEF";
   var color = "#";
