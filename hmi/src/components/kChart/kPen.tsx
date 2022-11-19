@@ -1,4 +1,3 @@
-import "./CanvasRenderingContext2D.extensions";
 import { kAxis } from "./kAxis";
 import { kData } from "./kData";
 

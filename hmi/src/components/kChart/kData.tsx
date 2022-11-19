@@ -1,9 +1,7 @@
-import "./CanvasRenderingContext2D.extensions";
-
-interface kDataPoint {
+type kDataPoint = {
   readonly x: number;
   readonly y: number;
-}
+};
 
 export class kData {
   label: string = "default label";

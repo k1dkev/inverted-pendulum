@@ -18,8 +18,10 @@ const PendChart = (props) => {
     const yAxis = chartRef.current.createAxis();
     const xAxis = chartRef.current.createAxis();
     xAxis.axisType = "x";
-    xAxis.borderShow = false;
-    yAxis.borderShow = false;
+    xAxis.borderShow = true;
+    xAxis.borderColor = "blue";
+    yAxis.borderShow = true;
+    yAxis.borderColor = "green";
     yAxis.axisType = "y";
     chartRef.current.createPen(dataRef.current, xAxis, yAxis);
     // setup interval and get state

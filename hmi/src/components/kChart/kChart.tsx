@@ -4,6 +4,7 @@ import { kPen } from "./kPen";
 import "./CanvasRenderingContext2D.extensions";
 import { randColor } from "./kChartInterfaces";
 import { kData } from "./kData";
+import { drawPosition, kDrawCoordinator } from "./kDrawCoordinator";
 
 export class kChart {
   x: number = 0;
@@ -22,9 +23,11 @@ export class kChart {
   axes: Array<kAxis> = [];
   pens: Array<kPen> = [];
   graph: kGraph;
+  drawCoordinator: kDrawCoordinator;
 
   constructor(private ctx: CanvasRenderingContext2D) {
     this.graph = new kGraph(ctx);
+    this.drawCoordinator = new kDrawCoordinator();
   }
 
   get width() {
@@ -48,20 +51,45 @@ export class kChart {
     this.ctx.rectBorderInside(0, 0, this.width, this.height, this.borderThickness);
   }
 
+  private refreshCoordinator() {
+    this.drawCoordinator.x = this.x;
+    this.drawCoordinator.y = this.y;
+    this.drawCoordinator.width = this.width;
+    this.drawCoordinator.height = this.height;
+    this.drawCoordinator.refresh();
+  }
+
+  private placeAxes() {
+    let xAxes = this.axes.filter((axis) => axis.axisType === axisType.x);
+    let yAxes = this.axes.filter((axis) => axis.axisType === axisType.y);
+
+    xAxes.forEach((axis) => {
+      let placement = this.drawCoordinator.placeOnScreen(
+        { x: axis.x, y: axis.y, width: axis.width, height: axis.height },
+        drawPosition.bottom
+      );
+      axis.x = placement.x;
+      axis.y = placement.y;
+      axis.width = placement.width;
+      axis.height = placement.height;
+    });
+
+    yAxes.forEach((axis) => {
+      let placement = this.drawCoordinator.placeOnScreen(
+        { x: axis.x, y: axis.y, width: axis.width, height: axis.height },
+        drawPosition.left
+      );
+      axis.x = placement.x;
+      axis.y = placement.y;
+      axis.width = placement.width;
+      axis.height = placement.height;
+    });
+  }
+
   private drawAxes() {
-    for (let i = 0; i < this.axes.length; i++) {
-      let prevAxis = this.axes[i - 1];
-      this.axes[i].x = this.x + (prevAxis ? prevAxis.x + prevAxis.width : 0);
-      if (this.axes[i].axisType === axisType.y) {
-        this.axes[i].y = this.y;
-        this.axes[i].height = this.height;
-      }
-      if (this.axes[i].axisType === axisType.x) {
-        this.axes[i].y = this.y + this.height - this.axes[i].height;
-        this.axes[i].width = this.width;
-      }
-      this.axes[i].draw();
-    }
+    this.axes.forEach((axis) => {
+      axis.draw();
+    });
   }
 
   private drawPens() {
@@ -70,12 +98,15 @@ export class kChart {
     });
   }
 
+  private placeGraph() {
+    this.graph.x = this.drawCoordinator.freeArea.x;
+    this.graph.y = this.drawCoordinator.freeArea.y;
+    this.graph.width = this.drawCoordinator.freeArea.width;
+    this.graph.height = this.drawCoordinator.freeArea.height;
+  }
+
   private drawGraph() {
-    let lastAxis = this.axes[this.axes.length - 1];
-    this.graph.x = lastAxis ? lastAxis.x + lastAxis.width : 0;
-    this.graph.y = this.y;
-    this.graph.width = this.width - (lastAxis ? lastAxis.x + lastAxis.width : 0);
-    this.graph.height = this.height;
+    this.graph.borderShow = true; // TODO DELETE
     this.graph.draw();
   }
 
@@ -106,10 +137,13 @@ export class kChart {
     this.ctx.canvas.width = this.width;
     this.ctx.canvas.height = this.height;
     this.translateAndClear();
-    this.drawPens();
+    this.refreshCoordinator();
+    this.drawBorder();
+    this.placeAxes();
+    this.placeGraph();
     this.drawAxes();
     this.drawGraph();
-    this.drawBorder();
+    this.drawPens();
     this.ctx.restore();
   }
 }
