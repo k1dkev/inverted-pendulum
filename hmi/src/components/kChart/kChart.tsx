@@ -4,7 +4,7 @@ import { kPen } from "./kPen";
 import "./CanvasRenderingContext2D.extensions";
 import { randColor } from "./kChartInterfaces";
 import { kData } from "./kData";
-import { drawPosition, kDrawCoordinator } from "./kDrawCoordinator";
+import { kDrawCoordinator } from "./kDrawCoordinator";
 
 export class kChart {
   x: number = 0;
@@ -60,30 +60,30 @@ export class kChart {
   }
 
   private placeAxes() {
-    let xAxes = this.axes.filter((axis) => axis.axisType === axisType.x);
-    let yAxes = this.axes.filter((axis) => axis.axisType === axisType.y);
-
+    // place x axes
+    const xAxes = this.axes.filter((axis) => axis.axisType === axisType.x);
     xAxes.forEach((axis) => {
-      let placement = this.drawCoordinator.placeOnScreen(
-        { x: axis.x, y: axis.y, width: axis.width, height: axis.height },
-        drawPosition.bottom
-      );
+      const placement = this.drawCoordinator.placeBottom(axis.height);
       axis.x = placement.x;
       axis.y = placement.y;
       axis.width = placement.width;
+    });
+
+    // place y axes
+    const yAxes = this.axes.filter((axis) => axis.axisType === axisType.y);
+    yAxes.forEach((axis) => {
+      const placement = this.drawCoordinator.placeLeft(axis.width);
+      axis.x = placement.x;
+      axis.y = placement.y;
       axis.height = placement.height;
     });
 
-    yAxes.forEach((axis) => {
-      let placement = this.drawCoordinator.placeOnScreen(
-        { x: axis.x, y: axis.y, width: axis.width, height: axis.height },
-        drawPosition.left
-      );
-      axis.x = placement.x;
-      axis.y = placement.y;
-      axis.width = placement.width;
-      axis.height = placement.height;
-    });
+    // place empty elements to account for the buffer needed by ticks
+    this.drawCoordinator.placeBottom(Math.max(...yAxes.map((axis) => axis.tickBuffer.start)));
+    this.drawCoordinator.placeTop(Math.max(...yAxes.map((axis) => axis.tickBuffer.end)));
+    this.drawCoordinator.placeRight(Math.max(...xAxes.map((axis) => axis.tickBuffer.end)));
+
+    // TODO: figure out math to floor and math ceil
   }
 
   private drawAxes() {
@@ -107,6 +107,7 @@ export class kChart {
 
   private drawGraph() {
     this.graph.borderShow = true; // TODO DELETE
+    this.graph.borderColor = "black"; // TODO DELETE
     this.graph.draw();
   }
 

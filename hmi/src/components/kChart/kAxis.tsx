@@ -74,6 +74,22 @@ export class kAxis {
     return maxTextWidth;
   }
 
+  get tickBuffer() {
+    if (this.axisType === axisType.y) {
+      return {
+        start: Math.ceil(this.textHeight / 2 + this.marginBottom),
+        end: Math.ceil(this.textHeight / 2 + this.marginTop),
+      };
+    }
+    if (this.axisType === axisType.x) {
+      return {
+        start: Math.ceil(this.maxTextWidth / 2 + this.marginLeft),
+        end: Math.ceil(this.maxTextWidth / 2 + this.marginRight),
+      };
+    }
+    throw new Error("invalid axisType");
+  }
+
   get ticksStart() {
     if (this.axisType === axisType.y) return this.height - this.textHeight / 2 - this.marginBottom;
     if (this.axisType === axisType.x) return this.maxTextWidth / 2 + this.marginLeft;
