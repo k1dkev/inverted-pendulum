@@ -5,7 +5,6 @@ import { kData } from "../kChart/kData";
 
 const PendChart = (props) => {
   const { onRequestNewState } = props;
-
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
   const dataRef = useRef(null);
@@ -14,16 +13,20 @@ const PendChart = (props) => {
   useEffect(() => {
     const ctx = canvasRef.current.getContext("2d");
     chartRef.current = new kChart(ctx);
+    const chart = chartRef.current;
     dataRef.current = new kData();
-    const yAxis = chartRef.current.createAxis();
-    const xAxis = chartRef.current.createAxis();
+    const yAxis = chart.createAxis();
+    const xAxis = chart.createAxis();
     xAxis.axisType = "x";
-    xAxis.borderShow = true;
+    xAxis.borderShow = false;
     xAxis.borderColor = "blue";
-    yAxis.borderShow = true;
-    yAxis.borderColor = "green";
     yAxis.axisType = "y";
-    chartRef.current.createPen(dataRef.current, xAxis, yAxis);
+    yAxis.borderShow = false;
+    yAxis.borderColor = "green";
+    yAxis.marginBottom = 2;
+    chart.graph.borderShow = false;
+    chart.graph.borderColor = "black";
+    chart.createPen(dataRef.current, xAxis, yAxis);
     // setup interval and get state
   }, []);
 

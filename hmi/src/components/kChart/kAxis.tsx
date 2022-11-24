@@ -23,11 +23,11 @@ export class kAxis {
   textNumOfDecimals: number = 0;
   textPadding: number = 1;
   textFont: string = "Monospace";
-  ticksColor: string = "#000000";
-  ticksLength: number = 5;
-  ticksCount: number = 11;
-  ticksMinEngValue: number = 7777;
-  ticksMaxEngValue: number = 500;
+  tickColor: string = "#000000";
+  tickLength: number = 5;
+  tickCount: number = 5;
+  tickPxRange: [number, number] = [0, 100];
+  tickEngRange: [number, number] = [0, 1000];
   lineColor: string = "#000000";
   lineThickness: number = 1;
 
@@ -40,8 +40,8 @@ export class kAxis {
   get width() {
     if (this.axisType === axisType.x) return this.#width;
     this.ctx.font = `${this.textHeight}px ${this.textFont}`;
-    return (
-      this.maxTextWidth + this.textPadding + this.ticksLength + this.lineThickness + this.marginLeft + this.marginRight
+    return Math.ceil(
+      this.maxTextWidth + this.textPadding + this.tickLength + this.lineThickness + this.marginLeft + this.marginRight
     );
   }
 
@@ -51,59 +51,51 @@ export class kAxis {
 
   get height() {
     if (this.axisType === axisType.y) return this.#height;
-    return (
-      this.textHeight + this.textPadding + this.ticksLength + this.lineThickness + this.marginTop + this.marginBottom
+    return Math.ceil(
+      this.textHeight + this.textPadding + this.tickLength + this.lineThickness + this.marginTop + this.marginBottom
     );
   }
 
-  get ticksLabels() {
-    let engTickDelta = (this.ticksMaxEngValue - this.ticksMinEngValue) / (this.ticksCount - 1);
-    let ticksLabels = [];
-    for (let i = 0; i < this.ticksCount; i++) {
-      let val = this.ticksMinEngValue + engTickDelta * i;
-      ticksLabels.push(val.toFixed(this.textNumOfDecimals));
+  get tickLabels() {
+    let engTickDelta = (this.tickEngRange[1] - this.tickEngRange[0]) / (this.tickCount - 1);
+    let tickLabels = [];
+    for (let i = 0; i < this.tickCount; i++) {
+      let val = this.tickEngRange[0] + engTickDelta * i;
+      tickLabels.push(val.toFixed(this.textNumOfDecimals));
     }
-    return ticksLabels;
+    return tickLabels;
   }
 
   private get maxTextWidth() {
     this.ctx.font = `${this.textHeight}px Monospace`;
-    let maxTextWidth = this.ticksLabels
+    let maxTextWidth = this.tickLabels
       .map((label) => this.ctx.measureText(label).width)
       .reduce((prev, curr) => Math.max(prev, curr));
     return maxTextWidth;
   }
 
-  get tickBuffer() {
+  get tickBuffer(): [number, number] {
     if (this.axisType === axisType.y) {
-      return {
-        start: Math.ceil(this.textHeight / 2 + this.marginBottom),
-        end: Math.ceil(this.textHeight / 2 + this.marginTop),
-      };
+      return [Math.ceil(this.textHeight / 2 + this.marginBottom), Math.ceil(this.textHeight / 2 + this.marginTop)];
     }
     if (this.axisType === axisType.x) {
-      return {
-        start: Math.ceil(this.maxTextWidth / 2 + this.marginLeft),
-        end: Math.ceil(this.maxTextWidth / 2 + this.marginRight),
-      };
+      return [Math.ceil(this.maxTextWidth / 2 + this.marginLeft), Math.ceil(this.maxTextWidth / 2 + this.marginRight)];
     }
     throw new Error("invalid axisType");
   }
 
-  get ticksStart() {
-    if (this.axisType === axisType.y) return this.height - this.textHeight / 2 - this.marginBottom;
-    if (this.axisType === axisType.x) return this.maxTextWidth / 2 + this.marginLeft;
-    throw new Error("invalid axisType");
+  get tickDelta() {
+    return Math.abs(this.tickPxRange[1] - this.tickPxRange[0]) / (this.tickCount - 1);
   }
 
-  get ticksEnd() {
-    if (this.axisType === axisType.y) return this.textHeight / 2 + this.marginTop;
-    if (this.axisType === axisType.x) return this.width - this.maxTextWidth / 2 - this.marginRight;
-    throw new Error("invalid axisType");
-  }
-
-  get ticksDelta() {
-    return Math.abs(this.ticksEnd - this.ticksStart) / (this.ticksCount - 1);
+  private get tickPositions(): Array<number> {
+    const isX = this.axisType === axisType.x;
+    const isY = this.axisType === axisType.y;
+    return [...Array(this.tickCount).keys()].map((i) => {
+      if (i === 0) return this.tickPxRange[0] - (isY ? Math.ceil(this.lineThickness) : 0);
+      if (i === this.tickCount - 1) return this.tickPxRange[1] - (isX ? Math.ceil(this.lineThickness) : 0);
+      return this.tickPxRange[0] + (isX ? 1 : -1) * this.tickDelta * i - this.lineThickness / 2;
+    });
   }
 
   private translateAndClear() {
@@ -143,69 +135,53 @@ export class kAxis {
   }
 
   private drawTicks() {
-    for (let i = 0; i < this.ticksCount; i++) {
+    this.tickPositions.forEach((pos) => {
       this.ctx.beginPath();
       this.ctx.fillStyle = this.lineColor;
       if (this.axisType === axisType.y) {
         this.ctx.rect(
-          this.width - this.ticksLength - this.lineThickness - this.marginRight,
-          Math.round(this.ticksStart - this.ticksDelta * i - this.lineThickness / 2),
-          this.ticksLength,
+          this.width - this.tickLength - this.lineThickness - this.marginRight,
+          Math.round(pos),
+          this.tickLength,
           this.lineThickness
         );
       }
       if (this.axisType === axisType.x) {
-        this.ctx.rect(
-          Math.round(this.ticksStart + this.ticksDelta * i + this.lineThickness / 2),
-          this.lineThickness + this.marginTop,
-          this.lineThickness,
-          this.ticksLength
-        );
+        this.ctx.rect(Math.round(pos), this.lineThickness + this.marginTop, this.lineThickness, this.tickLength);
       }
       this.ctx.fill();
-    }
+    });
   }
 
   private drawTickLabels() {
+    const isX = this.axisType === axisType.x;
+    const isY = this.axisType === axisType.y;
     this.ctx.fillStyle = "black";
     this.ctx.font = `${this.textHeight}px Monospace`;
-    if (this.axisType === axisType.y) {
-      this.ctx.textAlign = "right";
-      this.ctx.textBaseline = "middle";
-      for (let i = 0; i < this.ticksCount; i++) {
-        this.ctx.fillText(
-          this.ticksLabels[i],
-          this.width - this.ticksLength - this.textPadding - this.lineThickness - this.marginRight,
-          this.ticksStart - this.ticksDelta * i + 0.1 * this.textHeight
-        );
-      }
-    }
-    if (this.axisType === axisType.x) {
-      this.ctx.textAlign = "center";
-      this.ctx.textBaseline = "top";
-      for (let i = 0; i < this.ticksCount; i++) {
-        this.ctx.fillText(
-          this.ticksLabels[i],
-          this.ticksStart + this.ticksDelta * i,
-          this.marginTop + this.ticksLength + this.textPadding + this.lineThickness
-        );
-      }
-    }
+    this.ctx.textAlign = isY ? "right" : "center";
+    this.ctx.textBaseline = isY ? "middle" : "top";
+    this.tickPositions.forEach((pos, i) => {
+      this.ctx.fillText(
+        this.tickLabels[i],
+        isX ? pos : this.width - this.tickLength - this.textPadding - this.lineThickness - this.marginRight,
+        isY ? pos + 0.1 * this.textHeight : this.marginTop + this.tickLength + this.textPadding + this.lineThickness
+      );
+    });
   }
 
   scaleValue(value: number): number {
-    if (this.ticksMinEngValue === this.ticksMaxEngValue) {
+    if (this.tickEngRange[0] === this.tickEngRange[1]) {
       throw new Error("Invalid engineering scaling for ticks");
     }
 
-    if (this.ticksStart === this.ticksEnd) {
+    if (this.tickPxRange[0] === this.tickPxRange[1]) {
       throw new Error("Invalid start and end pixel values for ticks");
     }
 
-    let x1 = this.ticksMinEngValue;
-    let x2 = this.ticksMaxEngValue;
-    let y1 = this.ticksStart;
-    let y2 = this.ticksEnd;
+    let x1 = this.tickEngRange[0];
+    let x2 = this.tickEngRange[1];
+    let y1 = this.tickPxRange[0];
+    let y2 = this.tickPxRange[1];
     return (value - x1) * ((y2 - y1) / (x2 - x1)) + y1;
   }
 

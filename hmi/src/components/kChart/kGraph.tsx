@@ -28,6 +28,7 @@ export class kGraph {
     if (!this.borderShow) return;
     this.ctx.fillStyle = this.borderColor;
     this.ctx.rectBorderInside(0, 0, this.width, this.height, this.borderThickness);
+    // console.log({ x: this.x, y: this.y, width: this.width, height: this.height });
   }
 
   draw() {

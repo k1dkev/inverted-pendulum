@@ -9,16 +9,13 @@ import { kDrawCoordinator } from "./kDrawCoordinator";
 export class kChart {
   x: number = 0;
   y: number = 0;
-
   marginTop: number = 0;
   marginBottom: number = 0;
   marginLeft: number = 0;
   marginRight: number = 0;
-
   borderShow: boolean = false;
   borderColor: string = randColor();
   borderThickness: number = 1;
-
   aspectRatio: number = 1.5;
   axes: Array<kAxis> = [];
   pens: Array<kPen> = [];
@@ -36,6 +33,14 @@ export class kChart {
 
   get height() {
     return this.ctx ? Math.floor(this.ctx.canvas.offsetWidth / this.aspectRatio) : 0;
+  }
+
+  private get xAxes() {
+    return this.axes.filter((axis) => axis.axisType === axisType.x);
+  }
+
+  private get yAxes() {
+    return this.axes.filter((axis) => axis.axisType === axisType.y);
   }
 
   private translateAndClear() {
@@ -60,30 +65,25 @@ export class kChart {
   }
 
   private placeAxes() {
-    // place x axes
-    const xAxes = this.axes.filter((axis) => axis.axisType === axisType.x);
-    xAxes.forEach((axis) => {
+    this.xAxes.forEach((axis) => {
       const placement = this.drawCoordinator.placeBottom(axis.height);
       axis.x = placement.x;
       axis.y = placement.y;
       axis.width = placement.width;
     });
 
-    // place y axes
-    const yAxes = this.axes.filter((axis) => axis.axisType === axisType.y);
-    yAxes.forEach((axis) => {
+    this.yAxes.forEach((axis) => {
       const placement = this.drawCoordinator.placeLeft(axis.width);
       axis.x = placement.x;
       axis.y = placement.y;
       axis.height = placement.height;
+      console.log(placement);
     });
 
     // place empty elements to account for the buffer needed by ticks
-    this.drawCoordinator.placeBottom(Math.max(...yAxes.map((axis) => axis.tickBuffer.start)));
-    this.drawCoordinator.placeTop(Math.max(...yAxes.map((axis) => axis.tickBuffer.end)));
-    this.drawCoordinator.placeRight(Math.max(...xAxes.map((axis) => axis.tickBuffer.end)));
-
-    // TODO: figure out math to floor and math ceil
+    this.drawCoordinator.placeBottom(Math.max(...this.yAxes.map((axis) => axis.tickBuffer[0])));
+    this.drawCoordinator.placeTop(Math.max(...this.yAxes.map((axis) => axis.tickBuffer[1])));
+    this.drawCoordinator.placeRight(Math.max(...this.xAxes.map((axis) => axis.tickBuffer[1])));
   }
 
   private drawAxes() {
@@ -105,9 +105,16 @@ export class kChart {
     this.graph.height = this.drawCoordinator.freeArea.height;
   }
 
+  private placeTickEndPoints() {
+    this.xAxes.forEach((axis) => {
+      axis.tickPxRange = [this.graph.x, this.graph.x + this.graph.width];
+    });
+    this.yAxes.forEach((axis) => {
+      axis.tickPxRange = [this.graph.y + this.graph.height, this.graph.y];
+    });
+  }
+
   private drawGraph() {
-    this.graph.borderShow = true; // TODO DELETE
-    this.graph.borderColor = "black"; // TODO DELETE
     this.graph.draw();
   }
 
@@ -142,6 +149,7 @@ export class kChart {
     this.drawBorder();
     this.placeAxes();
     this.placeGraph();
+    this.placeTickEndPoints();
     this.drawAxes();
     this.drawGraph();
     this.drawPens();
