@@ -7,8 +7,8 @@ P3Encoder::P3Encoder(int sensorPin)
   _theta = 0.0;                   // Angle of pendulum
   _thetadot = 0.0;                // Angular velocity of pendulum
   _sensorPin = sensorPin;         // Sensor pin
-  _Vup = 1493.02;                 // Average raw reading in the UPRIGHT position (12-bit)
-  _Vd = 3472.61;                  // Average raw reading in the DOWNWARD position (12-bit)
+  _Vup = 1527.32;                 // Average raw reading in the UPRIGHT position (12-bit)
+  _Vd = 3556.05;                  // Average raw reading in the DOWNWARD position (12-bit)$a
   _c = PI/(_Vd - _Vup);           // Convertion Factor
   _lastTheta = PI;                // Last value of theta (for calc angular vel)
   _lastTimeOfUpdate = micros();   // Last time an update occured in us
