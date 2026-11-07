@@ -1,25 +1,65 @@
 # Pendulum — Project Specification
 
-**Version:** 0.2  
-**Status:** Draft  
-**Primary language:** C  
-**Controllers:** STM32 + ESP32  
+**Version:** 0.3\
+**Status:** Draft\
+**Primary language:** C\
+**Controllers:** STM32 initially; STM32 + ESP32 later\
 **Build system:** CMake + Nix
 
 ## 1. Overview
 
 Build an inverted pendulum system with real-time motor control, local and remote operator interfaces, telemetry, and a physics-based simulator.
 
-The system uses two microcontrollers with separate responsibilities:
+The first iteration connects the STM32 to a computer over USB serial. A server on
+that computer owns the serial connection and exposes a WebSocket interface to a
+browser. This iteration provides angle and stepper telemetry plus manual velocity
+jog controls; it does not require an ESP32 or implement balancing yet.
+
+The eventual standalone system uses two microcontrollers with separate responsibilities:
 
 - **STM32:** Real-time control, sensors, motor actuation, and safety.
 - **ESP32:** Local user interface, networking, client communications, and configuration.
 
-The pendulum must be operable without a computer or network connection.
+The eventual pendulum must be operable without a computer or network connection.
+
+### 1.1 Project goals
+
+- Establish sensing and safe manual motion on the existing NUCLEO-F767ZI.
+- Plot pendulum angle and stepper position, velocity, and acceleration in a browser.
+- Support a velocity setting, left/right hold buttons, and left/right arrow keys.
+- Keep real-time pulse generation and motion limits on the STM32.
+- Migrate to an STM32 Black Pill or a smaller STM32 Nucleo board after bring-up.
+  The exact board/MCU remains undecided; select it against timer, ADC, memory,
+  communications, and debugging needs. Isolate board pin assignments and startup
+  code so the control and protocol code can carry over.
+- Add closed-loop control and the ESP32 standalone interface in later iterations.
+
+Detailed companion specifications:
+
+- [NUCLEO-F767ZI pinout and wiring plan](stm32-pinout-plan.md)
+- [USB serial protocol and browser interface](serial-protocol.md)
 
 Control algorithms should remain portable across embedded firmware, native desktop applications, and WebAssembly.
 
 ## 2. System architecture
+
+### 2.1 Initial computer-connected architecture
+
+```text
+Browser (React/TypeScript: charts, velocity setting, jog controls)
+    ↕ WebSocket JSON
+Computer server (TypeScript/Node.js: serial owner, protocol codec, control lease)
+    ↕ USB cable to CN1 / ST-LINK virtual COM port
+STM32 USART3 (PD8 TX, PD9 RX)
+    ↕ ADC / timer / GPIO
+Angle sensor / STEP-DIR driver / stepper motor
+```
+
+The browser initiates the WebSocket connection to the server. The browser does
+not open the serial port; the server runs on the computer physically connected
+to the board. Simulation remains a separate mode.
+
+### 2.2 Eventual standalone architecture
 
 ```text
              Remote Clients
@@ -78,6 +118,8 @@ The STM32 remains authoritative over operating state, motor commands, and safety
 - STM32 HAL for peripheral access.
 - Hardware timers for deterministic control timing.
 - DMA for sensor acquisition and communications where appropriate.
+- Initial hardware assignments are defined in [the pinout plan](stm32-pinout-plan.md).
+- Later target: an STM32 Black Pill or smaller Nucleo; no replacement chosen yet.
 
 ### 3.2 ESP32 controller
 
@@ -97,6 +139,10 @@ The STM32 remains authoritative over operating state, motor commands, and safety
 - Voltage conditioning for STM32 ADC compatibility.
 - ADC acquisition synchronized with the control loop where practical.
 - Calibration and filtering in firmware.
+- Existing sensor is ERCK_0505_360. The supplied
+  [ERCK datasheet](https://p3america.com/content/pdf/erck.pdf) specifies the 5 V
+  version as 5 V ±10%, 0–5 V ratiometric output, 12-bit resolution, and 1 ms update.
+  Confirm the installed unit's analog/PWM option and calibrate its actual range.
 
 **Optional wireless IMU subsystem**
 
@@ -119,7 +165,10 @@ Wireless IMU support is a future extension and is not required for initial close
 - Configurable speed, acceleration, and actuator limits.
 - Safe handling of direction changes and motor disable.
 
-Actual motor, driver, and mechanical specifications remain TBD.
+The existing schematic identifies a TB6600-style optoisolated driver and a
+17HS16-2004S1 bipolar stepper. Confirm the actual module model, input current,
+enable polarity, pulse timing, motor current setting, microstep DIP settings,
+and mechanics before motion. The module label alone is not an electrical specification.
 
 ## 4. Operator interface
 
@@ -149,7 +198,8 @@ The local interface must work without Wi-Fi, Ethernet, or an external computer.
 
 ### 4.2 Remote operator interface
 
-The ESP32 exposes network interfaces for external clients.
+Initially, a computer server exposes WebSocket access and bridges commands to USB
+serial. Later the ESP32 exposes network interfaces for external clients.
 
 Initial clients:
 
@@ -172,7 +222,9 @@ Examples:
 - `GET_STATUS`
 - `RESET_FAULT`
 
-The ESP32 forwards appropriate commands to the STM32.
+Initially the computer server, and later the ESP32, forwards appropriate commands
+to the STM32. Manual jog commands use signed velocity targets, not individual
+step messages. The STM32 ramps velocity and generates pulses locally.
 
 The STM32 validates commands and determines whether the requested transition or configuration change is permitted.
 
@@ -184,15 +236,29 @@ The STM32 validates commands and determines whether the requested transition or 
 - Communication loss must have explicitly defined safe behavior.
 - ESP32 failure must not compromise the STM32's real-time timing or hardware emergency-stop function.
 
-## 5. STM32 ↔ ESP32 communication
+## 5. Communications
 
-### 5.1 Physical interface
+### 5.1 Initial computer ↔ STM32 serial link
+
+Use the ST-LINK virtual COM port on CN1, bridged to USART3 PD8/PD9, at
+115200 baud, 8N1, no flow control. UART firmware must be added; the LED bring-up
+image does not yet expose the application protocol.
+
+The normative v1 framing, payloads, units, command responses, session handling,
+telemetry, and WebSocket messages are defined in [serial-protocol.md](serial-protocol.md).
+Default telemetry is 50 Hz; the control/motion update target remains 1 kHz.
+
+Motion is explicitly armed and uses a 500 ms command lease refreshed while jog
+is held. A lost browser, server, or USB connection must lead to an STM32-managed
+stop. Reconnection must not resume motion automatically.
+
+### 5.2 Future STM32 ↔ ESP32 physical interface
 
 **Preferred:** SPI with GPIO handshake/ready signaling.
 
 The final SPI master/slave assignment remains TBD.
 
-### 5.2 Protocol
+### 5.3 Future STM32 ↔ ESP32 protocol
 
 Use a shared, versioned binary protocol implemented in C.
 
@@ -216,11 +282,14 @@ Protocol requirements:
 - Nonblocking operation.
 - Communication health monitoring.
 
-The STM32 communicates only with the ESP32 for normal application communications.
+During initial development, the computer is the application communications peer.
+In standalone operation the ESP32 assumes that role. Only one peer may own motion
+authority at a time; adding SPI must preserve this arbitration. The logical
+commands and payloads should be reused, with SPI framing specified when implemented.
 
-### 5.3 Client transport abstraction
+### 5.4 Client transport abstraction
 
-The ESP32 handles the differences between client transports.
+The computer server initially, and the ESP32 later, handles client transports.
 
 - WebSocket for real-time bidirectional communication.
 - HTTP for configuration and status operations.
@@ -254,7 +323,7 @@ Each control iteration:
 5. Update motor commands.
 6. Record telemetry into a bounded buffer.
 
-The control loop must not block on SPI, logging, or user-interface activity.
+The control loop must not block on UART, SPI, logging, or user-interface activity.
 
 ### 6.3 Stepper control
 
@@ -278,7 +347,10 @@ Proposed states:
 
 The STM32 owns all state transitions.
 
-Commands from the ESP32 are requests, not direct motor-control authority.
+Commands from the computer or ESP32 are requests; the STM32 validates them.
+Manual mode adds no new operating states: `ARMED` permits jog requests,
+`RUNNING` means manual motion is active, and `STOPPING` applies the stop ramp.
+See the serial specification for lease expiry and fault transitions.
 
 ### 6.5 Telemetry and logging
 
@@ -360,9 +432,17 @@ Use React/TypeScript with WebAssembly for simulation.
 Support two modes:
 
 **Live mode**
-- Connect to ESP32 over WebSocket.
-- Display real pendulum telemetry.
-- Send configuration and operator commands.
+- Initially connect over WebSocket to a server on the USB-connected computer.
+- Later connect to the ESP32 over WebSocket using the same logical UI interface.
+- Plot pendulum angle against device sample time.
+- Plot stepper position, velocity, and acceleration with explicit units.
+- Identify stepper values as commanded/pulse-derived until encoder feedback exists.
+- Set jog speed and hold left/right buttons or arrow keys to request motion.
+- Show arm/disarm, stop, device state, faults, data freshness, and connection status.
+- Clear jog on release, focus loss, hidden page, or lost connection; require a new
+  press to resume. The STM32 lease remains authoritative if stop messages are lost.
+- Details, message examples, and acceptance criteria are in
+  [the serial and UI specification](serial-protocol.md).
 
 **Simulation mode**
 - Execute physics and controller code locally.
@@ -439,8 +519,12 @@ pendulum/
 │   └── wasm/
 │
 ├── web/
+│   ├── server/       # USB serial bridge and WebSocket server
+│   └── client/       # React UI and simulation
 │
 ├── tests/
+│
+├── kicad/            # Due reference; separate STM32 project to follow
 │
 └── docs/
 ```
@@ -452,14 +536,14 @@ Generated STM32 configuration files should remain separate from handwritten appl
 | Phase | Deliverable |
 |---|---|
 | 1 | STM32 build, flashing, debugging, HAL setup |
-| 2 | STM32 ADC, GPIO, timers, and stepper control |
-| 3 | Fixed-frequency control loop and sensor calibration |
-| 4 | Initial closed-loop pendulum controller |
-| 5 | Shared binary protocol and STM32–ESP32 SPI communication |
-| 6 | ESP32 local screen, buttons, and standalone operation |
-| 7 | ESP32 WebSocket/HTTP interface and remote control |
-| 8 | Portable simulator and browser visualization |
-| 9 | Telemetry recording and system identification |
+| 2 | Confirm wiring/electrical interfaces; ADC angle acquisition and calibration |
+| 3 | USART3 binary protocol, computer serial bridge, WebSocket, angle chart |
+| 4 | Timer STEP generation, limits, motion lease; browser manual jog and stepper charts |
+| 5 | Fixed-frequency control loop and initial closed-loop pendulum controller |
+| 6 | Select and port to an STM32 Black Pill or smaller Nucleo |
+| 7 | STM32–ESP32 SPI transport, local screen/buttons, standalone operation |
+| 8 | ESP32 WebSocket/HTTP interface using the shared logical command model |
+| 9 | Portable simulator, telemetry recording, and system identification |
 | 10 | FreeRTOS integration and performance improvements |
 | 11 | Wireless IMUs and advanced control experiments |
 
@@ -468,18 +552,30 @@ The exact order may change as hardware becomes available.
 ## 15. Open decisions
 
 - ESP32 model and development board.
-- Stepper motor and driver.
+- Exact TB6600 module characteristics and motor/driver settings.
+- Smaller STM32 board and MCU selection.
 - Pendulum mechanical design.
-- Angle sensor specifications.
+- Installed ERCK analog/PWM option, angle calibration, and supply compensation.
 - Local screen type and input controls.
 - SPI master/slave arrangement.
-- Binary protocol encoding and telemetry rates.
+- Future SPI framing and transport-specific telemetry budget (UART v1 is specified).
+- Mechanical travel limits, homing/reference method, and pulses-to-distance conversion.
 - Operating-mode and safety requirements.
 - Whether swing-up control is included in the initial release.
 
 ---
 
 ## Initial implementation target
+
+The next iteration is computer-connected sensing and manual motion:
+
+1. STM32 acquires the angle sensor and reports timestamped telemetry.
+2. A computer server bridges its USB serial port to a browser WebSocket.
+3. The browser plots angle, pulse-derived stepper position, velocity, and acceleration.
+4. The operator sets jog speed and holds left/right buttons or arrow keys to move.
+5. STM32 owns arming, acceleration limits, pulse timing, and communication-loss stops.
+
+## Eventual standalone target
 
 Build a standalone inverted pendulum controller where:
 

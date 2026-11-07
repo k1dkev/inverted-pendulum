@@ -3,6 +3,14 @@
 A fresh C firmware foundation for the STM32 + ESP32 inverted pendulum described
 in [the project specification](docs/project-specification.md).
 
+Plans for the next iteration:
+
+- [STM32 pinout and wiring](docs/stm32-pinout-plan.md)
+- [USB serial protocol, telemetry, and browser jog controls](docs/serial-protocol.md)
+- [KiCad hardware projects and original Arduino Due reference](kicad/README.md)
+
+These are design specifications; the current firmware implements the LED sequence only.
+
 This first milestone builds standalone STM32 firmware that cycles through
 LD1 (green), LD2 (blue), LD3 (red), then all three together. Each step lasts
 500 ms, and the full sequence repeats every two seconds.
@@ -123,7 +131,8 @@ continue
   and minimal C initialization
 - `firmware/stm32/STM32F767ZI.ld`: memory layout and stack reservation
 - `cmake/`: cross-compilation toolchain
-- `docs/`: full v0.2 specification
+- `docs/`: project specification, pinout plan, and serial/UI protocol
+- `kicad/`: original Due schematic/PCB/project and custom symbol-library submodule
 
 ST's startup assembly initializes RAM and calls the application. SysTick drives
 the HAL millisecond tick. This freestanding C build links no libc; its small
