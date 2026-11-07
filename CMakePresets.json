@@ -1,0 +1,17 @@
+{
+  "version": 5,
+  "cmakeMinimumRequired": {"major": 3, "minor": 24, "patch": 0},
+  "configurePresets": [{
+    "name": "stm32-debug",
+    "displayName": "NUCLEO-F767ZI Debug",
+    "generator": "Ninja",
+    "binaryDir": "${sourceDir}/build/stm32-debug",
+    "toolchainFile": "${sourceDir}/cmake/arm-none-eabi.cmake",
+    "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug"}
+  }],
+  "buildPresets": [
+    {"name": "stm32-debug", "configurePreset": "stm32-debug"},
+    {"name": "flash", "configurePreset": "stm32-debug", "targets": ["flash"]},
+    {"name": "debug-server", "configurePreset": "stm32-debug", "targets": ["debug-server"]}
+  ]
+}

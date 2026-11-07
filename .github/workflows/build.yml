@@ -1,0 +1,19 @@
+name: STM32 firmware
+on: [push, pull_request]
+jobs:
+  blink:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build gcc-arm-none-eabi
+      - run: cmake --preset stm32-debug
+      - run: cmake --build --preset stm32-debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stm32-blink
+          path: |
+            build/stm32-debug/firmware/stm32/pendulum.elf
+            build/stm32-debug/firmware/stm32/pendulum.hex
+            build/stm32-debug/firmware/stm32/pendulum.bin
+            build/stm32-debug/firmware/stm32/pendulum.map
