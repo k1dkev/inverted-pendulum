@@ -1,16 +1,18 @@
 # Simulation strategy
 
-Status: multiple simulation deployments are useful. All reuse portable C model,
-controller, and device logic. Only the STM32-controller/external-simulated-plant
-arrangement is excluded from the project plan.
+Status: support multiple simulation deployments and interchangeable physics
+engines. The existing portable C engine remains the default; MuJoCo is a planned
+optional engine. Reuse controller/device logic and common interfaces across
+engines, rather than requiring every engine to implement our C equations.
+Only the STM32-controller/external-simulated-plant arrangement is excluded.
 
 ## 1. Supported and planned environments
 
 | Mode | Physics/device logic | UI connection | What it tests | Status |
 |---|---|---|---|---|
 | On-STM32 simulation | STM32 | Real ST-LINK USB serial → server → WebSocket | Target execution, UART, USB, protocol, operator workflow | Implemented; new firmware still needs physical bench verification |
-| Native process | Mac/Linux native C | Process pipes → server → WebSocket | Shared-core/protocol tests and quick development | Implemented as `just web-mock` |
-| Native virtual serial | Mac/Linux native C | Pseudo-terminal → actual SerialPort path → server → WebSocket | Normal serial API without hardware | Planned; macOS PTY byte round trip verified |
+| Native process | Mac/Linux; builtin C initially, engine adapters later | Process pipes → server → WebSocket | Shared-core/protocol tests and quick development | Builtin implemented as `just web-mock`; other engines planned |
+| Native virtual serial | Mac/Linux; selected supported engine | Pseudo-terminal → actual SerialPort path → server → WebSocket | Normal serial API without hardware | Planned; macOS PTY byte round trip verified |
 | Browser WebAssembly | Shared C compiled to WASM in a worker | Worker adapter → frontend | Interactive simulation without a board or local serial server | Planned |
 | Headless experiments | Native C, fixed-step scenarios | Saved traces and metrics | Controller regression, parameter sweeps, gain tuning | Planned; native tests provide a foundation |
 | Recorded-data replay | Saved telemetry, optionally offline estimation | Replay adapter → frontend | Reproduce issues and inspect prior runs | Planned; replay itself is not physics simulation |
@@ -29,7 +31,7 @@ operator commands → device state machine → controller/velocity target
                                              ↓
                                        actuator model
                                              ↓
-                                      pendulum/cart model
+                                  physics engine adapter
                                              ↓
                                   measurements and telemetry
                                              ↓
@@ -45,6 +47,88 @@ Separate model state, model parameters, requested actuation, applied actuation,
 and estimated/sensed state. Fixed-step numerical functions should accept explicit
 dt and parameters. Runner adapters own transport and clocks. Use seeded random
 state when adding sensor noise or disturbances.
+
+### 2.1 Engines and deployment modes are separate choices
+
+An engine determines how physics is computed; a runner determines where it
+executes and how it connects to the UI. A native runner can use the builtin
+engine or MuJoCo without changing the operator controls or plotting code.
+Do not assume every engine works on every deployment target.
+
+| Engine ID | Purpose | Initial deployment support | Status |
+|---|---|---|---|
+| `builtin` | Small, deterministic cart/pendulum model with prescribed acceleration | STM32, native process; WASM planned | Implemented, currently directly coupled to device core |
+| `mujoco` | Multibody dynamics, actuator/constraint modeling, and future richer physical models | Native Mac/Linux process and headless experiments | Planned; not installed or integrated |
+
+MuJoCo-on-STM32 or MuJoCo-in-browser support is not assumed. Its first integration
+will run the simulation and controller on the computer, preserving the decision
+to exclude a physical STM32 controller connected to an external simulated plant.
+
+### 2.2 Common engine contract
+
+Introduce an engine adapter boundary before adding another physics backend.
+Suggested operations describe responsibilities, not an implemented API:
+
+- Create/destroy an engine instance with explicit parameters and model assets.
+- Reset/set validated initial state; step with an explicit input and timestep.
+- Return a canonical snapshot: simulated time, angle/angular velocity, cart
+  position/velocity/acceleration, applied actuation, bounds, and diagnostics.
+- Describe supported controls, parameters, units, ranges, integrators, substeps,
+  and whether an edit requires pause or model reconstruction.
+- Apply parameter edits atomically or reject them explicitly. Report applied
+  values; never silently ignore an unsupported parameter or reset state.
+
+Use SI units at the engine boundary: m, s, rad, kg, kg·m², and N·m·s/rad.
+Adapters map engine coordinates to our upright-zero angle and right-positive X.
+Keep pulse targets/counts and motor calibration in the actuator/device layer;
+distinguish commanded pulses from simulated physical cart motion.
+
+The runner owns clocks and transport; controller/state-machine logic owns command
+validation and authority. The engine owns physics and its internal integrator.
+Choose explicit control periods and engine substeps; do not let browser rendering
+or solver defaults set the controller timestep.
+
+Select an available engine only while disarmed/stopped and start an explicitly
+initialized run. Engine capabilities drive which UI fields are enabled. Record
+engine ID/version, model asset hash, integrator, timestep/substeps, parameters,
+seed, and actuator assumptions with scenarios and traces. This is a future
+host/runner metadata extension; the current v1 serial packets remain unchanged.
+
+### 2.3 Future MuJoCo adapter
+
+MuJoCo exposes a C API, including `mj_step`, and Python bindings. A native C/C++
+adapter is the initial integration candidate so it can reuse the portable C
+controller/device code; Python can be used for later experiment tooling.
+Keep it an optional, version-pinned dependency so normal STM32/native builds do
+not require MuJoCo. See its [overview](https://mujoco.readthedocs.io/en/stable/overview.html),
+[step API](https://mujoco.readthedocs.io/en/stable/APIreference/APIfunctions.html),
+and [Python bindings](https://mujoco.readthedocs.io/en/stable/python.html).
+
+Start with a versioned MJCF cart-and-hinged-pendulum model: slider for the cart,
+hinge for the pendulum, explicit body properties, travel limits, and an actuator.
+Map our velocity/acceleration requests through a declared actuator model; a
+force-driven or servo-driven MuJoCo cart will not automatically behave like the
+builtin prescribed-acceleration cart. Do not force equivalence by overwriting
+positions/velocities every simulation step.
+
+Map inertia carefully: our exposed scalar is about the pendulum pivot, while
+body inertia in MuJoCo is specified relative to its body inertial frame. Use
+mass, center of mass, axis, and a valid full body inertia description, including
+the parallel-axis conversion where appropriate. Reject unrepresentable parameter
+combinations rather than silently assigning the pivot scalar as body inertia.
+Map linear viscous hinge damping consistently. See the
+[MJCF body/joint reference](https://mujoco.readthedocs.io/en/stable/XMLreference.html).
+
+Specify constraint behavior and tolerances. Solver joint limits need not reproduce
+the builtin inelastic clamp exactly. The adapter must satisfy the selected travel
+bound contract, implement an explicit constraint policy, or reject that scenario;
+clipping only displayed telemetry would hide a model violation.
+
+Validate reset/state mapping, units/signs, gravity response, damping/energy decay,
+actuator saturation, and travel bounds before controller comparisons. Use matched
+assumptions and declared tolerances where trajectories are comparable; retain
+separate baselines where engine fidelity/actuation differs. Multiple engines are
+not expected to generate identical trajectories simply because commands match.
 
 ## 3. Current model and recovered values
 
@@ -111,7 +195,7 @@ against measurements rather than adding complexity solely for its own sake.
   still limits velocity changes, with no move-to-center requirement.
 - Fault-induced stopping cannot be interrupted. Disarm, faults, lost focus, or
   lost connection remove authority; reconnect never replays held controls.
-- Every runner enforces cart bounds in its C model, not just in the animation.
+- Every runner/engine enforces its declared cart-bound contract, not just the animation.
   Out-of-bounds initial conditions are rejected. Units and simulation labels stay
   explicit; a physical pulse count is not encoder-measured cart position.
 - Physical motor outputs stay disabled in simulation firmware.
@@ -158,7 +242,7 @@ Emscripten compilation/runtime guidance:
 ## 7. Headless scenarios, replay, and fault injection
 
 Versioned scenarios should record model version, parameter values/provenance,
-controller/gains, timestep, random seed, initial state, disturbances, command
+engine/version/model assets, controller/gains, timestep/substeps, random seed, initial state, disturbances, command
 schedule, duration, source revision, and expected outcomes/tolerances.
 
 Native batch execution can run faster than wall time and compare angle error,
@@ -175,14 +259,18 @@ recorded motion commands to real hardware.
 
 ## 8. Implementation order and acceptance
 
-1. Keep on-STM32 simulation and the native helper reliable; parameterize the model
-   and verify bounds, reversal, timing, and command-loss behavior.
+1. Keep on-STM32 simulation and the native helper reliable; extract the builtin
+   engine boundary and verify bounds, reversal, timing, and command-loss behavior.
 2. Add native PTY mode and its explicit serial-port registration/integration tests.
 3. Add the frontend backend abstraction and WASM worker; compare trajectories.
 4. Add reusable headless scenarios, metrics, recording, and read-only replay.
-5. Improve plant/sensor fidelity from measurements and add the shared controller.
+5. Add an optional native MuJoCo adapter and versioned MJCF model; validate its
+   coordinate, parameter, actuator, and constraint mappings against the contract.
+6. Improve plant/sensor fidelity from measurements and add the shared controller.
 
 Acceptance requires repeatable runs, consistent units and commands, bounded
 buffers and scheduling, visible simulation provenance, enforced travel limits,
-physical outputs disabled, and cross-runtime results within documented tolerances.
+physical outputs disabled, and cross-runtime/engine results checked against
+appropriate baselines, invariants, and documented tolerances. Unsupported
+engine/runner combinations or model edits must be reported explicitly.
 Actual hardware/controller validation remains a separate bench milestone.

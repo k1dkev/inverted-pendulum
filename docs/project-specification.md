@@ -437,7 +437,14 @@ The current STM32 and process-pipe implementations share portable C code;
 virtual serial and WASM remain planned. Only the STM32-controller/external-
 simulated-plant arrangement is excluded.
 
-- Implement pendulum dynamics in portable C.
+Support pluggable physics engines independently of runner/transport selection.
+The current portable C engine is the default; a native MuJoCo backend is planned.
+Share controller logic, commands, canonical state/units, and telemetry through
+engine adapters. Engine-specific models, actuators, parameter capabilities, and
+integration/constraint settings remain explicit. MuJoCo support does not imply
+running it on the STM32 or adding an external plant to the hardware controller.
+
+- Keep the builtin pendulum engine in portable C; isolate optional external engines behind adapters.
 - Keep native execution for tests; preserve portability to WebAssembly as a longer-term option.
 - Reuse the same controller algorithms as STM32 firmware.
 - Support deterministic simulation steps.

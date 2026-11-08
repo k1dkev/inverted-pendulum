@@ -7,7 +7,7 @@ Plans for the next iteration:
 
 - [STM32 pinout and wiring](docs/stm32-pinout-plan.md)
 - [USB serial protocol, telemetry, and browser jog controls](docs/serial-protocol.md)
-- [STM32, native virtual-serial, WASM, and test/replay simulation strategy](docs/simulation-strategy.md)
+- [Simulation strategy: STM32, native/WASM, and future MuJoCo engine](docs/simulation-strategy.md)
 - [KiCad hardware projects and original Arduino Due reference](kicad/README.md)
 
 The current firmware runs a pendulum and stepper **simulation on the STM32**,
