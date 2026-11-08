@@ -1,7 +1,11 @@
 # USB serial protocol and browser interface — v1
 
-Status: design specification. The existing firmware is LED bring-up only. This
-document defines the initial sensing/manual-motion milestone, not balancing.
+Status: v1 implemented for on-device simulation, with a native C test peer and a
+local WebSocket console. Physical sensor acquisition and motor actuation are not
+implemented. This document also defines the later sensing/manual-motion behavior.
+
+The current firmware always advertises simulation mode and leaves physical
+STEP/DIR/ENABLE pins unconfigured. No serial command can select physical motion.
 
 ## 1. End-to-end path
 
@@ -113,30 +117,38 @@ new IDs. The device lease protects against an unavailable link.
 ## 5. Message types and payloads
 
 All offsets below are payload-relative. Every request gets RESPONSE, except
-HELLO → HELLO_INFO and GET_STATUS → STATUS. Unknown types get RESPONSE with
+HELLO / GET_CONFIG → HELLO_INFO and GET_STATUS → STATUS. Unknown types get RESPONSE with
 `UNSUPPORTED`. No response is sent to responses or unsolicited telemetry/events.
 
 | ID | Direction | Name | Payload |
 |---|---|---|---|
 | 0x01 | Host → MCU | HELLO | u64 requested_session_id |
-| 0x02 | MCU → host | HELLO_INFO | Layout below |
+| 0x02 | MCU → host | HELLO_INFO | Layout below; also returned for GET_CONFIG |
 | 0x03 | Host → MCU | GET_STATUS | Empty |
 | 0x04 | MCU → host | STATUS | u32 request_id + 64-byte telemetry snapshot |
 | 0x05 | MCU → host | RESPONSE | u32 request_id, u16 result, u8 state, u8 mode |
 | 0x10 | Host → MCU | SET_TELEMETRY | u16 rate_hz; allowed 0, 10, 25, 50 |
 | 0x11 | Host → MCU | ARM_MANUAL | Empty; permitted only from IDLE with valid limits |
 | 0x12 | Host → MCU | SET_VELOCITY | f32 signed_target_pulses_s |
-| 0x13 | Host → MCU | STOP | Empty; ramp to zero, disable, return IDLE |
+| 0x13 | Host → MCU | STOP | Empty; ramp to zero, retain ARMED if manual authority is active |
 | 0x14 | Host → MCU | DISARM | Empty; immediate pulse inhibit and disable, return IDLE |
 | 0x15 | Host → MCU | CLEAR_FAULT | Empty; only if underlying cause cleared and stationary |
 | 0x16 | Host → MCU | ZERO_POSITION | Empty; only in IDLE with motion disabled |
+| 0x17 | Host → MCU | KEEPALIVE | Empty; sustain stationary ARMED only |
+| 0x18 | Host → MCU | SET_ACCELERATION | f32 pulses/s²; stationary IDLE/ARMED, 50..500000 |
+| 0x19 | Host → MCU | GET_CONFIG | Empty; returns current HELLO_INFO layout |
 | 0x20 | MCU → host | TELEMETRY | 64-byte snapshot below |
 | 0x21 | MCU → host | EVENT | u64 time_us, u16 code, u8 state, u8 mode, u32 faults |
+| 0x30 | Host → MCU | SIM_RESET | Empty; reset simulated state, IDLE only |
+| 0x31 | Host → MCU | SIM_SET_STATE | 24-byte initial state below, IDLE only |
+| 0x32 | Host → MCU | SIM_PAUSE | u8 paused (0 or 1), IDLE only |
 
-No position/acceleration move command is exposed in v1. Acceleration and speed
-limits are firmware configuration, not arbitrary browser-supplied values.
-Telemetry rate changes and zeroing are IDLE-only. Limit/calibration editing and
-closed-loop commands require a later protocol extension, not undocumented fields.
+No physical position/acceleration move command is exposed in v1. The simulation
+allows a bounded acceleration/deceleration ramp setting while stationary, rather
+than an instantaneous acceleration command. It applies equally to ramping up and
+stopping. Speed bounds remain fixed. Telemetry rate changes and zeroing are
+IDLE-only. Physical-limit/calibration editing and closed-loop commands require
+a later protocol extension, not undocumented fields.
 
 HELLO_INFO payload (48 bytes):
 
@@ -144,7 +156,7 @@ HELLO_INFO payload (48 bytes):
 |---|---|---|
 | 0 | u32 | request_id |
 | 4 | u16 | board_id: 1 = NUCLEO-F767ZI |
-| 6 | u16 | capability bits: bit0 angle, bit1 manual jog, bit2 pulse count |
+| 6 | u16 | capability bits: bit0 angle, bit1 manual jog, bit2 pulse count, bit3 simulation |
 | 8 | u32 | firmware version: major<<16 \| minor<<8 \| patch |
 | 12 | u32 | control period, µs; target 1000 |
 | 16 | f32 | maximum permitted absolute velocity, pulses/s |
@@ -169,12 +181,63 @@ For BAD_SESSION, echo the request's session in the rejection header without
 adopting it; host treats this only as rejection, never confirmation of a session.
 
 State values: 0 BOOT, 1 IDLE, 2 ARMED, 3 RUNNING, 4 STOPPING, 5 FAULT.
-Mode values: 0 NONE, 1 MANUAL_VELOCITY. Other values are reserved.
+Mode values: 0 NONE, 1 MANUAL_VELOCITY, 2 SIMULATION. Other values are reserved.
 Fault bits: 0 hardware stop, 1 travel limit, 2 invalid sensor, 3 motion timing
 failure, 4 control overrun, 5 manual lease expired, 6 communications overflow.
 An unknown state/fault must remain visible in the host, not be treated as safe.
-Event codes: 1 state changed, 2 fault asserted, 3 fault cleared, 4 position zeroed.
+Event codes: 1 state changed, 2 fault asserted, 3 fault cleared, 4 position zeroed,
+5 simulation state reset/set, 6 simulation pause/resume changed.
 Events are best effort; current faults/state are repeated in telemetry.
+
+### 5.1 Simulation-only extension
+
+Capability bit3 and mode 2 identify simulated physics running on the MCU. All
+motion telemetry is then simulated, including pulse counts and driver-enable
+state. Physical STEP/DIR/ENABLE outputs stay unconfigured in this implementation.
+Future hardware firmware must reject types 0x30–0x32 unless simulation is enabled.
+
+SIM_SET_STATE payload (24 bytes):
+
+| Offset | Type | Field |
+|---|---|---|
+| 0 | f32 | angle_rad, -π..π |
+| 4 | f32 | angular_velocity_rad_s, -50..50 |
+| 8 | i64 | step_position_pulses, -10¹²..10¹² |
+| 16 | f32 | step_velocity_pulses_s, within advertised velocity limit |
+| 20 | u8 | paused: 0 or 1 |
+| 21 | 3 bytes | Reserved, all zero |
+
+Reset and state replacement are IDLE-only. SIM_RESET sets angle 0.2 rad, zero
+angular velocity, zero step position/velocity/acceleration/target, and resumes
+physics. SIM_SET_STATE sets the four initial quantities and paused state; initial
+step velocity becomes its free-running simulated target. It does not arm jog
+authority. Applying a moving initial condition can therefore evolve a virtual
+cart while the command state is IDLE; it never enables hardware. STOP/DISARM also
+stop that virtual cart. Pausing freezes integration, not communications/timeouts.
+
+Simulation state changes emit event 5 and start a new graph segment. Device time
+remains monotonic. All simulation values are finite and range checked. The model
+is a damped inverted pendulum driven by simulated cart acceleration, with no
+balancing controller. Current constants: length 0.30 m, gravity 9.81 m/s²,
+damping 0.15/s, 0.02 mm per pulse, max speed 16000 pulses/s. Acceleration and stop
+deceleration default to 500000 pulses/s² and are configurable together within
+50..500000 pulses/s² (1..10000 mm/s²). Changes require stationary IDLE/ARMED,
+increment the configuration revision, survive simulation reset/reconnect, and
+return to defaults on MCU reboot. GET_CONFIG reads the current applied values;
+the bridge refreshes these after a successful SET_ACCELERATION.
+
+Motion defaults were recovered from commit `340351a` (the parent of the legacy
+removal), in `inverted-pendulum-main-v2/lib/BiPolarStepper/BiPolarStepper.cpp`
+and `inverted-pendulum-main-v2/src/main.cpp`. The original firmware version has
+the same values: 200 full steps/rev × 8 microsteps = 1600 pulses/rev;
+32 mm/rev = 0.02 mm/pulse; 62.83 rad/s ≈ 320 mm/s ≈ 16000 pulses/s; and
+10000 mm/s² = 500000 pulses/s². The acceleration value was a limit in the old
+code, not a measured motor capability or a separate manual-jog ramp setting.
+The legacy ±190 mm software travel limit is recorded here as reference and is
+not applied to the unbounded virtual cart. Validate physical microstep settings,
+travel, and capability separately before hardware actuation.
+
+The native peer uses this same C implementation for automated checks.
 
 ## 6. Motion authority and jog semantics
 
@@ -182,22 +245,28 @@ Events are best effort; current faults/state are repeated in telemetry.
    telemetry subscription never enable motion.
 2. Operator explicitly arms. STM32 checks configuration, safety inputs, permitted
    state, and any required travel/reference checks. ARM enters ARMED, target zero,
-   with the driver still disabled. Allow 5 s for the first SET_VELOCITY; otherwise
-   return to IDLE without a fault. ARM does not itself start pulses. On the first
+   with the driver still disabled and a 500 ms lease. While not jogging, the
+   frontend sends KEEPALIVE at 20 Hz to retain stationary arming. There is no
+   fixed idle auto-disarm timeout while valid presence continues.
+   ARM does not itself start pulses. On the first
    accepted nonzero target, enable the driver and respect its enable-to-step delay.
 3. While a jog is held, the frontend sends intent at 20 Hz. Bridge immediately
    forwards each fresh intent as a new SET_VELOCITY request. Each accepted fresh
-   request starts/renews the fixed 500 ms device lease, including a zero target. Ordinary
-   telemetry, status requests, or duplicated packets do not renew it.
+   request renews the fixed 500 ms device lease, including a zero target.
+   KEEPALIVE renews only in ARMED with target and velocity both zero; it cannot
+   sustain a moving command. Telemetry, status/config queries, and duplicate
+   requests never renew the lease.
 4. Left sends `-abs(speed)`, right sends `+abs(speed)`. STM32 rejects nonfinite or
    over-limit requests; no silent clamping. It applies the configured acceleration
    ramp at its own 1 kHz update; browser timing does not schedule motor steps.
 5. A nonzero accepted target enters RUNNING. A zero SET_VELOCITY ramps to zero
    and returns to ARMED, still under the same expiring lease.
 6. On button/key release, send STOP immediately. STOP cannot be undone by later
-   velocity requests while STOPPING: reject them. Once stationary, disable and
-   enter IDLE; the next jog needs explicit arming.
-7. Once SET_VELOCITY has started the lease, on expiry in ARMED or RUNNING enter
+   velocity requests while STOPPING: reject them. Once stationary, return to
+   ARMED with a fresh lease if manual authority remains active. The next jog
+   requires a new press, but does not require another ARM. STOP from an unarmed
+   simulated initial condition remains IDLE. DISARM explicitly exits manual mode.
+7. On lease expiry in ARMED or RUNNING enter
    STOPPING with target zero, reject
    motion requests, apply configured stop deceleration, disable, then latch
    FAULT with `manual lease expired`. Clearing the fault returns IDLE and does
@@ -215,8 +284,12 @@ The bridge grants a single browser connection control ownership; all others are
 read-only. Ownership acquisition is explicit and never arms automatically.
 Release, WebSocket close, browser silence, or serial failure revokes ownership
 and clears queued jog intent. The bridge's intent deadline is 150 ms: on expiry
-send STOP once, stop refreshing, and require a new press plus explicit arm after
-stopping. Do not keep synthesizing serial refreshes from the last browser intent.
+send DISARM once, stop refreshing, and require a new press plus explicit arm.
+Stationary ownership also requires a fresh browser presence message within
+150 ms; do not synthesize MCU heartbeats from a cached browser state. Browser
+focus/visibility loss explicitly disarms. A normal jog release only stops, keeping
+the session armed while fresh presence messages continue.
+Do not keep synthesizing serial refreshes from the last browser intent.
 All ingress queues are bounded; reject rate abuse, drop superseded jog targets,
 and prioritize STOP/DISARM over queued motion. A late request cannot restart a
 STOPPING device. Reconnect starts with no owner and no held controls.
@@ -239,12 +312,12 @@ STOPPING device. Reconnect starts with no owner and no held controls.
 | 47 | u8 | mode |
 | 48 | u32 | latched fault bits |
 | 52 | u32 | telemetry snapshots dropped before TX since boot, saturating |
-| 56 | u32 | most recent control/motion update execution time, µs |
+| 56 | u32 | most recent control/motion update execution time, µs; currently 0 (not instrumented) |
 | 60 | f32 | actual unsigned STEP pulse rate, pulses/s |
 
 Flag bits: 0 angle calibrated/valid, 1 angular velocity valid, 2 pulse position
 valid relative to origin, 3 driver logically enabled, 4 physical position
-referenced/homed, 5 motion quantities valid. Other bits zero. Unavailable numeric
+referenced/homed, 5 motion quantities valid, 6 simulation paused. Other bits zero. Unavailable numeric
 fields are zero with validity bits clear; never graph those zeros as measurements.
 Position is still pulse-derived when the referenced bit is set. Reset/reboot or
 a motion discontinuity can invalidate the reference; ZERO_POSITION establishes
@@ -288,12 +361,22 @@ Browser examples:
 {"v":1,"type":"clear_fault","id":6}
 {"v":1,"type":"zero_position","id":7}
 {"v":1,"type":"release_control","id":8}
+{"v":1,"type":"sim_reset","id":9}
+{"v":1,"type":"sim_state","id":10,"angle_rad":0.2,"angular_velocity_rad_s":0,"position_pulses":"0","velocity_pulses_s":0,"paused":true}
+{"v":1,"type":"sim_pause","id":11,"paused":false}
+{"v":1,"type":"keepalive","id":12}
+{"v":1,"type":"set_acceleration","id":13,"acceleration_pulses_s2":500000}
 ```
 
 The jog speed in the example is illustrative, not a configured safe default.
+Connection management adds `connect` with a `path` chosen from `GET /api/ports`,
+and owner-only `disconnect`. A failed connection reports a result and remains
+disconnected. Connection results carry the device capabilities. The test-only
+`native-simulation` port is exposed only when the server starts with `--mock`.
 Frontend maintains a monotonically increasing request ID and sends a new jog
-message every 50 ms only while held. Bridge rejects nonincreasing IDs. Release
-control first requests STOP and revokes ownership; a new owner cannot arm until
+message every 50 ms only while held, or a keepalive every 50 ms while stationary
+and controlling the device. Bridge rejects nonincreasing IDs. Release
+control first requests DISARM and revokes ownership; a new owner cannot arm until
 the MCU is stopped/IDLE. Arm, stop, and other serial-backed commands return a
 final result only after the corresponding MCU response. Bridge-only ownership
 results are explicitly marked with `source: "bridge"`.
@@ -335,6 +418,10 @@ is backlogged. The MCU lease remains necessary even with these host checks.
 - Explicit Arm, Stop, Disarm, Clear Fault, and Zero Position controls, enabled
   only in allowed states. Label Stop as a ramped stop and Disarm as immediate
   pulse disable. Display MCU-confirmed state rather than assuming success.
+- Editable acceleration/deceleration in mm/s², 1..10000 for the current simulation.
+  Convert through the advertised mm/pulse value and round to whole pulses/s² to
+  avoid floating-point conversion pushing the upper endpoint above its bound.
+  Apply only while stationary and show the device-confirmed setting.
 - Hold Left/Right buttons with pointer capture; stop on pointerup,
   pointercancel, lost capture, release, focus loss, or hidden page.
 - ArrowLeft/ArrowRight use the same intent path. Ignore key repeat; maintain

@@ -7,6 +7,8 @@
 #define HAL_RCC_MODULE_ENABLED
 #define HAL_FLASH_MODULE_ENABLED
 #define HAL_PWR_MODULE_ENABLED
+#define HAL_UART_MODULE_ENABLED
+#define HAL_DMA_MODULE_ENABLED
 #define HSE_VALUE 8000000U
 #define HSE_STARTUP_TIMEOUT 100U
 #define HSI_VALUE 16000000U
@@ -25,5 +27,7 @@
 #include "stm32f7xx_hal_cortex.h"
 #include "stm32f7xx_hal_flash.h"
 #include "stm32f7xx_hal_pwr.h"
+#include "stm32f7xx_hal_dma.h"
+#include "stm32f7xx_hal_uart.h"
 #define assert_param(expr) ((void)0U)
 #endif

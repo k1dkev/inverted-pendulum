@@ -40,14 +40,22 @@ add_library(stm32_hal STATIC
   ${st_hal_SOURCE_DIR}/Src/stm32f7xx_hal_flash_ex.c
   ${st_hal_SOURCE_DIR}/Src/stm32f7xx_hal_pwr.c
   ${st_hal_SOURCE_DIR}/Src/stm32f7xx_hal_pwr_ex.c
+  ${st_hal_SOURCE_DIR}/Src/stm32f7xx_hal_uart.c
+  ${st_hal_SOURCE_DIR}/Src/stm32f7xx_hal_dma.c
   ${st_device_SOURCE_DIR}/Source/Templates/system_stm32f7xx.c)
 target_link_libraries(stm32_hal PUBLIC mcu_options)
 
-add_executable(pendulum app/main.c Core/Src/board.c Core/Src/runtime.c
+add_library(pendulum_core STATIC
+  ../../lib/protocol/protocol.c ../../lib/simulation/simulation.c ../../lib/device/device.c)
+target_include_directories(pendulum_core PUBLIC ../../lib/protocol ../../lib/simulation ../../lib/device)
+target_link_libraries(pendulum_core PUBLIC mcu_options)
+target_compile_options(pendulum_core PRIVATE -Wall -Wextra -Werror)
+
+add_executable(pendulum app/main.c Core/Src/board.c Core/Src/serial.c Core/Src/runtime.c
   ${st_device_SOURCE_DIR}/Source/Templates/gcc/startup_stm32f767xx.s)
 set_target_properties(pendulum PROPERTIES SUFFIX ".elf")
 target_compile_options(pendulum PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(pendulum PRIVATE stm32_hal gcc)
+target_link_libraries(pendulum PRIVATE pendulum_core stm32_hal gcc)
 set(linker_script ${CMAKE_CURRENT_SOURCE_DIR}/STM32F767ZI.ld)
 set_property(TARGET pendulum APPEND PROPERTY LINK_DEPENDS ${linker_script})
 target_link_options(pendulum PRIVATE

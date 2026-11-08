@@ -1,6 +1,6 @@
 # NUCLEO-F767ZI pinout and wiring plan
 
-Status: proposed wiring, not implemented in the LED firmware. Target:
+Status: proposed physical wiring; current firmware is simulation-only. Target:
 NUCLEO-F767ZI / STM32F767ZIT6, MB1137. Verify the board revision and connector
 orientation before wiring. Connector numbers below are physical header pin
 numbers, not the Arduino Due symbol's pin numbers.

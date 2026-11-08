@@ -1,7 +1,7 @@
 name: STM32 firmware
 on: [push, pull_request]
 jobs:
-  blink:
+  firmware:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -11,9 +11,24 @@ jobs:
       - run: cmake --build --preset stm32-debug
       - uses: actions/upload-artifact@v4
         with:
-          name: stm32-blink
+          name: stm32-simulation
           path: |
             build/stm32-debug/firmware/stm32/pendulum.elf
             build/stm32-debug/firmware/stm32/pendulum.hex
             build/stm32-debug/firmware/stm32/pendulum.bin
             build/stm32-debug/firmware/stm32/pendulum.map
+  console:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: cmake -S simulation/native -B build/host -G Ninja
+      - run: cmake --build build/host
+      - run: ctest --test-dir build/host --output-on-failure
+      - run: npm --prefix web ci
+      - run: npm --prefix web run build
+      - run: npm --prefix web test

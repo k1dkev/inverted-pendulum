@@ -9,7 +9,7 @@ MEMORY
   SRAM  (xrw) : ORIGIN = 0x20020000, LENGTH = 384K
 }
 _estack = ORIGIN(DTCM) + LENGTH(DTCM);
-_Min_Stack_Size = 0x800;
+_Min_Stack_Size = 0x2000;
 SECTIONS
 {
   .isr_vector : { . = ALIGN(4); KEEP(*(.isr_vector)) } > FLASH

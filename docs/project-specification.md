@@ -39,6 +39,16 @@ Detailed companion specifications:
 - [NUCLEO-F767ZI pinout and wiring plan](stm32-pinout-plan.md)
 - [USB serial protocol and browser interface](serial-protocol.md)
 
+### 1.2 Current implementation
+
+The STM32 runs a 1 ms fixed-step pendulum/stepper simulation and the v1 USART3
+protocol. A local TypeScript server bridges USB serial to a React/WebSocket
+console with four telemetry plots, jog controls, and simulation-only reset,
+pause/resume, and initial-state controls. Initial state includes pendulum angle
+and angular velocity plus stepper position and velocity. No physical motor
+outputs or sensor acquisition are enabled yet. The same portable C core has a
+native process harness for protocol/integration testing without the board.
+
 Control algorithms should remain portable across embedded firmware, native desktop applications, and WebAssembly.
 
 ## 2. System architecture
@@ -241,8 +251,9 @@ The STM32 validates commands and determines whether the requested transition or 
 ### 5.1 Initial computer ↔ STM32 serial link
 
 Use the ST-LINK virtual COM port on CN1, bridged to USART3 PD8/PD9, at
-115200 baud, 8N1, no flow control. UART firmware must be added; the LED bring-up
-image does not yet expose the application protocol.
+115200 baud, 8N1, no flow control. The simulation firmware now exposes the
+application protocol. Physical sensor/motor
+support remains future work.
 
 The normative v1 framing, payloads, units, command responses, session handling,
 telemetry, and WebSocket messages are defined in [serial-protocol.md](serial-protocol.md).
@@ -419,15 +430,22 @@ Platform-specific code handles acquisition, actuation, scheduling, and communica
 
 ### 9.1 Simulation
 
+The [simulation strategy](simulation-strategy.md) prioritizes simulation entirely
+on the STM32, with the computer providing USB serial, the server, and the browser
+interface. An external simulated plant is not required. Existing native execution
+remains an automated-test helper; additional Mac virtual-serial, browser WASM,
+batch/replay, and external-plant modes are deferred.
+
 - Implement pendulum dynamics in portable C.
-- Compile to native desktop binaries and WebAssembly.
+- Keep native execution for tests; preserve portability to WebAssembly as a longer-term option.
 - Reuse the same controller algorithms as STM32 firmware.
 - Support deterministic simulation steps.
 - Model sensor noise, actuator limits, and physical parameters.
 
 ### 9.2 Browser application
 
-Use React/TypeScript with WebAssembly for simulation.
+Use React/TypeScript to monitor and control on-STM32 simulation. Browser-side
+WebAssembly simulation is a deferred option.
 
 Support two modes:
 
@@ -444,13 +462,15 @@ Support two modes:
 - Details, message examples, and acceptance criteria are in
   [the serial and UI specification](serial-protocol.md).
 
-**Simulation mode**
-- Execute physics and controller code locally.
+**Current simulated-device mode**
+- Execute physics and future controller code on the STM32.
 - Visualize simulated motion.
 - Adjust gains and model parameters.
 - Inspect trajectories and controller behavior.
 
-Both modes should expose a consistent logical application interface, while retaining separate timing and execution mechanisms.
+Simulation and future physical-device operation should expose a consistent
+logical application interface. The browser currently uses the same USB/server
+telemetry path for the simulated device.
 
 ## 10. System identification
 

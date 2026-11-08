@@ -7,13 +7,13 @@ Plans for the next iteration:
 
 - [STM32 pinout and wiring](docs/stm32-pinout-plan.md)
 - [USB serial protocol, telemetry, and browser jog controls](docs/serial-protocol.md)
+- [On-STM32 simulation strategy and deferred options](docs/simulation-strategy.md)
 - [KiCad hardware projects and original Arduino Due reference](kicad/README.md)
 
-These are design specifications; the current firmware implements the LED sequence only.
-
-This first milestone builds standalone STM32 firmware that cycles through
-LD1 (green), LD2 (blue), LD3 (red), then all three together. Each step lasts
-500 ms, and the full sequence repeats every two seconds.
+The current firmware runs a pendulum and stepper **simulation on the STM32**,
+streams binary telemetry through the ST-LINK USB serial port, and accepts commands
+from a local web console. It never configures STEP/DIR/ENABLE outputs or drives
+the physical motor. Physical sensors and motion remain a later milestone.
 
 ## Initial hardware target
 
@@ -35,7 +35,7 @@ startup/device definitions, linker memory map, LED wiring, and OpenOCD target.
 With Nix installed and flakes enabled:
 
 ```sh
-nix develop
+nix develop --command zsh
 just build
 ```
 
@@ -53,11 +53,12 @@ When switching between Homebrew and Nix tools, run
 `cmake --fresh --preset stm32-debug` inside the desired environment before
 `just build` so CMake does not reuse cached tool paths.
 
-Alternatively, install Just, CMake >= 3.24, Ninja, ARM GCC/binutils, and OpenOCD.
+Alternatively, install Just, CMake >= 3.24, Ninja, ARM GCC/binutils, OpenOCD,
+and Node.js 22.17 or newer.
 On macOS:
 
 ```sh
-brew install just cmake ninja arm-none-eabi-gcc openocd
+brew install just cmake ninja arm-none-eabi-gcc openocd node@22
 just build
 ```
 
@@ -87,9 +88,10 @@ layout in ST's [UM1974, Figure 4](https://www.st.com/resource/en/user_manual/um1
 just flash
 ```
 
-OpenOCD programs, verifies, resets, and runs the image. The user LEDs should cycle
-green → blue → red → all three, advancing every half-second.
-Hardware verification requires the actual board.
+OpenOCD programs, verifies, resets, and runs the image. LD1 green blinks as a
+heartbeat; LD2 blue lights after a serial protocol session is established; LD3
+red indicates a latched simulated-device fault. This replaces the earlier
+four-stage LED sequence.
 
 If OpenOCD reports `Error: open failed`, it has not opened the ST-LINK probe.
 On macOS, check whether USB enumeration shows ST-LINK:
@@ -124,26 +126,108 @@ break main
 continue
 ```
 
+## USB simulation and web console
+
+One-time dependency installation, then flash and run:
+
+```sh
+nix develop --command zsh
+just web-install
+just flash
+just web
+```
+
+Open **http://localhost:3000**, refresh the device list, select the STM32 USB
+serial port, and click **Connect device**. On macOS it normally contains
+`usbmodem`; the server may enumerate its `/dev/tty.*` path. Use CN1 / ST-LINK,
+the same USB cable used to flash the board. No sensor or motor wiring is needed.
+
+The frontend connects to the local server via WebSocket. That server owns the
+serial port at 115200 baud; the firmware uses USART3 PD8/PD9 through ST-LINK's
+virtual COM bridge. USB/debug connection and protocol handling keep running
+while simulated physics is paused.
+
+- Four plots show angle, simulated step position, velocity, and acceleration.
+  All motion values are simulated pulse counts/rates, not encoder feedback.
+- Click **Take control**, then **Arm manual motion**. Hold the left/right buttons
+  or arrow keys to jog at the selected speed. Release or press Space to stop.
+  Manual mode stays armed between jogs while the browser remains connected and
+  responsive. Disarm, faults, or losing focus/connection require arming again.
+  Keyboard shortcuts are ignored in input fields.
+- Set **Acceleration / deceleration** in mm/s² and apply it while stationary
+  (IDLE or ARMED). It controls both speeding up and ramped stops. The default
+  is the legacy code's 10,000 mm/s² limit; allowed range is 1–10,000 mm/s².
+  It persists through simulation resets and serial reconnects, and resets to the
+  default on MCU reboot.
+- The simulation lab can **Reset**, **Pause/Resume**, or apply initial angle,
+  angular velocity, step position, and step velocity. The initial-state form
+  defaults to paused so you can inspect exactly what was set. Resume before
+  arming. Reset/state changes are accepted only while IDLE; disarm first if needed.
+- Reset restores a 0.2 rad tilt and stationary stepper. The upright equilibrium
+  is unstable; this image has no balancing controller, so the pendulum falls
+  and swings under gravity. The model uses a 0.30 m pendulum, damping 0.15/s,
+  and 0.02 mm per simulated pulse. Motion defaults come from the old Due code:
+  8× microstepping, 1,600 pulses/revolution, 32 mm/revolution, and about 320 mm/s
+  maximum speed (16,000 pulses/s). These are simulation settings; verify the
+  physical driver DIP switches and mechanics before using them on hardware.
+- Simulation capabilities and mode are advertised by the device. The server
+  refuses simulation-only commands for a device that does not advertise them.
+- The bridge stops jog refreshes when input becomes stale, and the STM32 has its
+  own 500 ms command lease. Lost connections never resume motion automatically.
+  After MCU reset, disconnect/reconnect in the console to establish a new session.
+
+The server listens only on loopback. Close other applications using the serial
+port before connecting. If the board still runs the old LED sequence, flash
+the current firmware before expecting telemetry.
+
+To develop without a board, the same portable C protocol/device/simulation core
+can run as a native process:
+
+```sh
+just web-mock
+```
+
+Select **Native C simulator** in the console. This exercises the same binary
+protocol and browser flow but does not validate USB, USART timing, or the MCU.
+The native test option is unavailable in the ordinary `just web` server.
+
+Checks and production server:
+
+```sh
+just test
+just web-build
+npm --prefix web start
+```
+
+`PORT=3001 just web` selects a different local port. Dependency versions are
+locked in `web/package-lock.json`; use `just web-install` after dependency changes.
+
 ## Layout and scope
 
 - `firmware/stm32/app/`: handwritten application logic
 - `firmware/stm32/Core/`: handwritten board setup, SysTick handler, HAL config,
   and minimal C initialization
 - `firmware/stm32/STM32F767ZI.ld`: memory layout and stack reservation
+- `lib/`: portable C packet codec, simulated device state machine, and physics
+- `simulation/native/`: native binary serial peer for development and tests
+- `web/server/`: local USB serial bridge and WebSocket server
+- `web/client/`: React dashboard, plots, and manual/simulation controls
+- `tests/` and `web/test/`: C and protocol/bridge integration tests
 - `cmake/`: cross-compilation toolchain
 - `docs/`: project specification, pinout plan, and serial/UI protocol
 - `kicad/`: original Due schematic/PCB/project and custom symbol-library submodule
 
 ST's startup assembly initializes RAM and calls the application. SysTick drives
 the HAL millisecond tick. This freestanding C build links no libc; its small
-runtime supplies the initializer-array entry point used by ST startup. The blink
-uses `HAL_Delay` for bring-up only; the future control loop must use deterministic
-timer scheduling.
+runtime supplies initializer-array and basic memory routines used by startup
+and the portable C core. USART3 uses bounded interrupt-driven RX/TX rings, without
+DMA. Simulation advances at a fixed 1 ms step from the HAL tick in the main loop;
+physical real-time control will require deterministic timer scheduling.
 
 No CubeMX configuration has been generated yet. When adding peripheral configuration for the F767ZI,
 check in its `.ioc` and keep generated configuration separate from `app/`.
-ESP32, motor control, sensors, portable control libraries, and simulation remain
-future milestones.
+ESP32, physical motor control, sensor acquisition, and balancing algorithms
+remain future milestones. The simulation firmware is not a hardware motor controller.
 
 The previous Arduino and web project remains in Git history on `dev`; the fresh
 STM32 work lives on `stm32-bringup`.
