@@ -323,7 +323,10 @@ Use HAL for all peripherals initially. Introduce LL or direct register access on
 
 ### 6.2 Real-time control loop
 
-**Initial target:** 1 kHz.
+**Initial target:** 1 kHz device/physics update. The implemented legacy swing-up
+and LQR policy retains its original 100 Hz sampling interval. Policy selection is
+a compiled, discoverable registry with live switching and fresh controller context;
+see [control-policy.md](control-policy.md) for the exact law, provenance, and limits.
 
 Each control iteration:
 
@@ -376,7 +379,14 @@ Record:
 - Operating state
 - Faults and warnings
 
-Logging must be nonblocking and use bounded memory.
+Logging must be nonblocking and use bounded memory. Keep the four overview graphs
+on the standard 50 Hz stream. The MCU also exposes a versioned telemetry catalog
+with channel IDs, names, units, and descriptions. Clients can query the current
+subscription and request a subset of diagnostic channels at 5, 10, or 25 Hz.
+A separate Telemetry lab page plots those selections. The bridge combines browser
+subscriptions into one MCU stream and filters it for each browser; only the
+motion owner may change policies or actuators. See the serial specification for
+wire layouts.
 
 ## 7. ESP32 firmware
 
@@ -471,9 +481,9 @@ Support two modes:
   [the serial and UI specification](serial-protocol.md).
 
 **Current simulated-device mode**
-- Execute physics and future controller code on the STM32.
+- Execute physics and the shared control policy on the STM32.
 - Visualize simulated motion.
-- Adjust gains and model parameters.
+- Adjust model parameters; editable controller gains are planned.
 - Expose pivot inertia and viscous damping; enforce ±190 mm simulated cart travel.
 - Accept fresh jog targets during normal stop ramps; newest held arrow wins.
 - Offer display-only angle references (upright, bottom, horizontal) and cosine.

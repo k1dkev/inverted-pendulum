@@ -1,7 +1,9 @@
 #ifndef PENDULUM_DEVICE_H
 #define PENDULUM_DEVICE_H
+#include "policy.h"
 #include "protocol.h"
 #include "simulation.h"
+#include "telemetry.h"
 enum
 {
     IDLE = 1,
@@ -34,7 +36,19 @@ enum
     SIM_PAUSE = 0x32,
     SIM_SET_PARAMETERS = 0x33,
     SIM_GET_PARAMETERS = 0x34,
-    SIM_PARAMETERS = 0x35
+    SIM_PARAMETERS = 0x35,
+    LIST_POLICIES = 0x40,
+    POLICY_DESCRIPTOR = 0x41,
+    GET_POLICY = 0x42,
+    SELECT_POLICY = 0x43,
+    START_POLICY = 0x44,
+    POLICY_STATUS = 0x45,
+    TELEMETRY_CATALOG = 0x50,
+    TELEMETRY_DESCRIPTOR = 0x51,
+    GET_SUBSCRIPTION = 0x52,
+    SUBSCRIPTION = 0x53,
+    SUBSCRIBE = 0x54,
+    SELECTED_TELEMETRY = 0x55
 };
 enum
 {
@@ -61,11 +75,15 @@ typedef struct
     parser_t parser;
     simulation_t sim;
     simulation_parameters_t simulation_parameters;
+    policy_t policy;
     device_send_fn send;
     void *context;
     uint64_t now, last_tick, last_sample, session, lease_deadline, last_rx;
     uint32_t tx_id, last_request, sample_seq, dropped, faults, config_revision;
     float acceleration_limit;
+    uint64_t last_policy_status, last_selected_sample;
+    uint32_t selected_mask, subscription_revision, selected_sample_seq;
+    uint16_t selected_hz;
     uint16_t telemetry_hz;
     uint8_t state, cache_next;
     bool lease_active, manual_armed;

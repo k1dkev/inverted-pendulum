@@ -10,6 +10,80 @@
   font-synthesis: none;
   font-size: 14px;
 }
+.page-nav {
+  display: flex;
+  gap: 20px;
+  margin: 0 20px;
+}
+.page-nav a {
+  color: #90ab9c;
+  text-decoration: none;
+  font-size: 12px;
+  padding: 10px 0;
+}
+.page-nav a[aria-current="page"] {
+  color: #7ee5bf;
+  border-bottom: 2px solid #7ee5bf;
+}
+.telemetry-lab > .panel {
+  margin-bottom: 24px;
+}
+.channel-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  max-height: 420px;
+  overflow: auto;
+  margin: 22px 0;
+}
+.channel-picker label {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  padding: 12px;
+  background: #14231d;
+  border: 1px solid #344c3d;
+  border-radius: 7px;
+}
+.channel-picker input {
+  width: auto;
+  margin: 2px 0;
+  accent-color: #7ee5bf;
+}
+.channel-picker label > span {
+  float: none;
+  display: block;
+}
+.channel-picker strong {
+  display: block;
+  color: #c8e4d3;
+  font:
+    12px ui-monospace,
+    monospace;
+}
+.channel-picker small {
+  display: block;
+  margin-top: 7px;
+  line-height: 1.6;
+  color: #8daa98;
+}
+.subscription-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.subscription-controls select {
+  min-width: 140px;
+}
+.empty-state {
+  padding: 50px;
+  text-align: center;
+  color: #95ac9d;
+  border: 1px dashed #45624f;
+  border-radius: 8px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -364,10 +438,31 @@ h1 {
 .model-form button {
   margin-top: 14px;
 }
-.angle-graph-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 16px; padding: 14px 16px; background: #192622; border: 1px solid #33433a; border-radius: 8px; }
-.angle-graph-controls > label:first-child { min-width: 250px; flex: 1; }
-.angle-graph-controls .checkbox { margin: 16px 0 0; }
-.angle-graph-controls p { width: 100%; margin: 0; color: #96afa0; font-size: 11px; line-height: 1.6; }
+.angle-graph-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: #192622;
+  border: 1px solid #33433a;
+  border-radius: 8px;
+}
+.angle-graph-controls > label:first-child {
+  min-width: 250px;
+  flex: 1;
+}
+.angle-graph-controls .checkbox {
+  margin: 16px 0 0;
+}
+.angle-graph-controls p {
+  width: 100%;
+  margin: 0;
+  color: #96afa0;
+  font-size: 11px;
+  line-height: 1.6;
+}
 aside {
   display: flex;
   flex-direction: column;
@@ -689,5 +784,25 @@ footer {
   }
   .trace-footer {
     line-height: 1.6;
+  }
+}
+
+@media (max-width: 760px) {
+  header {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 95px;
+    gap: 10px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .page-nav {
+    order: 3;
+    margin: 0;
+    width: 100%;
+  }
+  .telemetry-lab .panel-heading {
+    gap: 15px;
+    flex-wrap: wrap;
   }
 }

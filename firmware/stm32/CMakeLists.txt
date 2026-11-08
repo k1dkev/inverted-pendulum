@@ -46,8 +46,8 @@ add_library(stm32_hal STATIC
 target_link_libraries(stm32_hal PUBLIC mcu_options)
 
 add_library(pendulum_core STATIC
-  ../../lib/protocol/protocol.c ../../lib/simulation/simulation.c ../../lib/device/device.c)
-target_include_directories(pendulum_core PUBLIC ../../lib/protocol ../../lib/simulation ../../lib/device)
+  ../../lib/protocol/protocol.c ../../lib/simulation/simulation.c ../../lib/device/device.c ../../lib/policy/policy.c ../../lib/telemetry/telemetry.c)
+target_include_directories(pendulum_core PUBLIC ../../lib/protocol ../../lib/simulation ../../lib/device ../../lib/policy ../../lib/telemetry)
 target_link_libraries(pendulum_core PUBLIC mcu_options)
 target_compile_options(pendulum_core PRIVATE -Wall -Wextra -Werror)
 
@@ -55,7 +55,7 @@ add_executable(pendulum app/main.c Core/Src/board.c Core/Src/serial.c Core/Src/r
   ${st_device_SOURCE_DIR}/Source/Templates/gcc/startup_stm32f767xx.s)
 set_target_properties(pendulum PROPERTIES SUFFIX ".elf")
 target_compile_options(pendulum PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(pendulum PRIVATE pendulum_core stm32_hal gcc)
+target_link_libraries(pendulum PRIVATE pendulum_core stm32_hal m gcc)
 set(linker_script ${CMAKE_CURRENT_SOURCE_DIR}/STM32F767ZI.ld)
 set_property(TARGET pendulum APPEND PROPERTY LINK_DEPENDS ${linker_script})
 target_link_options(pendulum PRIVATE

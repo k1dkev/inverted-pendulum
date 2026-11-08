@@ -6,6 +6,15 @@ import type {
   SimulationParameters,
 } from "../server/protocol";
 import { Apparatus } from "./Apparatus";
+import { Plot } from "./Plot";
+import { PolicyPanel } from "./PolicyPanel";
+import { TelemetryExplorer, type ExtraSample } from "./TelemetryExplorer";
+import type {
+  PolicyDescriptor,
+  PolicyStatus,
+  TelemetryChannel,
+  Subscription,
+} from "../server/protocol";
 import { JogKeys } from "./jog";
 import { ANGLE_VIEWS, displayAngle, type AngleView } from "./angle";
 import "./style.css";
@@ -17,6 +26,8 @@ type Connection = {
   control: string;
   capabilities: Capabilities | null;
   simulation_parameters: SimulationParameters | null;
+  policies?: PolicyDescriptor[];
+  policy?: PolicyStatus | null;
   path?: string;
 };
 const initial: Connection = {
@@ -33,146 +44,6 @@ const number = (v: number | null | undefined, digits = 1) =>
         maximumFractionDigits: digits,
       });
 
-function Plot({
-  title,
-  unit,
-  color,
-  field,
-  samples,
-  target = false,
-  domain,
-  wrapPeriod,
-}: {
-  title: string;
-  unit: string;
-  color: string;
-  field: (s: Sample) => number | null;
-  samples: React.RefObject<Sample[]>;
-  target?: boolean;
-  domain?: [number, number];
-  wrapPeriod?: number;
-}) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const fieldRef = useRef(field);
-  fieldRef.current = field;
-  useEffect(() => {
-    let frame = 0,
-      last = 0;
-    const draw = (time: number) => {
-      frame = requestAnimationFrame(draw);
-      if (time - last < 33) return;
-      last = time;
-      const el = canvas.current;
-      if (!el) return;
-      const ctx = el.getContext("2d");
-      if (!ctx) return;
-      const w = el.clientWidth,
-        h = el.clientHeight,
-        dpr = window.devicePixelRatio || 1;
-      if (el.width !== w * dpr || el.height !== h * dpr) {
-        el.width = w * dpr;
-        el.height = h * dpr;
-      }
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
-      const data = samples.current,
-        right = data.at(-1)?.seconds ?? 0,
-        left = Math.max(0, right - 15),
-        span = Math.max(15, right - left);
-      const values = data
-        .filter((s) => s.seconds >= left)
-        .flatMap((s) => {
-          const v = fieldRef.current(s);
-          return v == null
-            ? []
-            : target
-              ? [v, s.target_velocity_pulses_s]
-              : [v];
-        });
-      let lo = Math.min(0, ...values),
-        hi = Math.max(0, ...values);
-      const pad = Math.max((hi - lo) * 0.15, unit === "unitless" ? 0.05 : 1);
-      if (domain) {
-        [lo, hi] = domain;
-      } else {
-        lo -= pad;
-        hi += pad;
-      }
-      const x = (t: number) => 46 + ((t - left) / span) * (w - 60),
-        y = (v: number) => h - 27 - ((v - lo) / (hi - lo)) * (h - 42);
-      ctx.font = "10px ui-monospace,monospace";
-      ctx.textAlign = "right";
-      for (let i = 0; i <= 4; i++) {
-        const value = lo + ((hi - lo) * i) / 4,
-          py = y(value);
-        ctx.strokeStyle = Math.abs(value) < 1e-9 ? "#526b60" : "#273132";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(46, py);
-        ctx.lineTo(w - 14, py);
-        ctx.stroke();
-        ctx.fillStyle = "#839596";
-        ctx.fillText(number(value, Math.abs(hi) < 10 ? 1 : 0), 39, py + 3);
-      }
-      ctx.textAlign = "center";
-      for (let i = 0; i <= 3; i++) {
-        const t = left + (span * i) / 3;
-        ctx.fillStyle = "#839596";
-        ctx.fillText(`${t.toFixed(0)}s`, x(t), h - 7);
-      }
-      const line = (
-        get: (s: Sample) => number | null,
-        stroke: string,
-        dashed = false,
-      ) => {
-        ctx.strokeStyle = stroke;
-        ctx.lineWidth = 1.8;
-        ctx.setLineDash(dashed ? [4, 4] : []);
-        ctx.beginPath();
-        let previous: Sample | undefined;
-        for (const sample of data) {
-          if (sample.seconds < left) continue;
-          const value = get(sample);
-          if (value == null || !Number.isFinite(value)) {
-            previous = undefined;
-            continue;
-          }
-          if (
-            !previous ||
-            sample.seconds - previous.seconds > 0.1 ||
-            (wrapPeriod &&
-              Math.abs(value - (get(previous) ?? value)) > wrapPeriod / 2)
-          )
-            ctx.moveTo(x(sample.seconds), y(value));
-          else ctx.lineTo(x(sample.seconds), y(value));
-          previous = sample;
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
-      };
-      if (target) line((s) => s.target_velocity_pulses_s, "#819292", true);
-      line(fieldRef.current, color);
-    };
-    frame = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frame);
-  }, [color, samples, target, domain, wrapPeriod, unit]);
-  return (
-    <section className="plot">
-      <div className="plot-heading">
-        <h2>
-          <i style={{ background: color }} />
-          {title}
-        </h2>
-        <span>{unit}</span>
-      </div>
-      <canvas ref={canvas} aria-label={`${title} over time`} role="img" />
-      {target && (
-        <small className="legend">Solid: applied · Dashed: target</small>
-      )}
-    </section>
-  );
-}
-
 function App() {
   const [connection, setConnection] = useState(initial),
     [ports, setPorts] = useState<Port[]>([]),
@@ -183,6 +54,25 @@ function App() {
   const [fresh, setFresh] = useState(false),
     [socketReady, setSocketReady] = useState(false),
     [held, setHeld] = useState(0);
+  const [policy, setPolicy] = useState<PolicyStatus | null>(null);
+  const [page, setPage] = useState(
+    location.hash === "#telemetry" ? "telemetry" : "main",
+  );
+  useEffect(() => {
+    const change = () =>
+      setPage(location.hash === "#telemetry" ? "telemetry" : "main");
+    window.addEventListener("hashchange", change);
+    return () => window.removeEventListener("hashchange", change);
+  }, []);
+  const [setup, setSetup] = useState<{
+    catalog: TelemetryChannel[];
+    subscription: Subscription | null;
+    channels: number[];
+    rate_hz: number;
+  }>({ catalog: [], subscription: null, channels: [], rate_hz: 0 });
+  const extraSamples = useRef<ExtraSample[]>([]),
+    extraEpoch = useRef<bigint | null>(null),
+    extraRevision = useRef(-1);
   const [acceleration, setAcceleration] = useState(10000);
   const [angleView, setAngleView] = useState<AngleView>(() => {
     try {
@@ -240,7 +130,9 @@ function App() {
     speedRef = useRef(speed),
     heldRef = useRef(0),
     pressed = useRef(new JogKeys()),
-    pointerId = useRef<number | null>(null);
+    pointerId = useRef<number | null>(null),
+    policyRef = useRef(policy);
+  policyRef.current = policy;
   connRef.current = connection;
   sampleRef.current = sample;
   speedRef.current = speed;
@@ -269,6 +161,7 @@ function App() {
         !s ||
         !["ARMED", "RUNNING", "STOPPING"].includes(s.state) ||
         s.fault_bits !== 0 ||
+        policyRef.current?.id !== 0 ||
         s.simulation_paused ||
         Date.now() - lastTime.current > 250
       )
@@ -305,12 +198,45 @@ function App() {
         const m = JSON.parse(event.data);
         if (m.type === "connection") {
           setConnection(m);
+          if (m.policy) setPolicy(m.policy);
+          if (m.serial !== "connected") setPolicy(null);
           if (m.serial !== "connected" || m.control !== "owned") stop();
           if (m.serial !== "connected") {
             setSample(null);
             samples.current = [];
             epoch.current = null;
           }
+        }
+        if (m.type === "policy_status") {
+          setPolicy(m.policy);
+          if (m.policy.id !== 0) {
+            heldRef.current = 0;
+            setHeld(0);
+            pressed.current.clear();
+          }
+        }
+        if (m.type === "telemetry_setup") {
+          setSetup(m);
+          if (
+            !m.subscription ||
+            m.subscription.revision !== extraRevision.current
+          ) {
+            extraSamples.current = [];
+            extraEpoch.current = null;
+            extraRevision.current = m.subscription?.revision ?? -1;
+          }
+        }
+        if (m.type === "selected_telemetry") {
+          const stamp = BigInt(m.time_us);
+          if (extraEpoch.current === null) extraEpoch.current = stamp;
+          const seconds = Number(stamp - extraEpoch.current) / 1e6;
+          extraSamples.current.push({ seconds, values: m.values });
+          while (
+            extraSamples.current.length > 1500 ||
+            (extraSamples.current[0] &&
+              seconds - extraSamples.current[0].seconds > 60)
+          )
+            extraSamples.current.shift();
         }
         if (m.type === "telemetry") {
           const t = m as Telemetry,
@@ -331,6 +257,8 @@ function App() {
           setFresh(true);
         }
         if (m.type === "event" && (m.code === 5 || m.code === 4)) {
+          extraSamples.current = [];
+          extraEpoch.current = null;
           samples.current = [];
           epoch.current = null;
         }
@@ -387,7 +315,8 @@ function App() {
         return;
       }
       if (!["ArrowLeft", "ArrowRight"].includes(event.code)) return;
-      if (connRef.current.control !== "owned") return;
+      if (connRef.current.control !== "owned" || policyRef.current?.id !== 0)
+        return;
       event.preventDefault();
       if (event.repeat) return;
       pointerId.current = null;
@@ -426,6 +355,7 @@ function App() {
     !!sample &&
     ["ARMED", "RUNNING", "STOPPING"].includes(sample.state) &&
     sample.fault_bits === 0 &&
+    policy?.id === 0 &&
     !sample.simulation_paused;
   const angle =
     sample?.angle_rad == null ? null : (sample.angle_rad * 180) / Math.PI;
@@ -461,6 +391,17 @@ function App() {
             PENDULUM<small>CONTROL ROOM / 01</small>
           </div>
         </div>
+        <nav className="page-nav">
+          <a href="#main" aria-current={page === "main" ? "page" : undefined}>
+            Overview
+          </a>
+          <a
+            href="#telemetry"
+            aria-current={page === "telemetry" ? "page" : undefined}
+          >
+            Telemetry lab
+          </a>
+        </nav>
         <div className="header-status">
           <span className={`dot ${connected && fresh ? "live" : ""}`} />
           {connected
@@ -485,7 +426,18 @@ function App() {
             {sim ? "◈ ON-DEVICE SIMULATION" : "NUCLEO-F767ZI"}
           </span>
         </div>
-        <div className="layout">
+        {page === "telemetry" && (
+          <TelemetryExplorer
+            setup={setup}
+            samples={extraSamples}
+            ready={connected}
+            send={send}
+          />
+        )}
+        <div
+          className="layout"
+          style={page === "telemetry" ? { display: "none" } : undefined}
+        >
           <div className="workspace">
             <div className="metrics">
               {[
@@ -619,6 +571,21 @@ function App() {
             </div>
           </div>
           <aside>
+            <PolicyPanel
+              policies={connection.policies ?? []}
+              policy={policy}
+              state={sample?.state ?? "IDLE"}
+              owned={owned}
+              fresh={fresh}
+              paused={!!sample?.simulation_paused}
+              send={send}
+              select={(id) => {
+                heldRef.current = 0;
+                setHeld(0);
+                pressed.current.clear();
+                send("select_policy", { policy_id: id });
+              }}
+            />
             <section className="panel">
               <div className="panel-heading">
                 <h2>Connection</h2>
@@ -755,7 +722,11 @@ function App() {
               <button
                 className="arm"
                 disabled={
-                  !owned || !fresh || !idle || !!sample?.simulation_paused
+                  !owned ||
+                  !fresh ||
+                  !idle ||
+                  policy?.id !== 0 ||
+                  !!sample?.simulation_paused
                 }
                 onClick={() => send("arm")}
               >

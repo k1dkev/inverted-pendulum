@@ -118,7 +118,8 @@ new IDs. The device lease protects against an unavailable link.
 
 All offsets below are payload-relative. Every request gets RESPONSE, except
 HELLO / GET_CONFIG → HELLO_INFO, GET_STATUS → STATUS, and
-SIM_GET_PARAMETERS → SIM_PARAMETERS. Unknown types get RESPONSE with
+SIM_GET_PARAMETERS → SIM_PARAMETERS, and the catalog/status/subscription queries
+described in sections 5.2–5.3. Unknown types get RESPONSE with
 `UNSUPPORTED`. No response is sent to responses or unsolicited telemetry/events.
 
 | ID | Direction | Name | Payload |
@@ -135,7 +136,7 @@ SIM_GET_PARAMETERS → SIM_PARAMETERS. Unknown types get RESPONSE with
 | 0x14 | Host → MCU | DISARM | Empty; immediate pulse inhibit and disable, return IDLE |
 | 0x15 | Host → MCU | CLEAR_FAULT | Empty; only if underlying cause cleared and stationary |
 | 0x16 | Host → MCU | ZERO_POSITION | Empty; only in IDLE with motion disabled |
-| 0x17 | Host → MCU | KEEPALIVE | Empty; sustain stationary ARMED only |
+| 0x17 | Host → MCU | KEEPALIVE | Empty; sustain stationary ARMED or a running policy |
 | 0x18 | Host → MCU | SET_ACCELERATION | f32 pulses/s²; stationary IDLE/ARMED, 50..500000 |
 | 0x19 | Host → MCU | GET_CONFIG | Empty; returns current HELLO_INFO layout |
 | 0x20 | MCU → host | TELEMETRY | 64-byte snapshot below |
@@ -160,7 +161,7 @@ HELLO_INFO payload (48 bytes):
 |---|---|---|
 | 0 | u32 | request_id |
 | 4 | u16 | board_id: 1 = NUCLEO-F767ZI |
-| 6 | u16 | capability bits: bit0 angle, bit1 manual jog, bit2 pulse count, bit3 simulation |
+| 6 | u16 | capability bits: bit0 angle, bit1 manual jog, bit2 pulse count, bit3 simulation, bit4 policies, bit5 selectable telemetry |
 | 8 | u32 | firmware version: major<<16 \| minor<<8 \| patch |
 | 12 | u32 | control period, µs; target 1000 |
 | 16 | f32 | maximum permitted absolute velocity, pulses/s |
@@ -187,7 +188,7 @@ adopting it; host treats this only as rejection, never confirmation of a session
 State values: 0 BOOT, 1 IDLE, 2 ARMED, 3 RUNNING, 4 STOPPING, 5 FAULT.
 Mode values: 0 NONE, 1 MANUAL_VELOCITY, 2 SIMULATION. Other values are reserved.
 Fault bits: 0 hardware stop, 1 travel limit, 2 invalid sensor, 3 motion timing
-failure, 4 control overrun, 5 manual lease expired, 6 communications overflow.
+failure, 4 control overrun, 5 command lease expired, 6 communications overflow, 7 policy failure.
 An unknown state/fault must remain visible in the host, not be treated as safe.
 Event codes: 1 state changed, 2 fault asserted, 3 fault cleared, 4 position zeroed,
 5 simulation state reset/set, 6 simulation pause/resume changed.
@@ -270,6 +271,133 @@ SIM_PARAMETERS payload (28 bytes):
 
 The native peer uses this same C implementation for automated checks.
 
+### 5.2 Discoverable control policies
+
+Capability bit4 advertises this extension. Policy IDs are stable compiled IDs;
+catalog indices are for enumeration. See [control-policy.md](control-policy.md)
+for provenance, equations, sampling, and live switching semantics.
+
+| ID | Direction | Name | Payload |
+|---|---|---|---|
+| 0x40 | Host → MCU | LIST_POLICIES | u16 catalog index, starting at 0 |
+| 0x41 | MCU → host | POLICY_DESCRIPTOR | u32 request_id, u16 count, u16 index, u16 policy_id, u8 name_length, u8 flags, name bytes |
+| 0x42 | Host → MCU | GET_POLICY | Empty; returns POLICY_STATUS |
+| 0x43 | Host → MCU | SELECT_POLICY | u16 policy_id; RESPONSE |
+| 0x44 | Host → MCU | START_POLICY | Empty; RESPONSE |
+| 0x45 | MCU → host | POLICY_STATUS | Layout below; query response or unsolicited 10 Hz |
+
+Names are UTF-8 without a terminator. Descriptor flags: bit0 runnable policy,
+bit1 live selection supported. Current entries: ID 0 `manual`, ID 1
+`legacy_swingup_lqr`. Unknown IDs are rejected without changing the selection.
+Selection is permitted in IDLE/ARMED/RUNNING when fault-free, rejected in STOPPING.
+In RUNNING it starts a fresh context while preserving plant state; selecting
+Manual stops with the normal ramp. In IDLE/ARMED selection only configures the
+next run. START_POLICY requires ARMED and a runnable selection. ARM (0x11)
+provides authority for either manual motion or the selected policy.
+
+POLICY_STATUS is 24 bytes:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0 | u32 | request_id, zero for unsolicited status |
+| 4 | u16 | selected policy ID |
+| 6 | u8 | phase: 0 OFF, 1 SWING_UP, 2 LQR, 3 FAILED |
+| 7 | u8 | bit0 running, bits1..7 error code (value shifted left one) |
+| 8 | u32 | configuration revision |
+| 12 | f32 | raw policy acceleration, mm/s² |
+| 16 | f32 | filtered legacy angular velocity, rad/s |
+| 20 | f32 | LQR position integral, mm·s |
+
+Error codes: 0 none, 1 logarithm domain, 2 balance lost, 3 nonfinite output,
+4 legacy travel limit. They also latch device fault bit7. STOP/DISARM end the
+policy; heartbeat expiry and link/ownership loss inhibit it just as manual motion.
+KEEPALIVE sustains autonomous execution but does not sustain an abandoned manual
+nonzero target. Restarting requires operator commands; selection alone in a
+stationary state never starts a controller.
+
+### 5.3 Selectable telemetry
+
+Capability bit5 advertises a separate optional stream. The existing 64-byte
+TELEMETRY snapshot and the four overview charts remain unchanged at 50 Hz.
+Optional streaming starts disabled on each new serial session. Query the MCU
+catalog and current subscription, then request only the channels of interest.
+IDs are stable within a schema version; consumers must discover metadata instead
+of assuming numeric IDs or units.
+
+| ID | Direction | Name | Payload |
+|---|---|---|---|
+| 0x50 | Host → MCU | TELEMETRY_CATALOG | u16 channel ID, enumerate from 0 to count−1 |
+| 0x51 | MCU → host | TELEMETRY_DESCRIPTOR | Metadata layout below |
+| 0x52 | Host → MCU | GET_SUBSCRIPTION | Empty; returns SUBSCRIPTION |
+| 0x53 | MCU → host | SUBSCRIPTION | u32 request_id, u16 schema_version, u16 rate_hz, u32 channel_mask, u32 revision |
+| 0x54 | Host → MCU | SUBSCRIBE | u32 channel_mask, u16 rate_hz, u16 reserved=0; returns SUBSCRIPTION |
+| 0x55 | MCU → host | SELECTED_TELEMETRY | Sparse sample layout below |
+
+Descriptor: u32 request_id at 0, u16 schema_version at 4, u16 channel_count at 6,
+u16 channel_id at 8, u8 value_type at 10 (`1` = f32), u8 flags at 11 (reserved 0),
+u8 name/unit/description byte lengths at 12/13/14, u8 reserved=0 at 15,
+then concatenated UTF-8 name, unit, description without terminators.
+Schema 1 contains 24 channels (IDs 0..23), including model state, policy outputs,
+energy/threshold, position integral, filtered angular velocity, model parameters,
+lease time, diagnostics, bounds, and device state. Names and units come from
+`lib/telemetry/telemetry.c`.
+
+SUBSCRIBE atomically replaces mask/rate in any device state and increments its
+revision. Bit `i` requests channel `i`. Reject unknown bits, nonzero reserved,
+or rates outside 0, 5, 10, 25 Hz without changing the previous subscription.
+Zero rate or an empty mask disables emission. This is read-only diagnostics and
+does not renew motion authority. GET_SUBSCRIPTION reads the device's actual setup.
+
+SELECTED_TELEMETRY:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0 | u64 | device time, microseconds |
+| 8 | u32 | optional sample sequence |
+| 12 | u32 | channel mask |
+| 16 | u32 | subscription revision |
+| 20 | u16 | schema version |
+| 22 | u16 | configured rate Hz |
+| 24 | u32 | validity mask, using channel IDs as bits |
+| 28 | f32[] | selected values in ascending channel ID order |
+
+Length is `28 + 4 * popcount(mask)`. Only requested values are serialized.
+An invalid/unavailable value has its validity bit cleared and a zero wire value;
+the bridge maps it to JSON null and the graph shows a gap. Legacy-only channels
+are unavailable when Manual is selected or the policy is OFF. FAILED retains the
+last diagnostic values. Diagnostic counts/enums use f32 in schema 1 and are
+approximate above 2^24; existing exact position/time fields remain in base telemetry.
+
+At all 24 channels/25 Hz the optional stream uses at most 146 UART bytes/sample,
+or 3650 bytes/s. Add base telemetry (4300), policy status (460), and 20 Hz
+keepalive responses (600): about 9010 bytes/s of 11520 transmit capacity, leaving
+room for normal commands. Queues stay bounded and diagnostics may drop rather
+than block control; target timing and throughput still require bench validation.
+
+WebSocket commands (new monotonic request IDs as usual):
+
+```json
+{"v":1,"type":"select_policy","id":20,"policy_id":1}
+{"v":1,"type":"start_policy","id":21}
+{"v":1,"type":"get_telemetry_setup","id":22}
+{"v":1,"type":"telemetry_subscribe","id":23,"channels":[0,8,10,11],"rate_hz":10}
+```
+
+Policy commands require control ownership. Any connected reader can query setup
+and subscribe. On connect the bridge enumerates MCU policy/channel catalogs;
+`get_telemetry_setup` rereads the current MCU subscription and returns cached
+catalog metadata. `connection` includes `policies` and `policy`;
+`policy_status` carries a `policy` object. `telemetry_setup` includes `catalog`,
+MCU `subscription` (mask/rate/revision/schema), and that browser's `channels` and
+`rate_hz`. `selected_telemetry` includes string `time_us`, `sample_seq`, `revision`,
+`schema_version`, and a `values` object keyed by channel ID.
+
+The bridge serializes subscription updates, requests the union of all browser
+masks at their maximum rate, and filters/downsamples for each browser. Closing a
+browser removes its subscription; reconnect starts with none. This permits
+independent graphs without a second motion authority. The Telemetry lab page
+renders a bounded history with gaps, while Overview retains its four plots.
+
 ## 6. Motion authority and jog semantics
 
 1. Boot/reset starts with pulse output inhibited and driver disabled. HELLO and
@@ -284,8 +412,8 @@ The native peer uses this same C implementation for automated checks.
 3. While a jog is held, the frontend sends intent at 20 Hz. Bridge immediately
    forwards each fresh intent as a new SET_VELOCITY request. Each accepted fresh
    request renews the fixed 500 ms device lease, including a zero target.
-   KEEPALIVE renews only in ARMED with target and velocity both zero; it cannot
-   sustain a moving command. Telemetry, status/config queries, and duplicate
+   KEEPALIVE renews in ARMED with target and velocity both zero, or during an
+   autonomous policy; it cannot sustain a moving manual command. Telemetry, status/config queries, and duplicate
    requests never renew the lease.
 4. Left sends `-abs(speed)`, right sends `+abs(speed)`. STM32 rejects nonfinite or
    over-limit requests; no silent clamping. It applies the configured acceleration
@@ -303,7 +431,7 @@ The native peer uses this same C implementation for automated checks.
 7. On lease expiry in ARMED or RUNNING enter
    STOPPING with target zero, reject
    motion requests, apply configured stop deceleration, disable, then latch
-   FAULT with `manual lease expired`. Clearing the fault returns IDLE and does
+   FAULT with `command lease expired`. Clearing the fault returns IDLE and does
    not rearm. The maximum stopping distance includes both the 500 ms lease and
    the configured deceleration; it must fit available travel.
 8. DISARM immediately stops pulse generation, disables the driver, and clears the

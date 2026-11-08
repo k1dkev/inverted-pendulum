@@ -29,6 +29,7 @@ void simulation_reset(simulation_t *s)
     s->position = 0;
     s->fractional_position = 0;
     s->paused = false;
+    s->direct_velocity = false;
 }
 void simulation_tick(simulation_t *s, float dt, float acceleration_limit,
                      const simulation_parameters_t *parameters)
@@ -41,7 +42,8 @@ void simulation_tick(simulation_t *s, float dt, float acceleration_limit,
     if ((position >= SIM_BOUND_PULSES && target > 0) ||
         (position <= -SIM_BOUND_PULSES && target < 0))
         target = 0;
-    float delta = target - s->velocity, max_delta = acceleration_limit * dt;
+    float delta = target - s->velocity,
+          max_delta = s->direct_velocity ? SIM_MAX_VELOCITY * 2 : acceleration_limit * dt;
     if (delta > max_delta)
         delta = max_delta;
     else if (delta < -max_delta)

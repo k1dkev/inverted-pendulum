@@ -4,6 +4,12 @@
  */
 typedef void (*initializer_t)(void);
 #include <stddef.h>
+/* libm's domain/error reporting. Single-threaded firmware; no libc heap/IO. */
+int *__errno(void)
+{
+    static int math_errno;
+    return &math_errno;
+}
 
 void *memset(void *destination, int value, size_t length)
 {

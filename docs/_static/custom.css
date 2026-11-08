@@ -1,0 +1,3 @@
+/* Give protocol tables room without making prose difficult to read. */
+.content { width: 58rem; }
+article table { display: block; overflow-x: auto; }

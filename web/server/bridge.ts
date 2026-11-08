@@ -7,6 +7,11 @@ import {
   encode,
   capabilities,
   telemetry,
+  policyDescriptor,
+  policyStatus,
+  telemetryDescriptor,
+  subscription,
+  selectedTelemetry,
   simulationParameters,
   results,
   states,
@@ -14,6 +19,10 @@ import {
   type Capabilities,
   type Telemetry,
   type SimulationParameters,
+  type PolicyDescriptor,
+  type PolicyStatus,
+  type TelemetryChannel,
+  type Subscription,
 } from "./protocol";
 
 type Pending = {
@@ -26,6 +35,9 @@ type Client = {
   lastId: number;
   window: number;
   count: number;
+  selectedMask: number;
+  selectedRate: number;
+  nextSelectedUs: bigint;
 };
 export class Bridge {
   readonly clients = new Set<Client>();
@@ -38,6 +50,12 @@ export class Bridge {
   private latest?: Telemetry;
   private caps?: Capabilities;
   private simulationParameters?: SimulationParameters;
+  private policies: PolicyDescriptor[] = [];
+  private policy?: PolicyStatus;
+  private catalog: TelemetryChannel[] = [];
+  private subscription?: Subscription;
+  private subscriptionWork: Promise<void> = Promise.resolve();
+  private subscriptionQueued = 0;
   private receivedAt = 0;
   private lastIntent = 0;
   private lastPresence = 0;
@@ -72,6 +90,8 @@ export class Bridge {
           this.owner === client ? "owned" : this.owner ? "other" : "available",
         capabilities: this.caps ?? null,
         simulation_parameters: this.simulationParameters ?? null,
+        policies: this.policies,
+        policy: this.policy ?? null,
         session_id: this.session.toString(16).padStart(16, "0"),
         parser_errors: this.parser.errors,
       });
@@ -86,9 +106,18 @@ export class Bridge {
     this.send(client, { type: "result", id, ok, code, source });
   }
   add(socket: WebSocket) {
-    const client: Client = { socket, lastId: 0, window: Date.now(), count: 0 };
+    const client: Client = {
+      socket,
+      lastId: 0,
+      window: Date.now(),
+      count: 0,
+      selectedMask: 0,
+      selectedRate: 0,
+      nextSelectedUs: 0n,
+    };
     this.clients.add(client);
     this.status();
+    this.telemetrySetup(client);
     if (this.latest) this.send(client, { type: "telemetry", ...this.latest });
     socket.on("message", (raw, isBinary) => {
       if (isBinary) {
@@ -99,6 +128,8 @@ export class Bridge {
     });
     socket.on("close", () => {
       this.clients.delete(client);
+      if (this.link === "connected" && !this.closing)
+        void this.updateSubscription().catch(() => {});
       if (this.owner === client) this.revoke("Browser disconnected");
     });
     socket.on("error", () => {
@@ -149,6 +180,40 @@ export class Bridge {
         this.result(client, id, true);
         return;
       }
+      if (m.type === "get_telemetry_setup") {
+        if (this.link !== "connected") throw Error("NOT_CONNECTED");
+        const reply = await this.request(Type.GET_SUBSCRIPTION);
+        this.subscription = subscription(reply.payload);
+        this.telemetrySetup(client);
+        this.result(client, id, true);
+        return;
+      }
+      if (m.type === "telemetry_subscribe") {
+        if (this.link !== "connected") throw Error("NOT_CONNECTED");
+        if (
+          !Array.isArray(m.channels) ||
+          m.channels.length > 32 ||
+          typeof m.rate_hz !== "number" ||
+          ![0, 5, 10, 25].includes(m.rate_hz)
+        )
+          throw Error("BAD_PAYLOAD");
+        let mask = 0;
+        for (const channel of m.channels) {
+          if (
+            !Number.isInteger(channel) ||
+            !this.catalog.some((c) => c.id === channel)
+          )
+            throw Error("UNKNOWN_CHANNEL");
+          mask |= 1 << channel;
+        }
+        if (this.subscriptionQueued >= 8) throw Error("BUSY");
+        client.selectedMask = mask >>> 0;
+        client.selectedRate = Number(m.rate_hz);
+        client.nextSelectedUs = 0n;
+        await this.updateSubscription();
+        this.result(client, id, true);
+        return;
+      }
       if (this.owner !== client) throw Error("NOT_CONTROL_OWNER");
       if (m.type === "release_control") {
         this.revoke("Control released");
@@ -173,8 +238,19 @@ export class Bridge {
         zero_position: Type.ZERO,
         sim_reset: Type.SIM_RESET,
         keepalive: Type.KEEPALIVE,
+        start_policy: Type.START_POLICY,
       };
-      if (m.type === "set_acceleration") {
+      if (m.type === "select_policy") {
+        if (
+          !Number.isInteger(m.policy_id) ||
+          !this.policies.some((p) => p.id === m.policy_id)
+        )
+          throw Error("UNKNOWN_POLICY");
+        type = Type.SELECT_POLICY;
+        payload = Buffer.alloc(2);
+        payload.writeUInt16LE(Number(m.policy_id));
+        this.jogging = false;
+      } else if (m.type === "set_acceleration") {
         const acceleration = m.acceleration_pulses_s2;
         // For now only the simulation firmware advertises editable acceleration.
         if (!this.caps?.simulation) throw Error("UNSUPPORTED");
@@ -197,6 +273,7 @@ export class Bridge {
           throw Error("LIMIT_EXCEEDED");
         if (
           !this.latest ||
+          (this.policy?.id ?? 0) !== 0 ||
           !["ARMED", "RUNNING", "STOPPING"].includes(this.latest.state) ||
           this.latest.fault_bits !== 0 ||
           Date.now() - this.receivedAt > 250
@@ -283,6 +360,20 @@ export class Bridge {
         this.simulationParameters = simulationParameters(params.payload);
         this.status();
       }
+      if (
+        code === 0 &&
+        [
+          "select_policy",
+          "start_policy",
+          "stop",
+          "disarm",
+          "clear_fault",
+        ].includes(m.type)
+      ) {
+        const current = await this.request(Type.GET_POLICY);
+        this.policy = policyStatus(current.payload);
+        this.broadcast({ type: "policy_status", policy: this.policy });
+      }
       this.result(
         client,
         id,
@@ -335,9 +426,51 @@ export class Bridge {
         const params = await this.request(Type.SIM_GET_PARAMETERS);
         this.simulationParameters = simulationParameters(params.payload);
       }
+      if (this.caps.bits & 16) {
+        this.policies = [];
+        let count = 1;
+        for (let i = 0; i < count; i++) {
+          const payload = Buffer.alloc(2);
+          payload.writeUInt16LE(i);
+          const info = policyDescriptor(
+            (await this.request(Type.LIST_POLICIES, payload)).payload,
+          );
+          if (info.count < 1 || info.count > 32 || info.index !== i)
+            throw Error("INVALID_POLICY_CATALOG");
+          count = info.count;
+          this.policies.push(info.policy);
+        }
+        this.policy = policyStatus(
+          (await this.request(Type.GET_POLICY)).payload,
+        );
+      }
+      if (this.caps.bits & 32) {
+        this.catalog = [];
+        let count = 1;
+        for (let i = 0; i < count; i++) {
+          const payload = Buffer.alloc(2);
+          payload.writeUInt16LE(i);
+          const info = telemetryDescriptor(
+            (await this.request(Type.TELEMETRY_CATALOG, payload)).payload,
+          );
+          if (
+            info.version !== 1 ||
+            info.count < 1 ||
+            info.count > 32 ||
+            info.channel.id !== i
+          )
+            throw Error("INVALID_TELEMETRY_CATALOG");
+          count = info.count;
+          this.catalog.push(info.channel);
+        }
+        this.subscription = subscription(
+          (await this.request(Type.GET_SUBSCRIPTION)).payload,
+        );
+      }
       this.link = "connected";
       this.receivedAt = Date.now();
       this.status();
+      for (const client of this.clients) this.telemetrySetup(client);
     } catch (error) {
       await this.disconnect(
         error instanceof Error ? error.message : "Connection failed",
@@ -373,9 +506,87 @@ export class Bridge {
       }
     });
   }
+  private telemetrySetup(client: Client) {
+    this.send(client, {
+      type: "telemetry_setup",
+      catalog: this.catalog,
+      subscription: this.subscription ?? null,
+      channels: this.catalog
+        .filter((c) => client.selectedMask & (1 << c.id))
+        .map((c) => c.id),
+      rate_hz: client.selectedRate,
+    });
+  }
+  private updateSubscription(): Promise<void> {
+    const current = this.transport,
+      session = this.session;
+    this.subscriptionQueued++;
+    const work = this.subscriptionWork
+      .catch(() => {})
+      .then(async () => {
+        if (!current || current !== this.transport || session !== this.session)
+          throw Error("DISCONNECTED");
+        let mask = 0,
+          rate = 0;
+        for (const client of this.clients)
+          if (client.selectedRate && client.selectedMask) {
+            mask |= client.selectedMask;
+            rate = Math.max(rate, client.selectedRate);
+          }
+        const payload = Buffer.alloc(8);
+        payload.writeUInt32LE(mask >>> 0);
+        payload.writeUInt16LE(rate, 4);
+        const reply = await this.request(Type.SUBSCRIBE, payload);
+        if (reply.type !== Type.SUBSCRIPTION)
+          throw Error("SUBSCRIPTION_REJECTED");
+        this.subscription = subscription(reply.payload);
+        for (const client of this.clients) this.telemetrySetup(client);
+      });
+    this.subscriptionWork = work;
+    return work.finally(() => {
+      this.subscriptionQueued--;
+    });
+  }
   private receive(packet: Packet) {
     if (packet.session !== this.session) return;
     try {
+      if (packet.type === Type.POLICY_STATUS && packet.payload.length === 24) {
+        this.policy = policyStatus(packet.payload);
+        this.broadcast({ type: "policy_status", policy: this.policy });
+      }
+      if (packet.type === Type.SELECTED_TELEMETRY) {
+        const frame = selectedTelemetry(packet.payload);
+        if (
+          frame.schema_version !== 1 ||
+          frame.revision !== this.subscription?.revision
+        )
+          return;
+        const stamp = BigInt(frame.time_us);
+        for (const client of this.clients)
+          if (
+            client.selectedRate &&
+            client.selectedMask &&
+            stamp >= client.nextSelectedUs
+          ) {
+            const period = BigInt(Math.floor(1000000 / client.selectedRate));
+            if (!client.nextSelectedUs) client.nextSelectedUs = stamp;
+            client.nextSelectedUs +=
+              ((stamp - client.nextSelectedUs) / period + 1n) * period;
+            const values: Record<number, number | null> = {};
+            for (const channel of this.catalog)
+              if (client.selectedMask & (1 << channel.id))
+                values[channel.id] = frame.values[channel.id] ?? null;
+            this.send(client, {
+              type: "selected_telemetry",
+              time_us: frame.time_us,
+              sample_seq: frame.sample_seq,
+              revision: frame.revision,
+              schema_version: frame.schema_version,
+              values,
+            });
+          }
+        return;
+      }
       if (packet.type === Type.TELEMETRY) {
         this.latest = telemetry(packet.payload, packet.session);
         this.receivedAt = Date.now();
@@ -401,7 +612,22 @@ export class Bridge {
               : packet.type === Type.SIM_PARAMETERS
                 ? 28
                 : 0;
-      if (!expectedLength || packet.payload.length !== expectedLength) return;
+      const variable =
+        packet.type === Type.POLICY_DESCRIPTOR ||
+        packet.type === Type.TELEMETRY_DESCRIPTOR;
+      const extra =
+        packet.type === Type.POLICY_STATUS
+          ? 24
+          : packet.type === Type.SUBSCRIPTION
+            ? 16
+            : 0;
+      if (
+        variable
+          ? packet.payload.length < 12
+          : packet.payload.length !== (extra || expectedLength) ||
+            !(extra || expectedLength)
+      )
+        return;
       const id = packet.payload.readUInt32LE(0),
         pending = this.pending.get(id);
       if (pending) {
@@ -443,6 +669,16 @@ export class Bridge {
     this.latest = undefined;
     this.caps = undefined;
     this.simulationParameters = undefined;
+    this.policies = [];
+    this.policy = undefined;
+    this.catalog = [];
+    this.subscription = undefined;
+    for (const client of this.clients) {
+      client.selectedMask = 0;
+      client.selectedRate = 0;
+      client.nextSelectedUs = 0n;
+      this.telemetrySetup(client);
+    }
     const transport = this.transport;
     this.transport = undefined;
     for (const p of this.pending.values()) {

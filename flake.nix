@@ -9,7 +9,9 @@
       devShells = eachSystem (system:
         let pkgs = import nixpkgs { inherit system; };
         in { default = pkgs.mkShell {
-          packages = with pkgs; [ just cmake ninja gcc-arm-embedded openocd git nodejs_22 ];
+          packages = with pkgs; [ just cmake ninja gcc-arm-embedded openocd git nodejs_22
+            (python3.withPackages (ps: with ps; [ sphinx myst-parser furo ]))
+          ];
         }; });
     };
 }

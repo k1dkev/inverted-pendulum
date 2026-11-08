@@ -22,6 +22,18 @@ export const Type = {
   SIM_SET_PARAMETERS: 0x33,
   SIM_GET_PARAMETERS: 0x34,
   SIM_PARAMETERS: 0x35,
+  LIST_POLICIES: 0x40,
+  POLICY_DESCRIPTOR: 0x41,
+  GET_POLICY: 0x42,
+  SELECT_POLICY: 0x43,
+  START_POLICY: 0x44,
+  POLICY_STATUS: 0x45,
+  TELEMETRY_CATALOG: 0x50,
+  TELEMETRY_DESCRIPTOR: 0x51,
+  GET_SUBSCRIPTION: 0x52,
+  SUBSCRIPTION: 0x53,
+  SUBSCRIBE: 0x54,
+  SELECTED_TELEMETRY: 0x55,
 } as const;
 export const states = ["BOOT", "IDLE", "ARMED", "RUNNING", "STOPPING", "FAULT"];
 export const results = [
@@ -45,6 +57,7 @@ const faultNames = [
   "control overrun",
   "command lease expired",
   "communications overflow",
+  "policy stopped (domain, numeric, track limit, or balance loss)",
 ];
 export interface Packet {
   type: number;
@@ -97,6 +110,123 @@ export interface SimulationParameters {
   center_of_mass_m: number;
   x_min_mm: number;
   x_max_mm: number;
+}
+export interface PolicyDescriptor {
+  id: number;
+  name: string;
+  can_start: boolean;
+  hot_swap: boolean;
+}
+export interface PolicyStatus {
+  id: number;
+  phase: number;
+  phase_name: string;
+  running: boolean;
+  generation: number;
+  error_code: number;
+  acceleration_mm_s2: number;
+  filtered_angular_velocity_rad_s: number;
+  integral_mm_s: number;
+}
+export interface TelemetryChannel {
+  id: number;
+  name: string;
+  unit: string;
+  description: string;
+  value_type: "f32";
+}
+export interface Subscription {
+  schema_version: number;
+  rate_hz: number;
+  mask: number;
+  revision: number;
+}
+export function policyDescriptor(p: Buffer): {
+  count: number;
+  index: number;
+  policy: PolicyDescriptor;
+} {
+  if (p.length < 12 || p.length !== 12 + p[10])
+    throw Error("Invalid policy descriptor");
+  return {
+    count: p.readUInt16LE(4),
+    index: p.readUInt16LE(6),
+    policy: {
+      id: p.readUInt16LE(8),
+      name: p.toString("utf8", 12),
+      can_start: !!(p[11] & 1),
+      hot_swap: !!(p[11] & 2),
+    },
+  };
+}
+export function policyStatus(p: Buffer): PolicyStatus {
+  if (p.length !== 24) throw Error("Invalid policy status");
+  return {
+    id: p.readUInt16LE(4),
+    phase: p[6],
+    phase_name: ["OFF", "SWING_UP", "LQR", "FAILED"][p[6]] ?? "UNKNOWN",
+    running: !!(p[7] & 1),
+    error_code: p[7] >> 1,
+    generation: p.readUInt32LE(8),
+    acceleration_mm_s2: p.readFloatLE(12),
+    filtered_angular_velocity_rad_s: p.readFloatLE(16),
+    integral_mm_s: p.readFloatLE(20),
+  };
+}
+export function telemetryDescriptor(p: Buffer): {
+  version: number;
+  count: number;
+  channel: TelemetryChannel;
+} {
+  if (p.length < 16 || p.length !== 16 + p[12] + p[13] + p[14] || p[10] !== 1)
+    throw Error("Invalid telemetry descriptor");
+  let n = 16;
+  const name = p.toString("utf8", n, (n += p[12])),
+    unit = p.toString("utf8", n, (n += p[13])),
+    description = p.toString("utf8", n, n + p[14]);
+  return {
+    version: p.readUInt16LE(4),
+    count: p.readUInt16LE(6),
+    channel: {
+      id: p.readUInt16LE(8),
+      name,
+      unit,
+      description,
+      value_type: "f32",
+    },
+  };
+}
+export function subscription(p: Buffer): Subscription {
+  if (p.length !== 16) throw Error("Invalid telemetry subscription");
+  return {
+    schema_version: p.readUInt16LE(4),
+    rate_hz: p.readUInt16LE(6),
+    mask: p.readUInt32LE(8),
+    revision: p.readUInt32LE(12),
+  };
+}
+export function selectedTelemetry(p: Buffer) {
+  if (p.length < 28) throw Error("Invalid selected telemetry");
+  const mask = p.readUInt32LE(12),
+    valid = p.readUInt32LE(24),
+    values: Record<number, number | null> = {};
+  let n = 28;
+  for (let id = 0; id < 32; id++)
+    if (mask & (1 << id)) {
+      if (n + 4 > p.length) throw Error("Truncated selected telemetry");
+      values[id] = valid & (1 << id) ? p.readFloatLE(n) : null;
+      n += 4;
+    }
+  if (n !== p.length) throw Error("Invalid selected telemetry length");
+  return {
+    time_us: p.readBigUInt64LE(0).toString(),
+    sample_seq: p.readUInt32LE(8),
+    mask,
+    revision: p.readUInt32LE(16),
+    schema_version: p.readUInt16LE(20),
+    rate_hz: p.readUInt16LE(22),
+    values,
+  };
 }
 export function simulationParameters(p: Buffer): SimulationParameters {
   if (p.length !== 28)
@@ -250,8 +380,8 @@ export function telemetry(p: Buffer, session: bigint): Telemetry {
     fault_bits: faults,
     faults: [
       ...faultNames.filter((_, i) => faults & (1 << i)),
-      ...(faults >>> 7
-        ? [`unknown bits 0x${(faults & ~127).toString(16)}`]
+      ...(faults >>> 8
+        ? [`unknown bits 0x${(faults & ~255).toString(16)}`]
         : []),
     ],
     dropped_samples: p.readUInt32LE(52),

@@ -47,3 +47,11 @@ web-build:
 test: native
     ctest --test-dir build/host --output-on-failure
     npm --prefix web test
+
+# Build the searchable Sphinx documentation; warnings fail the build.
+docs-build:
+    sphinx-build -n -W --keep-going -b html docs build/docs/html
+
+# Build and serve documentation at http://localhost:8000.
+docs: docs-build
+    python3 -m http.server 8000 --bind 127.0.0.1 --directory build/docs/html

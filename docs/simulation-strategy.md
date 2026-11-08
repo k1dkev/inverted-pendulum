@@ -38,10 +38,13 @@ operator commands → device state machine → controller/velocity target
                             STM32 / native / WASM runner adapter
 ```
 
-There is no balancing controller or separate noisy sensor model yet. Current
-manual commands set a velocity target; a bounded ramp produces simulated cart
-acceleration, which drives the pendulum dynamics. A future controller can use
-simulated measurements or real sensor adapters without duplicating control code.
+The compiled policy registry currently offers manual velocity control and the
+[original swing-up/LQR controller](control-policy.md). Manual commands use a bounded
+acceleration ramp. The legacy policy runs at its original 100 Hz and directly
+updates the velocity command; both drive the same 1 kHz plant. The policy retains
+the legacy angular-velocity filter; a separate noisy sensor model is still
+planned. Future sensor and engine adapters must preserve the policy's input units
+and update contract.
 
 Separate model state, model parameters, requested actuation, applied actuation,
 and estimated/sensed state. Fixed-step numerical functions should accept explicit
@@ -266,7 +269,7 @@ recorded motion commands to real hardware.
 4. Add reusable headless scenarios, metrics, recording, and read-only replay.
 5. Add an optional native MuJoCo adapter and versioned MJCF model; validate its
    coordinate, parameter, actuator, and constraint mappings against the contract.
-6. Improve plant/sensor fidelity from measurements and add the shared controller.
+6. Improve plant/sensor fidelity from measurements and validate the shared controller across engines.
 
 Acceptance requires repeatable runs, consistent units and commands, bounded
 buffers and scheduling, visible simulation provenance, enforced travel limits,

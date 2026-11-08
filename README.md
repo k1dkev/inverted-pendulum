@@ -7,8 +7,9 @@ Plans for the next iteration:
 
 - [STM32 pinout and wiring](docs/stm32-pinout-plan.md)
 - [USB serial protocol, telemetry, and browser jog controls](docs/serial-protocol.md)
+- [Pluggable policies and the original swing-up/LQR controller](docs/control-policy.md)
 - [Simulation strategy: STM32, native/WASM, and future MuJoCo engine](docs/simulation-strategy.md)
-- [KiCad hardware projects and original Arduino Due reference](kicad/README.md)
+- [KiCad hardware projects and original Arduino Due reference](https://github.com/k1dkev/inverted-pendulum/tree/stm32-bringup/kicad)
 
 The current firmware runs a pendulum and stepper **simulation on the STM32**,
 streams binary telemetry through the ST-LINK USB serial port, and accepts commands
@@ -118,7 +119,7 @@ In another terminal, use an ARM-capable GDB (provided by the Nix toolchain):
 arm-none-eabi-gdb build/stm32-debug/firmware/stm32/pendulum.elf
 ```
 
-```gdb
+```text
 target extended-remote localhost:3333
 monitor reset halt
 load
@@ -182,8 +183,8 @@ while simulated physics is paused.
   and reconnect. Reboot restores defaults. Flash the new firmware before using
   the new parameter commands.
 - Reset restores a 0.2 rad tilt and stationary stepper. The upright equilibrium
-  is unstable; this image has no balancing controller, so the pendulum falls
-  and swings under gravity. The model uses the old code's mass 0.094 kg,
+  is unstable; with Manual selected the pendulum falls and swings under gravity.
+  Select and start the legacy policy to exercise swing-up and balancing. The model uses the old code's mass 0.094 kg,
   center-of-mass distance 0.1444 m, and pivot inertia 0.00267683 kg·m². Default
   damping is approximately 0.0004015245 N·m·s/rad. Travel is 0.02 mm per
   simulated pulse. Motion defaults come from the old Due code:
@@ -204,6 +205,19 @@ while simulated physics is paused.
 The server listens only on loopback. Close other applications using the serial
 port before connecting. If the board still runs the old LED sequence, flash
 the current firmware before expecting telemetry.
+
+In the **Control policy** panel, choose **legacy swingup lqr**, then **Arm** and
+**Run policy** to run the original 100 Hz swing-up → LQR controller against the
+simulation. You can change policies while running; the incoming controller starts
+with fresh internal state and retains the plant state. Selecting Manual requests
+a stop before jogging. See [the exact legacy law and its quirks](docs/control-policy.md).
+
+The four overview graphs stay on their existing 50 Hz stream. Open **Telemetry
+lab** to query the MCU's 24-channel catalog, choose additional signals and a
+5/10/25 Hz rate, and plot only those selected channels. Diagnostics include
+controller energy, energy threshold, raw/limited acceleration, integral, and
+filtered angular velocity. Optional streaming starts disabled. Read-only browser
+clients can choose their own graphs without acquiring motion control.
 
 To develop without a board, the same portable C protocol/device/simulation core
 can run as a native process:
@@ -226,6 +240,13 @@ npm --prefix web start
 
 `PORT=3001 just web` selects a different local port. Dependency versions are
 locked in `web/package-lock.json`; use `just web-install` after dependency changes.
+
+## Documentation site
+
+The Sphinx site uses MyST Markdown and the Furo theme. In `nix develop`, run
+`just docs` and open <http://localhost:8000>. `just docs-build` performs a strict
+build without starting a server. See [publishing and editing docs](docs/documentation.md)
+for GitHub Pages setup and a non-Nix installation.
 
 ## Layout and scope
 

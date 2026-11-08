@@ -36,6 +36,8 @@ static void set_state(device_t *d, uint8_t state)
 }
 static void inhibit(device_t *d)
 {
+    policy_stop(&d->policy);
+    d->sim.direct_velocity = false;
     d->sim.target = 0;
     d->sim.velocity = 0;
     d->sim.acceleration = 0;
@@ -80,6 +82,7 @@ void device_init(device_t *d, device_send_fn send, void *context)
     d->telemetry_hz = 50;
     d->acceleration_limit = SIM_DEFAULT_ACCELERATION;
     d->config_revision = 1;
+    policy_init(&d->policy, POLICY_MANUAL);
     d->simulation_parameters.inertia_kg_m2 = SIM_DEFAULT_INERTIA;
     d->simulation_parameters.damping_n_m_s = SIM_DEFAULT_DAMPING;
     simulation_reset(&d->sim);
@@ -98,7 +101,7 @@ static void hello_info(device_t *d, packet_t *reply, uint32_t request)
     reply->length = 48;
     put_u32(reply->payload, request);
     put_u16(reply->payload + 4, 1);
-    put_u16(reply->payload + 6, 15);
+    put_u16(reply->payload + 6, 63);
     put_u32(reply->payload + 8, 0x000100);
     put_u32(reply->payload + 12, 1000);
     put_f32(reply->payload + 16, SIM_MAX_VELOCITY);
@@ -110,9 +113,248 @@ static void hello_info(device_t *d, packet_t *reply, uint32_t request)
     put_u16(reply->payload + 38, 50);
     put_u32(reply->payload + 40, d->config_revision);
 }
+static unsigned copy_string(uint8_t *out, const char *text)
+{
+    unsigned n = 0;
+    while (text[n])
+    {
+        out[n] = (uint8_t)text[n];
+        ++n;
+    }
+    return n;
+}
+static unsigned text_length(const char *text)
+{
+    unsigned n = 0;
+    while (text[n])
+        ++n;
+    return n;
+}
+static void policy_status(device_t *d, packet_t *reply, uint32_t request)
+{
+    reply->type = POLICY_STATUS;
+    reply->length = 24;
+    reply->session = d->session;
+    put_u32(reply->payload, request);
+    put_u16(reply->payload + 4, d->policy.id);
+    reply->payload[6] = d->policy.phase;
+    reply->payload[7] = (d->policy.running ? 1 : 0) | (d->policy.error << 1);
+    put_u32(reply->payload + 8, d->config_revision);
+    put_f32(reply->payload + 12, d->policy.raw_acceleration);
+    put_f32(reply->payload + 16, d->policy.filtered_velocity);
+    put_f32(reply->payload + 20, d->policy.integral);
+}
+static void subscription_status(device_t *d, packet_t *reply, uint32_t request)
+{
+    reply->type = SUBSCRIPTION;
+    reply->length = 16;
+    put_u32(reply->payload, request);
+    put_u16(reply->payload + 4, TELEMETRY_SCHEMA_VERSION);
+    put_u16(reply->payload + 6, d->selected_hz);
+    put_u32(reply->payload + 8, d->selected_mask);
+    put_u32(reply->payload + 12, d->subscription_revision);
+}
+static float selected_value(device_t *d, unsigned channel, bool *valid)
+{
+    double x = (double)d->sim.position + d->sim.fractional_position;
+    if (((channel >= 6 && channel <= 12) || channel == 15) &&
+        (d->policy.id != POLICY_LEGACY || d->policy.phase == POLICY_OFF))
+        *valid = false;
+    switch (channel)
+    {
+    case 0:
+        return d->sim.angle;
+    case 1:
+        return d->sim.angular_velocity;
+    case 2:
+        return (float)(x * SIM_MM_PER_PULSE);
+    case 3:
+        return d->sim.velocity * SIM_MM_PER_PULSE;
+    case 4:
+        return d->sim.acceleration * SIM_MM_PER_PULSE;
+    case 5:
+        return d->sim.target * SIM_MM_PER_PULSE;
+    case 6:
+        return d->policy.raw_acceleration;
+    case 7:
+        return d->policy.applied_acceleration;
+    case 8:
+        return d->policy.energy;
+    case 9:
+        return d->policy.energy_fraction;
+    case 10:
+        return d->policy.energy_threshold;
+    case 11:
+        return d->policy.integral;
+    case 12:
+        return d->policy.elapsed_s;
+    case 13:
+        return d->policy.phase;
+    case 14:
+        return d->policy.id;
+    case 15:
+        return d->policy.filtered_velocity;
+    case 16:
+        return d->simulation_parameters.inertia_kg_m2;
+    case 17:
+        return d->simulation_parameters.damping_n_m_s;
+    case 18:
+        return d->lease_active && d->lease_deadline > d->now
+                   ? (float)(d->lease_deadline - d->now) / 1000
+                   : 0;
+    case 19:
+        return (float)d->parser.errors;
+    case 20:
+        return (float)d->dropped;
+    case 21:
+        return x <= -SIM_BOUND_PULSES ? 1 : 0;
+    case 22:
+        return x >= SIM_BOUND_PULSES ? 1 : 0;
+    case 23:
+        return d->state;
+    default:
+        *valid = false;
+        return 0;
+    }
+}
 static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
 {
     const uint8_t *b = p->payload;
+    if (p->type == LIST_POLICIES)
+    {
+        if (p->length != 2)
+            return BAD_PAYLOAD;
+        uint16_t index = get_u16(b);
+        const policy_descriptor_t *info = policy_descriptor(index);
+        if (!info)
+            return BAD_PAYLOAD;
+        unsigned name_length = text_length(info->name);
+        if (name_length > UINT8_MAX || 12 + name_length > PROTO_MAX_PAYLOAD)
+            return NOT_CONFIGURED;
+        reply->type = POLICY_DESCRIPTOR;
+        put_u32(reply->payload, p->id);
+        put_u16(reply->payload + 4, policy_count());
+        put_u16(reply->payload + 6, index);
+        put_u16(reply->payload + 8, info->id);
+        reply->payload[10] = (uint8_t)text_length(info->name);
+        reply->payload[11] = info->id ? 3 : 2;
+        reply->length = (uint16_t)(12 + copy_string(reply->payload + 12, info->name));
+        return OK;
+    }
+    if (p->type == GET_POLICY)
+    {
+        if (p->length)
+            return BAD_PAYLOAD;
+        policy_status(d, reply, p->id);
+        return OK;
+    }
+    if (p->type == SELECT_POLICY)
+    {
+        if (p->length != 2)
+            return BAD_PAYLOAD;
+        uint16_t id = get_u16(b);
+        bool found = false;
+        for (unsigned i = 0; i < policy_count(); ++i)
+            if (policy_descriptor(i)->id == id)
+                found = true;
+        if (!found)
+            return UNSUPPORTED;
+        if (d->faults || d->state == FAULT)
+            return FAULT_ACTIVE;
+        if (d->sim.paused && d->state != IDLE)
+            return WRONG_STATE;
+        bool was_running = d->state == RUNNING;
+        if (d->state == STOPPING)
+            return WRONG_STATE;
+        policy_init(&d->policy, id);
+        d->sim.direct_velocity = false;
+        ++d->config_revision;
+        if (was_running && id)
+        {
+            policy_start(&d->policy, d->now);
+            d->sim.target = d->sim.velocity;
+            d->sim.direct_velocity = true;
+        }
+        else if (was_running)
+        {
+            d->sim.target = 0;
+            d->lease_active = false;
+            set_state(d, STOPPING);
+        }
+        if (d->state == RUNNING)
+        {
+            d->lease_active = true;
+            d->lease_deadline = d->now + 500000;
+        }
+        return OK;
+    }
+    if (p->type == START_POLICY)
+    {
+        if (p->length)
+            return BAD_PAYLOAD;
+        if (d->state != ARMED || !d->manual_armed || d->sim.paused)
+            return WRONG_STATE;
+        if (!d->policy.id)
+            return WRONG_STATE;
+        policy_start(&d->policy, d->now);
+        d->sim.direct_velocity = true;
+        d->lease_active = true;
+        d->lease_deadline = d->now + 500000;
+        set_state(d, RUNNING);
+        return OK;
+    }
+    if (p->type == TELEMETRY_CATALOG)
+    {
+        if (p->length != 2)
+            return BAD_PAYLOAD;
+        uint16_t id = get_u16(b);
+        const telemetry_descriptor_t *info = telemetry_descriptor(id);
+        if (!info)
+            return BAD_PAYLOAD;
+        unsigned name_length = text_length(info->name), unit_length = text_length(info->unit),
+                 description_length = text_length(info->description);
+        if (name_length > UINT8_MAX || unit_length > UINT8_MAX || description_length > UINT8_MAX ||
+            16 + name_length + unit_length + description_length > PROTO_MAX_PAYLOAD)
+            return NOT_CONFIGURED;
+        reply->type = TELEMETRY_DESCRIPTOR;
+        put_u32(reply->payload, p->id);
+        put_u16(reply->payload + 4, TELEMETRY_SCHEMA_VERSION);
+        put_u16(reply->payload + 6, TELEMETRY_CHANNELS);
+        put_u16(reply->payload + 8, id);
+        reply->payload[10] = 1;
+        reply->payload[11] = 0;
+        reply->payload[12] = (uint8_t)text_length(info->name);
+        reply->payload[13] = (uint8_t)text_length(info->unit);
+        reply->payload[14] = (uint8_t)text_length(info->description);
+        reply->payload[15] = 0;
+        unsigned n = 16;
+        n += copy_string(reply->payload + n, info->name);
+        n += copy_string(reply->payload + n, info->unit);
+        n += copy_string(reply->payload + n, info->description);
+        reply->length = (uint16_t)n;
+        return OK;
+    }
+    if (p->type == GET_SUBSCRIPTION)
+    {
+        if (p->length)
+            return BAD_PAYLOAD;
+        subscription_status(d, reply, p->id);
+        return OK;
+    }
+    if (p->type == SUBSCRIBE)
+    {
+        if (p->length != 8 || get_u16(b + 6))
+            return BAD_PAYLOAD;
+        uint32_t mask = get_u32(b);
+        uint16_t hz = get_u16(b + 4);
+        if (mask & ~TELEMETRY_VALID_MASK || (hz != 0 && hz != 5 && hz != 10 && hz != 25))
+            return BAD_PAYLOAD;
+        d->selected_mask = mask;
+        d->selected_hz = hz;
+        ++d->subscription_revision;
+        subscription_status(d, reply, p->id);
+        return OK;
+    }
     if (p->type == SIM_GET_PARAMETERS)
     {
         if (p->length)
@@ -154,8 +396,9 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
     {
         if (p->length)
             return BAD_PAYLOAD;
-        /* Presence sustains a stationary armed session, never a moving target. */
-        if (d->state == ARMED && d->sim.velocity == 0 && d->sim.target == 0)
+        /* Presence sustains a stationary arm or autonomous policy. A moving
+         * manual target still requires fresh velocity commands. */
+        if ((d->state == ARMED && d->sim.velocity == 0 && d->sim.target == 0) || d->policy.running)
         {
             d->lease_active = true;
             d->lease_deadline = d->now + 500000;
@@ -208,6 +451,8 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
             return LIMIT_EXCEEDED;
         if (!d->manual_armed || d->faults ||
             (d->state != ARMED && d->state != RUNNING && d->state != STOPPING) || d->sim.paused)
+            return WRONG_STATE;
+        if (d->policy.id != POLICY_MANUAL)
             return WRONG_STATE;
         d->sim.target = v;
         d->lease_active = true;
@@ -267,6 +512,8 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
         set_state(d, ARMED);
         break;
     case STOP:
+        policy_stop(&d->policy);
+        d->sim.direct_velocity = false;
         if (d->state == FAULT)
             return FAULT_ACTIVE;
         d->sim.target = 0;
@@ -335,6 +582,9 @@ static void dispatch(device_t *d, const packet_t *p)
             d->tx_id = 0;
             d->cache_next = 0;
             d->telemetry_hz = 50;
+            d->selected_mask = 0;
+            d->selected_hz = 0;
+            d->subscription_revision = 1;
             for (unsigned i = 0; i < 16; ++i)
                 d->cache[i].id = 0;
         }
@@ -413,6 +663,8 @@ void device_tick(device_t *d, uint64_t now)
     }
     if (d->lease_active && now >= d->lease_deadline && (d->state == ARMED || d->state == RUNNING))
     {
+        policy_stop(&d->policy);
+        d->sim.direct_velocity = false;
         d->faults |= 1U << 5;
         d->sim.target = 0;
         d->lease_active = false;
@@ -428,6 +680,24 @@ void device_tick(device_t *d, uint64_t now)
     while (now - d->last_tick >= 1000)
     {
         d->last_tick += 1000;
+        if (d->policy.running && d->state == RUNNING && !d->sim.paused &&
+            policy_update(&d->policy, d->last_tick, (float)d->sim.position * SIM_MM_PER_PULSE,
+                          d->sim.velocity * SIM_MM_PER_PULSE, d->sim.angle))
+        {
+            if (d->policy.error)
+                fault(d, 1U << 7);
+            else
+            {
+                float velocity = d->sim.velocity * SIM_MM_PER_PULSE +
+                                 d->policy.applied_acceleration * d->policy.sample_dt;
+                const float limit = (float)(62.83 * 16.0 / 3.14159265358979323846);
+                if (velocity > limit)
+                    velocity = limit;
+                if (velocity < -limit)
+                    velocity = -limit;
+                d->sim.target = velocity / SIM_MM_PER_PULSE;
+            }
+        }
         simulation_tick(&d->sim, 0.001f, d->acceleration_limit, &d->simulation_parameters);
         if (d->state == STOPPING && d->sim.velocity == 0)
         {
@@ -443,7 +713,8 @@ void device_tick(device_t *d, uint64_t now)
             if (d->faults)
                 event(d, 2);
         }
-        else if (d->state == RUNNING && d->sim.target == 0 && d->sim.velocity == 0)
+        else if (d->state == RUNNING && !d->policy.running && d->sim.target == 0 &&
+                 d->sim.velocity == 0)
             set_state(d, ARMED);
     }
     if (d->session && d->telemetry_hz && now - d->last_sample >= 1000000U / d->telemetry_hz)
@@ -456,6 +727,45 @@ void device_tick(device_t *d, uint64_t now)
         p.session = d->session;
         snapshot(d, p.payload);
         if (!send_packet(d, &p, true) && d->dropped < UINT32_MAX)
+            ++d->dropped;
+    }
+    if (d->session && now - d->last_policy_status >= 100000)
+    {
+        d->last_policy_status = now;
+        packet_t status = {0};
+        policy_status(d, &status, 0);
+        (void)send_packet(d, &status, true);
+    }
+    if (d->session && d->selected_hz && d->selected_mask &&
+        now - d->last_selected_sample >= 1000000U / d->selected_hz)
+    {
+        d->last_selected_sample = now;
+        packet_t packet = {0};
+        packet.type = SELECTED_TELEMETRY;
+        packet.session = d->session;
+        put_u64(packet.payload, now);
+        put_u32(packet.payload + 8, ++d->selected_sample_seq);
+        put_u32(packet.payload + 12, d->selected_mask);
+        put_u32(packet.payload + 16, d->subscription_revision);
+        put_u16(packet.payload + 20, TELEMETRY_SCHEMA_VERSION);
+        put_u16(packet.payload + 22, d->selected_hz);
+        uint32_t valid_mask = 0;
+        unsigned n = 28;
+        for (unsigned id = 0; id < TELEMETRY_CHANNELS; ++id)
+            if (d->selected_mask & (1U << id))
+            {
+                bool valid = true;
+                float value = selected_value(d, id, &valid);
+                if (!is_finite(value))
+                    valid = false;
+                if (valid)
+                    valid_mask |= 1U << id;
+                put_f32(packet.payload + n, valid ? value : 0);
+                n += 4;
+            }
+        put_u32(packet.payload + 24, valid_mask);
+        packet.length = (uint16_t)n;
+        if (!send_packet(d, &packet, true) && d->dropped < UINT32_MAX)
             ++d->dropped;
     }
 }

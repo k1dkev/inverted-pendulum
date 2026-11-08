@@ -19,7 +19,7 @@ The supplied Arduino Due schematic shows:
 - Motor supply is separate from USB logic power; its full circuit is outside the
   supplied image. Do not infer its voltage/current capability from the cropped view.
 
-The editable original is now preserved under [kicad/](../kicad/README.md).
+The editable original is now preserved under [kicad/](https://github.com/k1dkev/inverted-pendulum/tree/stm32-bringup/kicad).
 Keep it as the Due reference and create the STM32 schematic as a separate project.
 
 Keep the same signal roles. Due A8 is moved to Nucleo A3; numeric analog labels
