@@ -5,6 +5,12 @@ export const ANGLE_VIEWS = {
     domain: [-180, 180] as [number, number],
     hint: "Clockwise is positive. Downward is ±180°. Gaps mark angle wrap.",
   },
+  absolute: {
+    label: "Absolute angle from upright · 0–180°",
+    unit: "degrees",
+    domain: [0, 180] as [number, number],
+    hint: "0° = upright, 180° = bottom. Equal left/right tilts have the same value, without wrap jumps.",
+  },
   bottom: {
     label: "Bottom = 0°",
     unit: "degrees",
@@ -36,6 +42,7 @@ export function displayAngle(
   if (radians === null || !Number.isFinite(radians)) return null;
   if (view === "cosine") return Math.cos(radians);
   const degrees = (radians * 180) / Math.PI;
+  if (view === "absolute") return Math.abs(wrapDegrees(degrees));
   return wrapDegrees(
     view === "bottom"
       ? degrees - 180

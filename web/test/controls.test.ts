@@ -21,6 +21,21 @@ test("graph references transform only the display, with explicit upright, bottom
   assert.equal(displayAngle(3 * Math.PI, "upright"), -180);
 });
 
+test("absolute upright angle stays in 0–180° without a jump across the downward wrap", () => {
+  assert.equal(displayAngle(0, "absolute"), 0);
+  assert.equal(displayAngle(Math.PI, "absolute"), 180);
+  assert.equal(displayAngle(-Math.PI, "absolute"), 180);
+  assert.equal(displayAngle(Math.PI / 2, "absolute"), 90);
+  assert.equal(displayAngle(-Math.PI / 2, "absolute"), 90);
+  const before = displayAngle(Math.PI - 0.001, "absolute")!;
+  const after = displayAngle(-Math.PI + 0.001, "absolute")!;
+  assert.ok(Math.abs(before - after) < 1e-9);
+  for (let angle = -6 * Math.PI; angle <= 6 * Math.PI; angle += 0.01) {
+    const value = displayAngle(angle, "absolute")!;
+    assert.ok(value >= 0 && value <= 180);
+  }
+});
+
 test("a fresh arrow immediately replaces direction; releasing it restores the other held arrow", () => {
   const keys = new JogKeys();
   assert.equal(keys.press("ArrowLeft"), -1);

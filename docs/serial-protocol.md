@@ -450,11 +450,14 @@ is backlogged. The MCU lease remains necessary even with these host checks.
   applied velocity as separate traces. Display “pulse-derived, not encoder
   feedback” by the stepper plots. Show gaps instead of connecting missing data.
 - Angle graph selector: upright = 0°, bottom = 0°, horizontal = 0° with upright
-  at +90°, or cos(θ). Upright/bottom degree displays are clockwise-positive;
+  at +90°, absolute angle from upright, or cos(θ). Absolute angle is
+  `abs(wrap_degrees(theta * 180 / pi))`, continuously folded into 0..180° with
+  equal left/right tilt values and no downward wrap jump.
+  Upright/bottom signed degree displays are clockwise-positive;
   horizontal uses right-horizontal zero and counterclockwise-positive angles.
-  All degree displays wrap to [-180,180), breaking trace segments at wrap.
+  Signed degree displays wrap to [-180,180), breaking trace segments at wrap.
   Cosine is +1 upright/−1 downward and intentionally loses tilt direction.
-  Default axes are ±180° or ±1, with optional auto-scale. This changes only the
+  Default axes are ±180° (signed), 0..180° (absolute), or ±1 (cosine), with optional auto-scale. This changes only the
   graph, not firmware coordinates, the animation, or controller inputs.
 - Large apparatus animation above the plots maps the enforced track bounds to
   labeled end stops and an origin marker. It shows current cart position in mm

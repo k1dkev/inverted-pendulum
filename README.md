@@ -149,12 +149,15 @@ while simulated physics is paused.
 
 - Four plots show angle, simulated step position, velocity, and acceleration.
   All motion values are simulated pulse counts/rates, not encoder feedback.
-- The angle graph selector offers **upright = 0°**, **bottom = 0°**,
+- The angle graph selector offers **upright = 0°**, **absolute angle from upright
+  (0–180°)**, **bottom = 0°**,
   **horizontal = 0° / upright = 90°**, or **cos(θ)**. This only changes the plot;
   firmware and the animation keep upright = 0 radians. Cosine is +1 upright and
   −1 downward, but does not distinguish equal left/right tilts. Angular wrap
-  crossings produce trace gaps rather than misleading vertical lines. Use
-  **Auto-scale** to fit smaller movements; the default axes are ±180° or ±1.
+  crossings produce trace gaps for signed angles rather than misleading vertical
+  lines. Absolute angle folds left/right tilt into 0–180°, remaining continuous
+  through downward crossings. Use **Auto-scale** to fit smaller movements; default
+  axes are ±180° for signed angles, 0–180° for absolute angle, or ±1 for cosine.
 - Click **Take control**, then **Arm manual motion**. Hold the left/right buttons
   or arrow keys to jog at the selected speed. Release or press Space to stop.
   Manual mode stays armed between jogs while the browser remains connected and

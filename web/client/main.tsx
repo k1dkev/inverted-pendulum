@@ -562,7 +562,9 @@ function App() {
                 title={
                   angleView === "cosine"
                     ? "Pendulum orientation · cos(θ)"
-                    : "Pendulum angle"
+                    : angleView === "absolute"
+                      ? "Absolute angle from upright"
+                      : "Pendulum angle"
                 }
                 unit={ANGLE_VIEWS[angleView].unit}
                 color="#7ee5bf"
@@ -571,7 +573,11 @@ function App() {
                 domain={
                   fitAngleTrace ? undefined : ANGLE_VIEWS[angleView].domain
                 }
-                wrapPeriod={angleView === "cosine" ? undefined : 360}
+                wrapPeriod={
+                  angleView === "cosine" || angleView === "absolute"
+                    ? undefined
+                    : 360
+                }
               />
               <Plot
                 title="Stepper position"
