@@ -52,10 +52,53 @@ test(
       const first = await until(() => latest());
       assert.equal(first.mode, "SIMULATION");
       assert.ok(first.angle_rad !== null);
+      const model = messages
+        .filter((m) => m.type === "connection")
+        .at(-1)!.simulation_parameters;
+      assert.equal(model.x_min_mm, -190);
+      assert.equal(model.x_max_mm, 190);
+      assert.ok(Math.abs(model.inertia_kg_m2 - 0.00267683) < 1e-9);
       assert.equal((await request("acquire_control")).ok, true);
       heartbeat = setInterval(() => {
         void request("keepalive").catch(() => {});
       }, 50);
+      assert.equal(
+        (
+          await request("sim_parameters", {
+            inertia_kg_m2: 0.004,
+            damping_n_m_s: 0.001,
+          })
+        ).ok,
+        true,
+      );
+      const applied = messages
+        .filter((m) => m.type === "connection")
+        .at(-1)!.simulation_parameters;
+      assert.ok(
+        Math.abs(applied.inertia_kg_m2 - 0.004) < 1e-9 &&
+          Math.abs(applied.damping_n_m_s - 0.001) < 1e-9,
+      );
+      assert.equal(
+        (
+          await request("sim_parameters", {
+            inertia_kg_m2: 0,
+            damping_n_m_s: 0,
+          })
+        ).code,
+        "LIMIT_EXCEEDED",
+      );
+      assert.equal(
+        (
+          await request("sim_state", {
+            angle_rad: 0,
+            angular_velocity_rad_s: 0,
+            position_pulses: "9501",
+            velocity_pulses_s: 0,
+            paused: true,
+          })
+        ).code,
+        "LIMIT_EXCEEDED",
+      );
       assert.equal(
         (
           await request("sim_state", {
@@ -105,8 +148,35 @@ test(
         );
         await new Promise((r) => setTimeout(r, 40));
       }
-      assert.ok(latest()!.step_velocity_pulses_s > 0);
+      assert.ok(latest()!.step_velocity_pulses_s > 0, JSON.stringify(latest()));
       assert.equal((await request("sim_reset")).code, "WRONG_STATE");
+      // A long stop ramp must not lock out a fresh arrow/velocity target.
+      assert.equal((await request("disarm")).ok, true);
+      await until(() => (latest()?.state === "IDLE" ? true : undefined));
+      assert.equal(
+        (await request("set_acceleration", { acceleration_pulses_s2: 500 })).ok,
+        true,
+      );
+      assert.equal((await request("arm")).ok, true);
+      await until(() => (latest()?.state === "ARMED" ? true : undefined));
+      for (let i = 0; i < 8; i++) {
+        await request("jog", { velocity_pulses_s: 200 });
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      assert.equal((await request("stop")).ok, true);
+      await until(() =>
+        latest()?.state === "STOPPING" && latest()!.step_velocity_pulses_s > 0
+          ? true
+          : undefined,
+      );
+      for (let i = 0; i < 12; i++) {
+        assert.equal(
+          (await request("jog", { velocity_pulses_s: -200 })).ok,
+          true,
+        );
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      assert.ok(latest()!.step_velocity_pulses_s < 0);
       assert.equal((await request("stop")).ok, true);
       await until(() =>
         latest()?.state === "ARMED" && latest()?.step_velocity_pulses_s === 0
@@ -156,6 +226,37 @@ test(
         "BUSY",
       );
       observer.close();
+      assert.equal(
+        (
+          await request("sim_state", {
+            angle_rad: 0.1,
+            angular_velocity_rad_s: 0,
+            position_pulses: "9499",
+            velocity_pulses_s: 16000,
+            paused: false,
+          })
+        ).ok,
+        true,
+      );
+      await until(() =>
+        latest()?.step_position_pulses === "9500" && latest()?.at_right_bound
+          ? true
+          : undefined,
+      );
+      assert.equal(latest()!.step_velocity_pulses_s, 0);
+      assert.equal((await request("arm")).ok, true);
+      await until(() => (latest()?.state === "ARMED" ? true : undefined));
+      for (let i = 0; i < 4; i++) {
+        assert.equal(
+          (await request("jog", { velocity_pulses_s: -200 })).ok,
+          true,
+        );
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      assert.ok(
+        Number(latest()!.step_position_pulses) < 9500 &&
+          !latest()!.at_right_bound,
+      );
       assert.equal((await request("disconnect")).ok, true);
       assert.equal(
         (await request("connect", { path: "native-simulation" })).ok,

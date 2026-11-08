@@ -31,7 +31,10 @@ enum
     EVENT = 0x21,
     SIM_RESET = 0x30,
     SIM_STATE = 0x31,
-    SIM_PAUSE = 0x32
+    SIM_PAUSE = 0x32,
+    SIM_SET_PARAMETERS = 0x33,
+    SIM_GET_PARAMETERS = 0x34,
+    SIM_PARAMETERS = 0x35
 };
 enum
 {
@@ -57,6 +60,7 @@ typedef struct
 {
     parser_t parser;
     simulation_t sim;
+    simulation_parameters_t simulation_parameters;
     device_send_fn send;
     void *context;
     uint64_t now, last_tick, last_sample, session, lease_deadline, last_rx;

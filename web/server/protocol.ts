@@ -19,6 +19,9 @@ export const Type = {
   SIM_RESET: 0x30,
   SIM_STATE: 0x31,
   SIM_PAUSE: 0x32,
+  SIM_SET_PARAMETERS: 0x33,
+  SIM_GET_PARAMETERS: 0x34,
+  SIM_PARAMETERS: 0x35,
 } as const;
 export const states = ["BOOT", "IDLE", "ARMED", "RUNNING", "STOPPING", "FAULT"];
 export const results = [
@@ -69,6 +72,8 @@ export interface Telemetry {
   pulse_rate_pulses_s: number;
   physical_reference_valid: boolean;
   simulation_paused: boolean;
+  at_left_bound: boolean;
+  at_right_bound: boolean;
   position_source: "simulated_pulse_count" | "pulse_count";
   session_id: string;
 }
@@ -84,6 +89,26 @@ export interface Capabilities {
   lease_ms: number;
   max_telemetry_hz: number;
   firmware_version: number;
+}
+export interface SimulationParameters {
+  inertia_kg_m2: number;
+  damping_n_m_s: number;
+  mass_kg: number;
+  center_of_mass_m: number;
+  x_min_mm: number;
+  x_max_mm: number;
+}
+export function simulationParameters(p: Buffer): SimulationParameters {
+  if (p.length !== 28)
+    throw Error("Invalid simulation parameters; flash current firmware");
+  return {
+    inertia_kg_m2: p.readFloatLE(4),
+    damping_n_m_s: p.readFloatLE(8),
+    mass_kg: p.readFloatLE(12),
+    center_of_mass_m: p.readFloatLE(16),
+    x_min_mm: p.readFloatLE(20),
+    x_max_mm: p.readFloatLE(24),
+  };
 }
 export function crc32(bytes: Uint8Array): number {
   let crc = 0xffffffff;
@@ -234,6 +259,8 @@ export function telemetry(p: Buffer, session: bigint): Telemetry {
     pulse_rate_pulses_s: p.readFloatLE(60),
     physical_reference_valid: !!(flags & 16),
     simulation_paused: !!(flags & 64),
+    at_left_bound: !!(flags & 128),
+    at_right_bound: !!(flags & 256),
     position_source: sim ? "simulated_pulse_count" : "pulse_count",
     session_id: session.toString(16).padStart(16, "0"),
   };

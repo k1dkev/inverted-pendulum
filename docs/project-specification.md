@@ -430,11 +430,12 @@ Platform-specific code handles acquisition, actuation, scheduling, and communica
 
 ### 9.1 Simulation
 
-The [simulation strategy](simulation-strategy.md) prioritizes simulation entirely
-on the STM32, with the computer providing USB serial, the server, and the browser
-interface. An external simulated plant is not required. Existing native execution
-remains an automated-test helper; additional Mac virtual-serial, browser WASM,
-batch/replay, and external-plant modes are deferred.
+The [simulation strategy](simulation-strategy.md) includes on-STM32 simulation,
+native Mac/Linux simulation through virtual serial, and browser WebAssembly,
+plus native automated tests, headless experiments, and read-only replay.
+The current STM32 and process-pipe implementations share portable C code;
+virtual serial and WASM remain planned. Only the STM32-controller/external-
+simulated-plant arrangement is excluded.
 
 - Implement pendulum dynamics in portable C.
 - Keep native execution for tests; preserve portability to WebAssembly as a longer-term option.
@@ -444,8 +445,8 @@ batch/replay, and external-plant modes are deferred.
 
 ### 9.2 Browser application
 
-Use React/TypeScript to monitor and control on-STM32 simulation. Browser-side
-WebAssembly simulation is a deferred option.
+Use React/TypeScript to monitor and control on-STM32 or native simulation.
+Browser-side WebAssembly simulation is also planned, using the shared C core.
 
 Support two modes:
 
@@ -466,6 +467,9 @@ Support two modes:
 - Execute physics and future controller code on the STM32.
 - Visualize simulated motion.
 - Adjust gains and model parameters.
+- Expose pivot inertia and viscous damping; enforce ±190 mm simulated cart travel.
+- Accept fresh jog targets during normal stop ramps; newest held arrow wins.
+- Offer display-only angle references (upright, bottom, horizontal) and cosine.
 - Inspect trajectories and controller behavior.
 
 Simulation and future physical-device operation should expose a consistent

@@ -7,7 +7,7 @@ Plans for the next iteration:
 
 - [STM32 pinout and wiring](docs/stm32-pinout-plan.md)
 - [USB serial protocol, telemetry, and browser jog controls](docs/serial-protocol.md)
-- [On-STM32 simulation strategy and deferred options](docs/simulation-strategy.md)
+- [STM32, native virtual-serial, WASM, and test/replay simulation strategy](docs/simulation-strategy.md)
 - [KiCad hardware projects and original Arduino Due reference](kicad/README.md)
 
 The current firmware runs a pendulum and stepper **simulation on the STM32**,
@@ -149,11 +149,21 @@ while simulated physics is paused.
 
 - Four plots show angle, simulated step position, velocity, and acceleration.
   All motion values are simulated pulse counts/rates, not encoder feedback.
+- The angle graph selector offers **upright = 0°**, **bottom = 0°**,
+  **horizontal = 0° / upright = 90°**, or **cos(θ)**. This only changes the plot;
+  firmware and the animation keep upright = 0 radians. Cosine is +1 upright and
+  −1 downward, but does not distinguish equal left/right tilts. Angular wrap
+  crossings produce trace gaps rather than misleading vertical lines. Use
+  **Auto-scale** to fit smaller movements; the default axes are ±180° or ±1.
 - Click **Take control**, then **Arm manual motion**. Hold the left/right buttons
   or arrow keys to jog at the selected speed. Release or press Space to stop.
   Manual mode stays armed between jogs while the browser remains connected and
   responsive. Disarm, faults, or losing focus/connection require arming again.
   Keyboard shortcuts are ignored in input fields.
+  A fresh arrow press immediately overrides a normal stop ramp or the other held
+  arrow; releasing the newest arrow restores the other if still held. Velocity
+  still changes under the configured acceleration limit. No return to the origin
+  is required. Fault-induced stopping remains locked out.
 - Set **Acceleration / deceleration** in mm/s² and apply it while stationary
   (IDLE or ARMED). It controls both speeding up and ramped stops. The default
   is the legacy code's 10,000 mm/s² limit; allowed range is 1–10,000 mm/s².
@@ -163,13 +173,25 @@ while simulated physics is paused.
   angular velocity, step position, and step velocity. The initial-state form
   defaults to paused so you can inspect exactly what was set. Resume before
   arming. Reset/state changes are accepted only while IDLE; disarm first if needed.
+- **Pivot inertia** (kg·m²) and **viscous damping** (N·m·s/rad) are editable in
+  the simulation lab while the cart is stationary in IDLE or ARMED. Values are
+  applied on the STM32, read back for confirmation, and preserved through reset
+  and reconnect. Reboot restores defaults. Flash the new firmware before using
+  the new parameter commands.
 - Reset restores a 0.2 rad tilt and stationary stepper. The upright equilibrium
   is unstable; this image has no balancing controller, so the pendulum falls
-  and swings under gravity. The model uses a 0.30 m pendulum, damping 0.15/s,
-  and 0.02 mm per simulated pulse. Motion defaults come from the old Due code:
+  and swings under gravity. The model uses the old code's mass 0.094 kg,
+  center-of-mass distance 0.1444 m, and pivot inertia 0.00267683 kg·m². Default
+  damping is approximately 0.0004015245 N·m·s/rad. Travel is 0.02 mm per
+  simulated pulse. Motion defaults come from the old Due code:
   8× microstepping, 1,600 pulses/revolution, 32 mm/revolution, and about 320 mm/s
   maximum speed (16,000 pulses/s). These are simulation settings; verify the
   physical driver DIP switches and mechanics before using them on hardware.
+- Cart travel is bounded to **−190..+190 mm** (±9500 pulses), matching the
+  legacy track limit. The model enforces inelastic hard end stops; outward
+  intent cannot move beyond them, and inward motion works immediately. Initial
+  positions outside the track are rejected. The larger animation uses this
+  same scale, labeled end stops, an origin marker, and live position in mm.
 - Simulation capabilities and mode are advertised by the device. The server
   refuses simulation-only commands for a device that does not advertise them.
 - The bridge stops jog refreshes when input becomes stale, and the STM32 has its

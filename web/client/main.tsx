@@ -1,6 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import type { Capabilities, Telemetry } from "../server/protocol";
+import type {
+  Capabilities,
+  Telemetry,
+  SimulationParameters,
+} from "../server/protocol";
+import { Apparatus } from "./Apparatus";
+import { JogKeys } from "./jog";
+import { ANGLE_VIEWS, displayAngle, type AngleView } from "./angle";
 import "./style.css";
 
 type Sample = Telemetry & { seconds: number };
@@ -9,12 +16,14 @@ type Connection = {
   serial: string;
   control: string;
   capabilities: Capabilities | null;
+  simulation_parameters: SimulationParameters | null;
   path?: string;
 };
 const initial: Connection = {
   serial: "disconnected",
   control: "available",
   capabilities: null,
+  simulation_parameters: null,
 };
 const number = (v: number | null | undefined, digits = 1) =>
   v == null
@@ -31,6 +40,8 @@ function Plot({
   field,
   samples,
   target = false,
+  domain,
+  wrapPeriod,
 }: {
   title: string;
   unit: string;
@@ -38,6 +49,8 @@ function Plot({
   field: (s: Sample) => number | null;
   samples: React.RefObject<Sample[]>;
   target?: boolean;
+  domain?: [number, number];
+  wrapPeriod?: number;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const fieldRef = useRef(field);
@@ -78,9 +91,13 @@ function Plot({
         });
       let lo = Math.min(0, ...values),
         hi = Math.max(0, ...values);
-      const pad = Math.max((hi - lo) * 0.15, 1);
-      lo -= pad;
-      hi += pad;
+      const pad = Math.max((hi - lo) * 0.15, unit === "unitless" ? 0.05 : 1);
+      if (domain) {
+        [lo, hi] = domain;
+      } else {
+        lo -= pad;
+        hi += pad;
+      }
       const x = (t: number) => 46 + ((t - left) / span) * (w - 60),
         y = (v: number) => h - 27 - ((v - lo) / (hi - lo)) * (h - 42);
       ctx.font = "10px ui-monospace,monospace";
@@ -88,7 +105,7 @@ function Plot({
       for (let i = 0; i <= 4; i++) {
         const value = lo + ((hi - lo) * i) / 4,
           py = y(value);
-        ctx.strokeStyle = "#273132";
+        ctx.strokeStyle = Math.abs(value) < 1e-9 ? "#526b60" : "#273132";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(46, py);
@@ -120,7 +137,12 @@ function Plot({
             previous = undefined;
             continue;
           }
-          if (!previous || sample.seconds - previous.seconds > 0.1)
+          if (
+            !previous ||
+            sample.seconds - previous.seconds > 0.1 ||
+            (wrapPeriod &&
+              Math.abs(value - (get(previous) ?? value)) > wrapPeriod / 2)
+          )
             ctx.moveTo(x(sample.seconds), y(value));
           else ctx.lineTo(x(sample.seconds), y(value));
           previous = sample;
@@ -133,7 +155,7 @@ function Plot({
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [color, samples, target]);
+  }, [color, samples, target, domain, wrapPeriod, unit]);
   return (
     <section className="plot">
       <div className="plot-heading">
@@ -162,6 +184,37 @@ function App() {
     [socketReady, setSocketReady] = useState(false),
     [held, setHeld] = useState(0);
   const [acceleration, setAcceleration] = useState(10000);
+  const [angleView, setAngleView] = useState<AngleView>(() => {
+    try {
+      const saved = localStorage.getItem("pendulum-angle-view");
+      return saved && Object.hasOwn(ANGLE_VIEWS, saved)
+        ? (saved as AngleView)
+        : "upright";
+    } catch {
+      return "upright";
+    }
+  });
+  const [fitAngleTrace, setFitAngleTrace] = useState(false);
+  useEffect(() => {
+    try {
+      localStorage.setItem("pendulum-angle-view", angleView);
+    } catch {}
+  }, [angleView]);
+  const [model, setModel] = useState({
+    inertia: "0.00267683",
+    damping: "0.0004015245",
+  });
+  useEffect(() => {
+    const parameters = connection.simulation_parameters;
+    if (parameters)
+      setModel({
+        inertia: String(Number(parameters.inertia_kg_m2.toPrecision(7))),
+        damping: String(Number(parameters.damping_n_m_s.toPrecision(7))),
+      });
+  }, [
+    connection.simulation_parameters?.inertia_kg_m2,
+    connection.simulation_parameters?.damping_n_m_s,
+  ]);
   const [form, setForm] = useState({
     angle: "12",
     omega: "0",
@@ -186,8 +239,8 @@ function App() {
     sampleRef = useRef(sample),
     speedRef = useRef(speed),
     heldRef = useRef(0),
-    pressed = useRef(new Set<string>()),
-    blocked = useRef(false);
+    pressed = useRef(new JogKeys()),
+    pointerId = useRef<number | null>(null);
   connRef.current = connection;
   sampleRef.current = sample;
   speedRef.current = speed;
@@ -214,7 +267,8 @@ function App() {
       if (
         c.control !== "owned" ||
         !s ||
-        !["ARMED", "RUNNING"].includes(s.state) ||
+        !["ARMED", "RUNNING", "STOPPING"].includes(s.state) ||
+        s.fault_bits !== 0 ||
         s.simulation_paused ||
         Date.now() - lastTime.current > 250
       )
@@ -315,7 +369,6 @@ function App() {
         send("keepalive");
     }, 50);
     const blur = () => {
-      blocked.current = true;
       stop();
       if (connRef.current.control === "owned") send("disarm");
     };
@@ -337,26 +390,19 @@ function App() {
       if (connRef.current.control !== "owned") return;
       event.preventDefault();
       if (event.repeat) return;
-      if (pressed.current.size === 0) blocked.current = false;
-      pressed.current.add(event.code);
-      if (pressed.current.size > 1) {
-        blocked.current = true;
+      pointerId.current = null;
+      const direction = pressed.current.press(event.code);
+      if (direction) jog(direction);
+    };
+    const up = (event: KeyboardEvent) => {
+      const direction = pressed.current.release(event.code);
+      if (direction === null) return;
+      if (direction) jog(direction);
+      else {
         heldRef.current = 0;
         setHeld(0);
         send("stop");
-      } else if (!blocked.current) jog(event.code === "ArrowLeft" ? -1 : 1);
-    };
-    const up = (event: KeyboardEvent) => {
-      if (
-        !["ArrowLeft", "ArrowRight"].includes(event.code) ||
-        !pressed.current.has(event.code)
-      )
-        return;
-      pressed.current.delete(event.code);
-      heldRef.current = 0;
-      setHeld(0);
-      send("stop");
-      if (pressed.current.size === 0) blocked.current = false;
+      }
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
@@ -378,16 +424,24 @@ function App() {
     owned &&
     fresh &&
     !!sample &&
-    ["ARMED", "RUNNING"].includes(sample.state) &&
+    ["ARMED", "RUNNING", "STOPPING"].includes(sample.state) &&
+    sample.fault_bits === 0 &&
     !sample.simulation_paused;
   const angle =
     sample?.angle_rad == null ? null : (sample.angle_rad * 180) / Math.PI;
   const pointer =
     (direction: number) => (e: React.PointerEvent<HTMLButtonElement>) => {
       if (e.button !== 0) return;
+      pointerId.current = e.pointerId;
       e.currentTarget.setPointerCapture(e.pointerId);
       jog(direction);
     };
+  const releasePointer = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (pointerId.current === event.pointerId) {
+      pointerId.current = null;
+      stop();
+    }
+  };
   const setInitial = (event: React.FormEvent) => {
     event.preventDefault();
     send("sim_state", {
@@ -435,7 +489,7 @@ function App() {
           <div className="workspace">
             <div className="metrics">
               {[
-                ["Pendulum angle", number(angle), "°", "#7ee5bf"],
+                ["Angle · upright zero", number(angle), "°", "#7ee5bf"],
                 [
                   "Stepper position",
                   sample?.step_position_pulses ?? "—",
@@ -464,6 +518,11 @@ function App() {
                 </div>
               ))}
             </div>
+            <Apparatus
+              sample={sample}
+              parameters={connection.simulation_parameters}
+              mmPerPulse={connection.capabilities?.mm_per_pulse ?? 0.02}
+            />
             <div className="chart-toolbar">
               <span>
                 <i className="live-line" />
@@ -471,15 +530,48 @@ function App() {
               </span>
               <span>50 Hz · 15 s window · device clock</span>
             </div>
+            <div className="angle-graph-controls">
+              <label htmlFor="angle-view">
+                Angle graph
+                <select
+                  id="angle-view"
+                  value={angleView}
+                  onChange={(event) =>
+                    setAngleView(event.target.value as AngleView)
+                  }
+                >
+                  {Object.entries(ANGLE_VIEWS).map(([id, view]) => (
+                    <option key={id} value={id}>
+                      {view.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={fitAngleTrace}
+                  onChange={(event) => setFitAngleTrace(event.target.checked)}
+                />{" "}
+                Auto-scale
+              </label>
+              <p>{ANGLE_VIEWS[angleView].hint}</p>
+            </div>
             <div className="plots">
               <Plot
-                title="Pendulum angle"
-                unit="degrees"
+                title={
+                  angleView === "cosine"
+                    ? "Pendulum orientation · cos(θ)"
+                    : "Pendulum angle"
+                }
+                unit={ANGLE_VIEWS[angleView].unit}
                 color="#7ee5bf"
                 samples={samples}
-                field={(s) =>
-                  s.angle_rad == null ? null : (s.angle_rad * 180) / Math.PI
+                field={(s) => displayAngle(s.angle_rad, angleView)}
+                domain={
+                  fitAngleTrace ? undefined : ANGLE_VIEWS[angleView].domain
                 }
+                wrapPeriod={angleView === "cosine" ? undefined : 360}
               />
               <Plot
                 title="Stepper position"
@@ -519,48 +611,6 @@ function App() {
                   : "Awaiting first sample"}
               </span>
             </div>
-            <section className="apparatus">
-              <div>
-                <p className="eyebrow">
-                  {sim ? "VIRTUAL APPARATUS" : "APPARATUS"}
-                </p>
-                <h2>{sample?.state ?? "DISCONNECTED"}</h2>
-                <p>
-                  {sim
-                    ? "Physics runs on the STM32. Physical motor outputs are inactive."
-                    : "Connect the device to inspect its state."}
-                </p>
-              </div>
-              <svg viewBox="0 0 320 125" aria-label="Pendulum animation">
-                <path d="M15 106H305" stroke="#405151" />
-                <g
-                  transform={`translate(${160 + Math.max(-100, Math.min(100, Number(sample?.step_position_pulses ?? 0) / 30))},77)`}
-                >
-                  <rect
-                    x="-23"
-                    y="0"
-                    width="46"
-                    height="22"
-                    rx="4"
-                    fill="#364b48"
-                    stroke="#7ee5bf"
-                  />
-                  <circle cx="-14" cy="25" r="4" fill="#819292" />
-                  <circle cx="14" cy="25" r="4" fill="#819292" />
-                  <g transform={`rotate(${angle ?? 0})`}>
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="-60"
-                      stroke="#7ee5bf"
-                      strokeWidth="3"
-                    />
-                    <circle cx="0" cy="-60" r="8" fill="#7ee5bf" />
-                  </g>
-                </g>
-              </svg>
-            </section>
           </div>
           <aside>
             <section className="panel">
@@ -712,9 +762,9 @@ function App() {
                   className={held === -1 ? "active" : ""}
                   disabled={!jogAllowed}
                   onPointerDown={pointer(-1)}
-                  onPointerUp={stop}
-                  onPointerCancel={stop}
-                  onLostPointerCapture={stop}
+                  onPointerUp={releasePointer}
+                  onPointerCancel={releasePointer}
+                  onLostPointerCapture={releasePointer}
                 >
                   ← <span>Hold left</span>
                 </button>
@@ -722,9 +772,9 @@ function App() {
                   className={held === 1 ? "active" : ""}
                   disabled={!jogAllowed}
                   onPointerDown={pointer(1)}
-                  onPointerUp={stop}
-                  onPointerCancel={stop}
-                  onLostPointerCapture={stop}
+                  onPointerUp={releasePointer}
+                  onPointerCancel={releasePointer}
+                  onLostPointerCapture={releasePointer}
                 >
                   <span>Hold right</span> →
                 </button>
@@ -774,6 +824,65 @@ function App() {
                   Set initial conditions while idle. Pause freezes physics;
                   serial and watchdog stay active.
                 </p>
+                <form
+                  className="model-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    send("sim_parameters", {
+                      inertia_kg_m2: Number(model.inertia),
+                      damping_n_m_s: Number(model.damping),
+                    });
+                  }}
+                >
+                  <h3>Pendulum model</h3>
+                  <div className="form-grid">
+                    <label>
+                      Pivot inertia<small>kg·m²</small>
+                      <input
+                        aria-label="Pendulum inertia"
+                        type="number"
+                        min="0.0001"
+                        max="0.1"
+                        step="any"
+                        required
+                        value={model.inertia}
+                        onChange={(event) =>
+                          setModel({ ...model, inertia: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Viscous damping<small>N·m·s/rad</small>
+                      <input
+                        aria-label="Pendulum damping"
+                        type="number"
+                        min="0"
+                        max="0.05"
+                        step="any"
+                        required
+                        value={model.damping}
+                        onChange={(event) =>
+                          setModel({ ...model, damping: event.target.value })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <button
+                    disabled={
+                      !owned ||
+                      !fresh ||
+                      !["IDLE", "ARMED"].includes(sample?.state ?? "") ||
+                      sample?.step_velocity_pulses_s !== 0 ||
+                      sample?.target_velocity_pulses_s !== 0
+                    }
+                  >
+                    Apply model parameters
+                  </button>
+                  <p className="hint">
+                    Mass 0.094 kg · center of mass 0.1444 m. Apply while the
+                    cart is stationary. Preserved on simulation reset.
+                  </p>
+                </form>
                 <form onSubmit={setInitial}>
                   <div className="form-grid">
                     {[
@@ -800,7 +909,7 @@ function App() {
                                       connection.capabilities?.max_velocity ??
                                       16000
                                     )
-                                  : -1000000000000
+                                  : -9500
                           }
                           max={
                             key === "angle"
@@ -810,7 +919,7 @@ function App() {
                                 : key === "velocity"
                                   ? (connection.capabilities?.max_velocity ??
                                     16000)
-                                  : 1000000000000
+                                  : 9500
                           }
                           value={form[key as keyof typeof form] as string}
                           onChange={(e) =>

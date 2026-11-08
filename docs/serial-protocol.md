@@ -117,7 +117,8 @@ new IDs. The device lease protects against an unavailable link.
 ## 5. Message types and payloads
 
 All offsets below are payload-relative. Every request gets RESPONSE, except
-HELLO / GET_CONFIG → HELLO_INFO and GET_STATUS → STATUS. Unknown types get RESPONSE with
+HELLO / GET_CONFIG → HELLO_INFO, GET_STATUS → STATUS, and
+SIM_GET_PARAMETERS → SIM_PARAMETERS. Unknown types get RESPONSE with
 `UNSUPPORTED`. No response is sent to responses or unsolicited telemetry/events.
 
 | ID | Direction | Name | Payload |
@@ -142,6 +143,9 @@ HELLO / GET_CONFIG → HELLO_INFO and GET_STATUS → STATUS. Unknown types get R
 | 0x30 | Host → MCU | SIM_RESET | Empty; reset simulated state, IDLE only |
 | 0x31 | Host → MCU | SIM_SET_STATE | 24-byte initial state below, IDLE only |
 | 0x32 | Host → MCU | SIM_PAUSE | u8 paused (0 or 1), IDLE only |
+| 0x33 | Host → MCU | SIM_SET_PARAMETERS | f32 pivot inertia (kg·m²), f32 viscous damping (N·m·s/rad) |
+| 0x34 | Host → MCU | SIM_GET_PARAMETERS | Empty; returns SIM_PARAMETERS |
+| 0x35 | MCU → host | SIM_PARAMETERS | 28-byte parameter response below |
 
 No physical position/acceleration move command is exposed in v1. The simulation
 allows a bounded acceleration/deceleration ramp setting while stationary, rather
@@ -194,7 +198,7 @@ Events are best effort; current faults/state are repeated in telemetry.
 Capability bit3 and mode 2 identify simulated physics running on the MCU. All
 motion telemetry is then simulated, including pulse counts and driver-enable
 state. Physical STEP/DIR/ENABLE outputs stay unconfigured in this implementation.
-Future hardware firmware must reject types 0x30–0x32 unless simulation is enabled.
+Future hardware firmware must reject simulation setter types unless simulation is enabled.
 
 SIM_SET_STATE payload (24 bytes):
 
@@ -202,7 +206,7 @@ SIM_SET_STATE payload (24 bytes):
 |---|---|---|
 | 0 | f32 | angle_rad, -π..π |
 | 4 | f32 | angular_velocity_rad_s, -50..50 |
-| 8 | i64 | step_position_pulses, -10¹²..10¹² |
+| 8 | i64 | step_position_pulses, -9500..9500 (−190..+190 mm) |
 | 16 | f32 | step_velocity_pulses_s, within advertised velocity limit |
 | 20 | u8 | paused: 0 or 1 |
 | 21 | 3 bytes | Reserved, all zero |
@@ -218,8 +222,12 @@ stop that virtual cart. Pausing freezes integration, not communications/timeouts
 Simulation state changes emit event 5 and start a new graph segment. Device time
 remains monotonic. All simulation values are finite and range checked. The model
 is a damped inverted pendulum driven by simulated cart acceleration, with no
-balancing controller. Current constants: length 0.30 m, gravity 9.81 m/s²,
-damping 0.15/s, 0.02 mm per pulse, max speed 16000 pulses/s. Acceleration and stop
+balancing controller. Gravity is 9.81 m/s², pendulum mass is 0.094 kg, and its
+center of mass is 0.1444 m from the pivot. Default pivot inertia is
+0.00267683 kg·m² (legacy 2676.83 kg·mm²); default viscous damping is
+0.0004015245 N·m·s/rad. Integration uses
+`I*theta_ddot = m*l*(g*sin(theta) - cart_accel*cos(theta)) - b*theta_dot`.
+Travel is 0.02 mm per pulse; max speed is 16000 pulses/s. Acceleration and stop
 deceleration default to 500000 pulses/s² and are configurable together within
 50..500000 pulses/s² (1..10000 mm/s²). Changes require stationary IDLE/ARMED,
 increment the configuration revision, survive simulation reset/reconnect, and
@@ -233,9 +241,32 @@ the same values: 200 full steps/rev × 8 microsteps = 1600 pulses/rev;
 32 mm/rev = 0.02 mm/pulse; 62.83 rad/s ≈ 320 mm/s ≈ 16000 pulses/s; and
 10000 mm/s² = 500000 pulses/s². The acceleration value was a limit in the old
 code, not a measured motor capability or a separate manual-jog ramp setting.
-The legacy ±190 mm software travel limit is recorded here as reference and is
-not applied to the unbounded virtual cart. Validate physical microstep settings,
-travel, and capability separately before hardware actuation.
+The legacy ±190 mm software travel limit is enforced on simulated continuous
+position, including fractional pulses. A hard stop removes outward velocity,
+with no bounce; collision acceleration can exceed the motor ramp limit. Held
+outward target velocity remains visible, but does not move the cart beyond the
+stop. An inward target works immediately without clearing a fault or rearming.
+Initial positions outside the track are rejected. Validate physical microstep
+settings, travel, and capability separately before hardware actuation.
+
+SIM_SET_PARAMETERS accepts pivot inertia 0.0001..0.1 kg·m² and viscous damping
+0..0.05 N·m·s/rad. The cart must be stationary in IDLE or ARMED, with zero target.
+Values are finite/range checked, applied together on the next model step, and
+preserved through physics reset/serial reconnect; reboot restores defaults.
+The request does not change the current pendulum state. The bridge reads parameters
+on connect and after successful edits. New setters require the current firmware.
+
+SIM_PARAMETERS payload (28 bytes):
+
+| Offset | Type | Field |
+|---|---|---|
+| 0 | u32 | request_id |
+| 4 | f32 | inertia_kg_m2, about the pivot |
+| 8 | f32 | damping_n_m_s, viscous torque coefficient |
+| 12 | f32 | mass_kg, currently 0.094 |
+| 16 | f32 | center_of_mass_m, currently 0.1444 |
+| 20 | f32 | x_min_mm, currently -190 |
+| 24 | f32 | x_max_mm, currently +190 |
 
 The native peer uses this same C implementation for automated checks.
 
@@ -261,8 +292,11 @@ The native peer uses this same C implementation for automated checks.
    ramp at its own 1 kHz update; browser timing does not schedule motor steps.
 5. A nonzero accepted target enters RUNNING. A zero SET_VELOCITY ramps to zero
    and returns to ARMED, still under the same expiring lease.
-6. On button/key release, send STOP immediately. STOP cannot be undone by later
-   velocity requests while STOPPING: reject them. Once stationary, return to
+6. On button/key release, send STOP immediately. A fresh velocity request can
+   interrupt a normal STOPPING ramp while manual authority is valid and no fault
+   is active. It replaces the target immediately; acceleration still governs
+   reversal through zero velocity, with no wait for an intermediate idle state
+   or return to zero position. Once stationary, return to
    ARMED with a fresh lease if manual authority remains active. The next jog
    requires a new press, but does not require another ARM. STOP from an unarmed
    simulated initial condition remains IDLE. DISARM explicitly exits manual mode.
@@ -291,8 +325,8 @@ focus/visibility loss explicitly disarms. A normal jog release only stops, keepi
 the session armed while fresh presence messages continue.
 Do not keep synthesizing serial refreshes from the last browser intent.
 All ingress queues are bounded; reject rate abuse, drop superseded jog targets,
-and prioritize STOP/DISARM over queued motion. A late request cannot restart a
-STOPPING device. Reconnect starts with no owner and no held controls.
+and prioritize STOP/DISARM over queued motion. Fault-induced STOPPING cannot be
+interrupted by a jog. Reconnect starts with no owner and no held controls.
 
 ## 7. Telemetry payload (64 bytes)
 
@@ -317,7 +351,9 @@ STOPPING device. Reconnect starts with no owner and no held controls.
 
 Flag bits: 0 angle calibrated/valid, 1 angular velocity valid, 2 pulse position
 valid relative to origin, 3 driver logically enabled, 4 physical position
-referenced/homed, 5 motion quantities valid, 6 simulation paused. Other bits zero. Unavailable numeric
+referenced/homed, 5 motion quantities valid, 6 simulation paused, 7 left end stop,
+8 right end stop. Other bits zero. End-stop flags compare the continuous simulated
+position, including its fractional-pulse remainder. Unavailable numeric
 fields are zero with validity bits clear; never graph those zeros as measurements.
 Position is still pulse-derived when the referenced bit is set. Reset/reboot or
 a motion discontinuity can invalidate the reference; ZERO_POSITION establishes
@@ -366,6 +402,7 @@ Browser examples:
 {"v":1,"type":"sim_pause","id":11,"paused":false}
 {"v":1,"type":"keepalive","id":12}
 {"v":1,"type":"set_acceleration","id":13,"acceleration_pulses_s2":500000}
+{"v":1,"type":"sim_parameters","id":14,"inertia_kg_m2":0.00267683,"damping_n_m_s":0.0004015245}
 ```
 
 The jog speed in the example is illustrative, not a configured safe default.
@@ -397,6 +434,8 @@ telemetry fields in the actual JSON mapping, using the same names/units; example
 omit some fields for readability. Bridge also sends capabilities/limits from
 HELLO_INFO, connection/state/fault events, ownership changes, and parser error
 counters. Raw unknown fault bits are preserved alongside decoded names.
+Connection status also includes `simulation_parameters` with the six model/bounds
+values from SIM_PARAMETERS. Telemetry includes `at_left_bound`/`at_right_bound`.
 
 Keep receive time separately for freshness checks. Mark telemetry stale after
 250 ms without a sample at the default 50 Hz; clear jog, request STOP, and prevent
@@ -410,6 +449,16 @@ is backlogged. The MCU lease remains necessary even with these host checks.
   position (pulses), velocity (pulses/s), acceleration (pulses/s²). Show target and
   applied velocity as separate traces. Display “pulse-derived, not encoder
   feedback” by the stepper plots. Show gaps instead of connecting missing data.
+- Angle graph selector: upright = 0°, bottom = 0°, horizontal = 0° with upright
+  at +90°, or cos(θ). Upright/bottom degree displays are clockwise-positive;
+  horizontal uses right-horizontal zero and counterclockwise-positive angles.
+  All degree displays wrap to [-180,180), breaking trace segments at wrap.
+  Cosine is +1 upright/−1 downward and intentionally loses tilt direction.
+  Default axes are ±180° or ±1, with optional auto-scale. This changes only the
+  graph, not firmware coordinates, the animation, or controller inputs.
+- Large apparatus animation above the plots maps the enforced track bounds to
+  labeled end stops and an origin marker. It shows current cart position in mm
+  and end-stop status. The C model enforces bounds independently of drawing.
 - Use device-relative time and a bounded 30 s live buffer; redraw at up to
   30 frames/s independently of telemetry acquisition. Start a new segment after
   reset/reconnect. Optional later recording may retain more data on the server.
@@ -427,8 +476,9 @@ is backlogged. The MCU lease remains necessary even with these host checks.
 - ArrowLeft/ArrowRight use the same intent path. Ignore key repeat; maintain
   pressed state and run the 20 Hz refresh separately. Ignore shortcuts in text,
   number, select, or editable controls. Prevent page scrolling only when handling
-  a valid jog. Both directions held means stop and requires both released before
-  another jog. Space requests Stop when outside editable controls.
+  a valid jog. Most recently pressed arrow wins; releasing it restores the other
+  if still held. Fresh arrows work during normal stop/reversal ramps. Space
+  requests Stop when outside editable controls.
 - Visibility/focus/connection loss clears held state permanently. Returning to
   the page never resumes motion; require a new input and explicit rearm.
 - Show serial connection, data age, control owner, calibration/reference status,

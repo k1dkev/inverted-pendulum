@@ -51,9 +51,12 @@ static void fault(device_t *d, uint32_t bit)
 }
 static void snapshot(device_t *d, uint8_t *p)
 {
+    double cart_position = (double)d->sim.position + d->sim.fractional_position;
     put_u64(p, d->now);
     put_u32(p + 8, d->sample_seq);
-    put_u32(p + 12, 0x27U | ((d->state == RUNNING) ? 8U : 0U) | (d->sim.paused ? 64U : 0U));
+    put_u32(p + 12, 0x27U | ((d->state == RUNNING) ? 8U : 0U) | (d->sim.paused ? 64U : 0U) |
+                        (cart_position <= -SIM_BOUND_PULSES ? 128U : 0U) |
+                        (cart_position >= SIM_BOUND_PULSES ? 256U : 0U));
     put_u64(p + 16, (uint64_t)d->sim.position);
     put_f32(p + 24, d->sim.angle);
     put_f32(p + 28, d->sim.angular_velocity);
@@ -77,6 +80,8 @@ void device_init(device_t *d, device_send_fn send, void *context)
     d->telemetry_hz = 50;
     d->acceleration_limit = SIM_DEFAULT_ACCELERATION;
     d->config_revision = 1;
+    d->simulation_parameters.inertia_kg_m2 = SIM_DEFAULT_INERTIA;
+    d->simulation_parameters.damping_n_m_s = SIM_DEFAULT_DAMPING;
     simulation_reset(&d->sim);
 }
 static uint32_t fingerprint(const packet_t *p)
@@ -108,6 +113,36 @@ static void hello_info(device_t *d, packet_t *reply, uint32_t request)
 static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
 {
     const uint8_t *b = p->payload;
+    if (p->type == SIM_GET_PARAMETERS)
+    {
+        if (p->length)
+            return BAD_PAYLOAD;
+        reply->type = SIM_PARAMETERS;
+        reply->length = 28;
+        put_u32(reply->payload, p->id);
+        put_f32(reply->payload + 4, d->simulation_parameters.inertia_kg_m2);
+        put_f32(reply->payload + 8, d->simulation_parameters.damping_n_m_s);
+        put_f32(reply->payload + 12, SIM_MASS_KG);
+        put_f32(reply->payload + 16, SIM_COM_M);
+        put_f32(reply->payload + 20, -190);
+        put_f32(reply->payload + 24, 190);
+        return OK;
+    }
+    if (p->type == SIM_SET_PARAMETERS)
+    {
+        if (p->length != 8 || !is_finite(get_f32(b)) || !is_finite(get_f32(b + 4)))
+            return BAD_PAYLOAD;
+        float inertia = get_f32(b), damping = get_f32(b + 4);
+        if (inertia < SIM_MIN_INERTIA || inertia > SIM_MAX_INERTIA || damping < 0 ||
+            damping > SIM_MAX_DAMPING)
+            return LIMIT_EXCEEDED;
+        if ((d->state != IDLE && d->state != ARMED) || d->sim.velocity != 0 || d->sim.target != 0)
+            return WRONG_STATE;
+        d->simulation_parameters.inertia_kg_m2 = inertia;
+        d->simulation_parameters.damping_n_m_s = damping;
+        ++d->config_revision;
+        return OK;
+    }
     if (p->type == GET_CONFIG)
     {
         if (p->length)
@@ -171,7 +206,8 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
         float v = get_f32(b);
         if (absf(v) > SIM_MAX_VELOCITY)
             return LIMIT_EXCEEDED;
-        if ((d->state != ARMED && d->state != RUNNING) || d->sim.paused)
+        if (!d->manual_armed || d->faults ||
+            (d->state != ARMED && d->state != RUNNING && d->state != STOPPING) || d->sim.paused)
             return WRONG_STATE;
         d->sim.target = v;
         d->lease_active = true;
@@ -187,8 +223,8 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
             return BAD_PAYLOAD;
         int64_t position = (int64_t)get_u64(b + 8);
         if (absf(get_f32(b)) > 3.1415927f || absf(get_f32(b + 4)) > 50 ||
-            absf(get_f32(b + 16)) > SIM_MAX_VELOCITY || position < -1000000000000LL ||
-            position > 1000000000000LL)
+            absf(get_f32(b + 16)) > SIM_MAX_VELOCITY || position < -SIM_BOUND_PULSES ||
+            position > SIM_BOUND_PULSES)
             return LIMIT_EXCEEDED;
         if (d->state != IDLE)
             return WRONG_STATE;
@@ -392,7 +428,7 @@ void device_tick(device_t *d, uint64_t now)
     while (now - d->last_tick >= 1000)
     {
         d->last_tick += 1000;
-        simulation_tick(&d->sim, 0.001f, d->acceleration_limit);
+        simulation_tick(&d->sim, 0.001f, d->acceleration_limit, &d->simulation_parameters);
         if (d->state == STOPPING && d->sim.velocity == 0)
         {
             bool remain_armed = d->manual_armed && !d->faults;

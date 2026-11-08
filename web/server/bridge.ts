@@ -7,11 +7,13 @@ import {
   encode,
   capabilities,
   telemetry,
+  simulationParameters,
   results,
   states,
   type Packet,
   type Capabilities,
   type Telemetry,
+  type SimulationParameters,
 } from "./protocol";
 
 type Pending = {
@@ -35,6 +37,7 @@ export class Bridge {
   private owner?: Client;
   private latest?: Telemetry;
   private caps?: Capabilities;
+  private simulationParameters?: SimulationParameters;
   private receivedAt = 0;
   private lastIntent = 0;
   private lastPresence = 0;
@@ -68,6 +71,7 @@ export class Bridge {
         control:
           this.owner === client ? "owned" : this.owner ? "other" : "available",
         capabilities: this.caps ?? null,
+        simulation_parameters: this.simulationParameters ?? null,
         session_id: this.session.toString(16).padStart(16, "0"),
         parser_errors: this.parser.errors,
       });
@@ -193,7 +197,8 @@ export class Bridge {
           throw Error("LIMIT_EXCEEDED");
         if (
           !this.latest ||
-          !["ARMED", "RUNNING"].includes(this.latest.state) ||
+          !["ARMED", "RUNNING", "STOPPING"].includes(this.latest.state) ||
+          this.latest.fault_bits !== 0 ||
           Date.now() - this.receivedAt > 250
         )
           throw Error("WRONG_STATE");
@@ -202,6 +207,24 @@ export class Bridge {
         type = Type.VELOCITY;
         payload = Buffer.alloc(4);
         payload.writeFloatLE(m.velocity_pulses_s);
+      } else if (m.type === "sim_parameters") {
+        const inertia = m.inertia_kg_m2,
+          damping = m.damping_n_m_s;
+        if (
+          typeof inertia !== "number" ||
+          !Number.isFinite(inertia) ||
+          inertia < 0.0001 ||
+          inertia > 0.1 ||
+          typeof damping !== "number" ||
+          !Number.isFinite(damping) ||
+          damping < 0 ||
+          damping > 0.05
+        )
+          throw Error("LIMIT_EXCEEDED");
+        type = Type.SIM_SET_PARAMETERS;
+        payload = Buffer.alloc(8);
+        payload.writeFloatLE(inertia, 0);
+        payload.writeFloatLE(damping, 4);
       } else if (m.type === "sim_pause") {
         if (typeof m.paused !== "boolean") throw Error("BAD_PAYLOAD");
         type = Type.SIM_PAUSE;
@@ -226,7 +249,7 @@ export class Bridge {
         )
           throw Error("BAD_PAYLOAD");
         const position = BigInt(m.position_pulses);
-        if (position < -1000000000000n || position > 1000000000000n)
+        if (position < -9500n || position > 9500n)
           throw Error("LIMIT_EXCEEDED");
         type = Type.SIM_STATE;
         payload = Buffer.alloc(24);
@@ -255,6 +278,11 @@ export class Bridge {
         this.caps = capabilities(config.payload);
         this.status();
       }
+      if (code === 0 && m.type === "sim_parameters") {
+        const params = await this.request(Type.SIM_GET_PARAMETERS);
+        this.simulationParameters = simulationParameters(params.payload);
+        this.status();
+      }
       this.result(
         client,
         id,
@@ -277,6 +305,7 @@ export class Bridge {
     this.link = "connecting";
     this.latest = undefined;
     this.caps = undefined;
+    this.simulationParameters = undefined;
     this.parser = new Parser();
     this.session = randomBytes(8).readBigUInt64LE() || 1n;
     this.requestId = 0;
@@ -302,6 +331,10 @@ export class Bridge {
             : "HELLO_REJECTED",
         );
       this.caps = capabilities(reply.payload);
+      if (this.caps.simulation) {
+        const params = await this.request(Type.SIM_GET_PARAMETERS);
+        this.simulationParameters = simulationParameters(params.payload);
+      }
       this.link = "connected";
       this.receivedAt = Date.now();
       this.status();
@@ -365,7 +398,9 @@ export class Bridge {
             ? 48
             : packet.type === Type.STATUS
               ? 68
-              : 0;
+              : packet.type === Type.SIM_PARAMETERS
+                ? 28
+                : 0;
       if (!expectedLength || packet.payload.length !== expectedLength) return;
       const id = packet.payload.readUInt32LE(0),
         pending = this.pending.get(id);
@@ -407,6 +442,7 @@ export class Bridge {
     this.link = "disconnected";
     this.latest = undefined;
     this.caps = undefined;
+    this.simulationParameters = undefined;
     const transport = this.transport;
     this.transport = undefined;
     for (const p of this.pending.values()) {

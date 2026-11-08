@@ -11,7 +11,8 @@ static bool collect(void *ctx, const uint8_t *bytes, size_t n, bool telemetry)
     packet_t p;
     for (size_t i = 0; i < n; ++i)
         if (proto_feed(&output_parser, bytes[i], &p) &&
-            (p.type == RESPONSE || p.type == HELLO_INFO || p.type == STATUS))
+            (p.type == RESPONSE || p.type == HELLO_INFO || p.type == STATUS ||
+             p.type == SIM_PARAMETERS))
         {
             last_response = p;
             ++response_count;
@@ -155,6 +156,45 @@ int main(void)
             request(&d, KEEPALIVE, id++, NULL, 0);
     }
     assert(d.state == FAULT && d.sim.velocity == 0 && !d.manual_armed);
+    request(&d, VELOCITY, id++, velocity, 4);
+    assert(get_u16(last_response.payload + 4) == WRONG_STATE);
+    request(&d, CLEAR_FAULT, id++, NULL, 0);
+    request(&d, SIM_RESET, id++, NULL, 0);
+    request(&d, SIM_GET_PARAMETERS, id++, NULL, 0);
+    assert(last_response.type == SIM_PARAMETERS && last_response.length == 28);
+    assert(get_f32(last_response.payload + 20) == -190 &&
+           get_f32(last_response.payload + 24) == 190);
+    uint8_t parameters[8];
+    put_f32(parameters, 0.004f);
+    put_f32(parameters + 4, 0.001f);
+    request(&d, SIM_SET_PARAMETERS, id++, parameters, 8);
+    assert(get_u16(last_response.payload + 4) == OK &&
+           d.simulation_parameters.inertia_kg_m2 == 0.004f);
+    request(&d, SIM_RESET, id++, NULL, 0);
+    assert(d.simulation_parameters.inertia_kg_m2 == 0.004f &&
+           d.simulation_parameters.damping_n_m_s == 0.001f);
+    put_f32(parameters, 0);
+    request(&d, SIM_SET_PARAMETERS, id++, parameters, 8);
+    assert(get_u16(last_response.payload + 4) == LIMIT_EXCEEDED);
+    put_u64(state + 8, SIM_BOUND_PULSES + 1);
+    put_f32(state, 0);
+    request(&d, SIM_STATE, id++, state, 24);
+    assert(get_u16(last_response.payload + 4) == LIMIT_EXCEEDED);
+    request(&d, ARM, id++, NULL, 0);
+    put_f32(velocity, 200);
+    request(&d, VELOCITY, id++, velocity, 4);
+    for (uint64_t t = 7743000; t <= 7762000; t += 1000)
+        device_tick(&d, t);
+    assert(d.sim.velocity == 100);
+    request(&d, STOP, id++, NULL, 0);
+    assert(d.state == STOPPING);
+    put_f32(velocity, -200);
+    request(&d, VELOCITY, id++, velocity, 4);
+    assert(get_u16(last_response.payload + 4) == OK && d.state == RUNNING &&
+           d.sim.velocity == 100 && d.sim.target == -200);
+    for (uint64_t t = 7763000; t <= 7803000; t += 1000)
+        device_tick(&d, t);
+    assert(d.sim.velocity < 0); /* Retargeted before velocity or position reached zero. */
     assert(response_count >= 10);
     puts("Core framing, duplicate protection, motion lease, and simulation state tests passed.");
     return 0;
