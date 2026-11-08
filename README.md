@@ -212,6 +212,12 @@ simulation. You can change policies while running; the incoming controller start
 with fresh internal state and retains the plant state. Selecting Manual requests
 a stop before jogging. See [the exact legacy law and its quirks](docs/control-policy.md).
 
+The **Logs & command console** panel records structured MCU/server/operator events,
+with filtering, bounded history, and NDJSON download. Type `help` for commands,
+`status` to query the MCU, or `jog 20 500` for a timed manual jog after arming.
+The console shares ownership and serial access with the buttons. See
+[logging, console commands, and the future CLI/TUI plan](docs/logging-and-console.md).
+
 The four overview graphs stay on their existing 50 Hz stream. Open **Telemetry
 lab** to query the MCU's 24-channel catalog, choose additional signals and a
 5/10/25 Hz rate, and plot only those selected channels. Diagnostics include

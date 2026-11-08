@@ -11,6 +11,42 @@ static bool send_packet(device_t *d, packet_t *p, bool telemetry)
     size_t length = proto_encode(p, bytes);
     return length && d->send(d->context, bytes, length, telemetry);
 }
+/* Structured diagnostic frames are best effort, max 10/s, and use the
+ * low-priority TX budget. They can never consume the response reserve. */
+static void log_record(device_t *d, uint8_t level, uint8_t subsystem, uint16_t code, uint32_t a,
+                       uint32_t b, uint32_t c)
+{
+    if (!d->session || !d->log_level || level < d->log_level)
+        return;
+    if (d->now - d->log_window >= 1000000)
+    {
+        d->log_window = d->now;
+        d->log_count = 0;
+    }
+    uint32_t sequence = ++d->log_sequence;
+    if (d->log_count >= 10)
+    {
+        if (d->log_dropped < UINT32_MAX)
+            ++d->log_dropped;
+        return;
+    }
+    ++d->log_count;
+    packet_t p = {0};
+    p.type = LOG_RECORD;
+    p.session = d->session;
+    p.length = 32;
+    put_u64(p.payload, d->now);
+    put_u32(p.payload + 8, sequence);
+    p.payload[12] = level;
+    p.payload[13] = subsystem;
+    put_u16(p.payload + 14, code);
+    put_u32(p.payload + 16, a);
+    put_u32(p.payload + 20, b);
+    put_u32(p.payload + 24, c);
+    put_u32(p.payload + 28, d->log_dropped);
+    if (!send_packet(d, &p, true) && d->log_dropped < UINT32_MAX)
+        ++d->log_dropped;
+}
 static void event(device_t *d, uint16_t code)
 {
     if (!d->session)
@@ -25,6 +61,7 @@ static void event(device_t *d, uint16_t code)
     p.payload[11] = 2;
     put_u32(p.payload + 12, d->faults);
     (void)send_packet(d, &p, false);
+    log_record(d, code == 2 ? 40 : 20, code >= 5 ? 3 : 1, code, d->state, d->faults, d->sim.paused);
 }
 static void set_state(device_t *d, uint8_t state)
 {
@@ -82,6 +119,7 @@ void device_init(device_t *d, device_send_fn send, void *context)
     d->telemetry_hz = 50;
     d->acceleration_limit = SIM_DEFAULT_ACCELERATION;
     d->config_revision = 1;
+    d->log_level = 20;
     policy_init(&d->policy, POLICY_MANUAL);
     d->simulation_parameters.inertia_kg_m2 = SIM_DEFAULT_INERTIA;
     d->simulation_parameters.damping_n_m_s = SIM_DEFAULT_DAMPING;
@@ -101,7 +139,7 @@ static void hello_info(device_t *d, packet_t *reply, uint32_t request)
     reply->length = 48;
     put_u32(reply->payload, request);
     put_u16(reply->payload + 4, 1);
-    put_u16(reply->payload + 6, 63);
+    put_u16(reply->payload + 6, 127);
     put_u32(reply->payload + 8, 0x000100);
     put_u32(reply->payload + 12, 1000);
     put_f32(reply->payload + 16, SIM_MAX_VELOCITY);
@@ -220,6 +258,25 @@ static float selected_value(device_t *d, unsigned channel, bool *valid)
 static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
 {
     const uint8_t *b = p->payload;
+    if (p->type == GET_LOG_CONFIG || p->type == SET_LOG_LEVEL)
+    {
+        if (p->type == GET_LOG_CONFIG && p->length)
+            return BAD_PAYLOAD;
+        if (p->type == SET_LOG_LEVEL)
+        {
+            if (p->length != 1 ||
+                (b[0] != 0 && b[0] != 10 && b[0] != 20 && b[0] != 30 && b[0] != 40))
+                return BAD_PAYLOAD;
+            d->log_level = b[0];
+        }
+        reply->type = LOG_CONFIG;
+        reply->length = 12;
+        put_u32(reply->payload, p->id);
+        reply->payload[4] = d->log_level;
+        reply->payload[5] = reply->payload[6] = reply->payload[7] = 0;
+        put_u32(reply->payload + 8, d->log_dropped);
+        return OK;
+    }
     if (p->type == LIST_POLICIES)
     {
         if (p->length != 2)
@@ -286,6 +343,7 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
             d->lease_active = true;
             d->lease_deadline = d->now + 500000;
         }
+        log_record(d, 20, 2, 7, id, was_running, d->config_revision);
         return OK;
     }
     if (p->type == START_POLICY)
@@ -638,6 +696,13 @@ static void dispatch(device_t *d, const packet_t *p)
     }
     if (!send_packet(d, &reply, false) && (d->state == ARMED || d->state == RUNNING))
         fault(d, 1U << 6);
+    if (result != OK && p->session == d->session)
+        log_record(d, 30, 4, 11, p->type, result, p->id);
+    if (result == OK && hello)
+        log_record(d, 20, 4, 10, 0, 0, 0);
+    if (result == OK &&
+        (p->type == SET_ACCELERATION || p->type == SIM_SET_PARAMETERS || p->type == SET_LOG_LEVEL))
+        log_record(d, 20, 1, 9, p->type, d->config_revision, 0);
 }
 void device_receive(device_t *d, uint8_t byte)
 {
@@ -728,6 +793,15 @@ void device_tick(device_t *d, uint64_t now)
         snapshot(d, p.payload);
         if (!send_packet(d, &p, true) && d->dropped < UINT32_MAX)
             ++d->dropped;
+    }
+    if (d->policy.id != d->logged_policy || d->policy.phase != d->logged_phase ||
+        d->policy.error != d->logged_error)
+    {
+        d->logged_policy = d->policy.id;
+        d->logged_phase = d->policy.phase;
+        d->logged_error = d->policy.error;
+        log_record(d, d->policy.error ? 40 : 20, 2, 8, d->policy.id, d->policy.phase,
+                   d->policy.error);
     }
     if (d->session && now - d->last_policy_status >= 100000)
     {

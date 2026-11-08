@@ -18,6 +18,7 @@ exact legacy law and its source history.
 
 getting-started
 control-policy
+logging-and-console
 ```
 
 ```{toctree}

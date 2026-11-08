@@ -15,6 +15,8 @@ import type {
   TelemetryChannel,
   Subscription,
 } from "../server/protocol";
+import { ConsolePanel } from "./ConsolePanel";
+import { useDiagnostics } from "./useDiagnostics";
 import { JogKeys } from "./jog";
 import { ANGLE_VIEWS, displayAngle, type AngleView } from "./angle";
 import "./style.css";
@@ -138,13 +140,24 @@ function App() {
   speedRef.current = speed;
   const send = useCallback(
     (type: string, fields: Record<string, unknown> = {}) => {
-      if (ws.current?.readyState === WebSocket.OPEN)
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        const requestId = ++id.current;
         ws.current.send(
-          JSON.stringify({ v: 1, type, id: ++id.current, ...fields }),
+          JSON.stringify({ v: 1, type, id: requestId, ...fields }),
         );
+        return requestId;
+      }
+      return undefined;
     },
     [],
   );
+  const {
+    logs,
+    commands,
+    submit: submitCommand,
+    receive: receiveDiagnostic,
+    connectionLost,
+  } = useDiagnostics(send);
   const stop = useCallback(() => {
     const active = heldRef.current !== 0;
     heldRef.current = 0;
@@ -152,6 +165,13 @@ function App() {
     pressed.current.clear();
     if (active) send("stop");
   }, [send]);
+  const runConsoleCommand = useCallback(
+    (line: string) => {
+      stop();
+      submitCommand(line);
+    },
+    [stop, submitCommand],
+  );
   const jog = useCallback(
     (direction: number) => {
       const c = connRef.current,
@@ -196,6 +216,7 @@ function App() {
       socket.onopen = () => setSocketReady(true);
       socket.onmessage = (event) => {
         const m = JSON.parse(event.data);
+        receiveDiagnostic(m);
         if (m.type === "connection") {
           setConnection(m);
           if (m.policy) setPolicy(m.policy);
@@ -269,6 +290,7 @@ function App() {
         }
       };
       socket.onclose = () => {
+        connectionLost();
         stop();
         setSocketReady(false);
         setConnection(initial);
@@ -285,7 +307,7 @@ function App() {
       clearTimeout(retry);
       ws.current?.close();
     };
-  }, [refreshPorts, stop]);
+  }, [refreshPorts, stop, receiveDiagnostic, connectionLost]);
   useEffect(() => {
     const interval = setInterval(() => {
       const isFresh = Date.now() - lastTime.current <= 250;
@@ -940,6 +962,13 @@ function App() {
             )}
           </aside>
         </div>
+        <ConsolePanel
+          logs={logs}
+          commands={commands}
+          submit={runConsoleCommand}
+          ready={socketReady}
+          owned={owned}
+        />
         <footer role="status">
           <span className="status-label">CONSOLE</span>
           {message}

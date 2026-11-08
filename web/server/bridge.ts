@@ -1,6 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { WebSocket } from "ws";
 import { Transport } from "./transport";
+import { LogStore, deviceLog } from "./logging";
+import { COMMAND_HELP, parseCommand } from "../shared/commands";
+import type { LogLevel, LogSource } from "../shared/logging";
 import {
   Parser,
   Type,
@@ -31,6 +34,8 @@ type Pending = {
   timer: ReturnType<typeof setTimeout>;
 };
 type Client = {
+  id: number;
+  commands: Map<number, { name: string; args: string }>;
   socket: WebSocket;
   lastId: number;
   window: number;
@@ -42,6 +47,43 @@ type Client = {
 export class Bridge {
   readonly clients = new Set<Client>();
   private transport?: Transport;
+  private logs = new LogStore();
+  private nextClientId = 0;
+  private motionGeneration = 0;
+  private logConfig?: { level: number; dropped: number };
+  private consoleJog?: {
+    client: Client;
+    velocity: number;
+    end: number;
+    next: number;
+    busy: boolean;
+  };
+  private lastParserErrors = 0;
+  logsNDJSON() {
+    return this.logs.ndjson();
+  }
+  private log(
+    level: LogLevel,
+    source: LogSource,
+    message: string,
+    fields: Record<string, unknown> = {},
+  ) {
+    const entry = this.logs.append({
+      level,
+      source,
+      message,
+      fields,
+      session_id: this.session
+        ? this.session.toString(16).padStart(16, "0")
+        : undefined,
+    });
+    this.broadcast({ type: "log", entry });
+  }
+  private readLogConfig(p: Buffer) {
+    if (p.length !== 12) throw Error("Invalid log configuration");
+    this.logConfig = { level: p[4], dropped: p.readUInt32LE(8) };
+    return this.logConfig;
+  }
   private parser = new Parser();
   private session = 0n;
   private requestId = 0;
@@ -71,8 +113,8 @@ export class Bridge {
   private send(client: Client, data: Record<string, unknown>) {
     if (client.socket.readyState !== WebSocket.OPEN) return;
     if (client.socket.bufferedAmount > 65536) {
-      if (this.owner === client) this.revoke("Browser is backlogged");
       client.socket.terminate();
+      if (this.owner === client) this.revoke("Browser is backlogged");
       return;
     }
     client.socket.send(JSON.stringify({ v: 1, ...data }));
@@ -92,6 +134,7 @@ export class Bridge {
         simulation_parameters: this.simulationParameters ?? null,
         policies: this.policies,
         policy: this.policy ?? null,
+        logging: this.logConfig ?? null,
         session_id: this.session.toString(16).padStart(16, "0"),
         parser_errors: this.parser.errors,
       });
@@ -103,10 +146,28 @@ export class Bridge {
     code = "OK",
     source = "bridge",
   ) {
+    const command = client.commands.get(id);
+    client.commands.delete(id);
+    if (command)
+      this.log(ok ? "info" : "warn", "command", `${command.name}: ${code}`, {
+        client_id: client.id,
+        request_id: id,
+        source,
+        arguments: command.args,
+      });
+    if (!command && !ok)
+      this.log("warn", "command", "Request rejected", {
+        client_id: client.id,
+        request_id: id,
+        source,
+        code,
+      });
     this.send(client, { type: "result", id, ok, code, source });
   }
   add(socket: WebSocket) {
     const client: Client = {
+      id: ++this.nextClientId,
+      commands: new Map(),
       socket,
       lastId: 0,
       window: Date.now(),
@@ -118,6 +179,11 @@ export class Bridge {
     this.clients.add(client);
     this.status();
     this.telemetrySetup(client);
+    this.send(client, {
+      type: "log_history",
+      entries: this.logs.recent(),
+      capacity: 1000,
+    });
     if (this.latest) this.send(client, { type: "telemetry", ...this.latest });
     socket.on("message", (raw, isBinary) => {
       if (isBinary) {
@@ -137,7 +203,8 @@ export class Bridge {
     });
   }
   private async message(client: Client, raw: string) {
-    let id = 0;
+    let id = 0,
+      jogGeneration = 0;
     try {
       const now = Date.now();
       if (now - client.window >= 1000) {
@@ -148,7 +215,7 @@ export class Bridge {
         if (this.owner === client) this.revoke("Command rate exceeded");
         throw Error("RATE_LIMIT");
       }
-      const m = JSON.parse(raw) as Record<string, unknown>;
+      const m = JSON.parse(raw) as Record<string, unknown> & { type: string };
       if (
         !m ||
         m.v !== 1 ||
@@ -159,6 +226,89 @@ export class Bridge {
         throw Error("BAD_REQUEST");
       id = Number(m.id);
       client.lastId = id;
+      if (m.type !== "keepalive" && m.type !== "jog")
+        client.commands.set(id, {
+          name: m.type.slice(0, 64),
+          args: JSON.stringify(m).slice(0, 256),
+        });
+      if (m.type === "console_command") {
+        if (typeof m.line !== "string") throw Error("INVALID_COMMAND_LINE");
+        const command = parseCommand(m.line);
+        Object.assign(m, command.fields, { type: command.type });
+      }
+      if (m.type === "console_help") {
+        this.send(client, { type: "console_output", id, data: COMMAND_HELP });
+        this.result(client, id, true);
+        return;
+      }
+      if (
+        [
+          "console_status",
+          "console_config",
+          "console_policy_status",
+          "console_log_config",
+          "console_policies",
+          "console_catalog",
+        ].includes(m.type)
+      ) {
+        if (this.link !== "connected") throw Error("NOT_CONNECTED");
+        let data: unknown;
+        if (m.type === "console_policies") data = this.policies;
+        else if (m.type === "console_catalog") data = this.catalog;
+        else if (m.type === "console_status") {
+          const reply = await this.request(Type.GET_STATUS);
+          if (reply.type !== Type.STATUS) throw Error("STATUS_READ_FAILED");
+          data = telemetry(reply.payload.subarray(4), this.session);
+        } else if (m.type === "console_config") {
+          const reply = await this.request(Type.GET_CONFIG);
+          if (reply.type !== Type.HELLO_INFO) throw Error("CONFIG_READ_FAILED");
+          data = capabilities(reply.payload);
+        } else if (m.type === "console_policy_status") {
+          const reply = await this.request(Type.GET_POLICY);
+          if (reply.type !== Type.POLICY_STATUS)
+            throw Error("POLICY_READ_FAILED");
+          data = policyStatus(reply.payload);
+        } else {
+          if (!(this.caps!.bits & 64)) throw Error("UNSUPPORTED");
+          const reply = await this.request(Type.GET_LOG_CONFIG);
+          if (reply.type !== Type.LOG_CONFIG)
+            throw Error("LOG_CONFIG_READ_FAILED");
+          data = this.readLogConfig(reply.payload);
+        }
+        this.send(client, { type: "console_output", id, data });
+        this.result(client, id, true);
+        return;
+      }
+      if (m.type === "console_select_policy") {
+        const selected = this.policies.find(
+          (p) => p.name === m.policy || String(p.id) === m.policy,
+        );
+        if (!selected) throw Error("UNKNOWN_POLICY");
+        m.type = "select_policy";
+        m.policy_id = selected.id;
+      }
+      if (
+        ["console_acceleration", "console_sim_state", "console_jog"].includes(
+          m.type,
+        )
+      ) {
+        const scale = this.caps?.mm_per_pulse;
+        if (!scale || !Number.isFinite(scale) || scale <= 0)
+          throw Error("MOTION_SCALE_UNAVAILABLE");
+        if (m.type === "console_acceleration") {
+          m.type = "set_acceleration";
+          m.acceleration_pulses_s2 = Math.round(
+            Number(m.acceleration_mm_s2) / scale,
+          );
+        } else if (m.type === "console_sim_state") {
+          m.type = "sim_state";
+          m.position_pulses = String(Math.round(Number(m.position_mm) / scale));
+          m.velocity_pulses_s = Number(m.velocity_mm_s) / scale;
+        } else {
+          m.type = "jog";
+          m.velocity_pulses_s = Number(m.velocity_mm_s) / scale;
+        }
+      }
       if (m.type === "connect") {
         if (
           this.connecting ||
@@ -176,6 +326,9 @@ export class Bridge {
         if (this.owner && this.owner !== client) throw Error("BUSY");
         this.owner = client;
         this.lastPresence = Date.now();
+        this.log("info", "bridge", "Control acquired", {
+          client_id: client.id,
+        });
         this.status();
         this.result(client, id, true);
         return;
@@ -185,6 +338,11 @@ export class Bridge {
         const reply = await this.request(Type.GET_SUBSCRIPTION);
         this.subscription = subscription(reply.payload);
         this.telemetrySetup(client);
+        this.send(client, {
+          type: "console_output",
+          id,
+          data: { catalog: this.catalog, subscription: this.subscription },
+        });
         this.result(client, id, true);
         return;
       }
@@ -240,7 +398,16 @@ export class Bridge {
         keepalive: Type.KEEPALIVE,
         start_policy: Type.START_POLICY,
       };
-      if (m.type === "select_policy") {
+      if (m.type === "set_log_level") {
+        if (!((this.caps?.bits ?? 0) & 64)) throw Error("UNSUPPORTED");
+        if (
+          typeof m.level !== "number" ||
+          ![0, 10, 20, 30, 40].includes(m.level)
+        )
+          throw Error("BAD_PAYLOAD");
+        type = Type.SET_LOG_LEVEL;
+        payload = Buffer.from([m.level]);
+      } else if (m.type === "select_policy") {
         if (
           !Number.isInteger(m.policy_id) ||
           !this.policies.some((p) => p.id === m.policy_id)
@@ -250,6 +417,8 @@ export class Bridge {
         payload = Buffer.alloc(2);
         payload.writeUInt16LE(Number(m.policy_id));
         this.jogging = false;
+        this.consoleJog = undefined;
+        ++this.motionGeneration;
       } else if (m.type === "set_acceleration") {
         const acceleration = m.acceleration_pulses_s2;
         // For now only the simulation firmware advertises editable acceleration.
@@ -279,6 +448,8 @@ export class Bridge {
           Date.now() - this.receivedAt > 250
         )
           throw Error("WRONG_STATE");
+        this.consoleJog = undefined;
+        jogGeneration = ++this.motionGeneration;
         this.lastIntent = Date.now();
         this.jogging = true;
         type = Type.VELOCITY;
@@ -342,11 +513,37 @@ export class Bridge {
       if (m.type.startsWith("sim_") && !this.caps?.simulation)
         throw Error("SIMULATION_ONLY");
       if (m.type === "stop" || m.type === "disarm") {
+        ++this.motionGeneration;
         this.jogging = false;
+        this.consoleJog = undefined;
       }
       const reply = await this.request(type, payload);
       const code =
         reply.type === Type.RESPONSE ? reply.payload.readUInt16LE(4) : 0;
+      if (code === 0 && m.type === "jog" && typeof m.duration_ms === "number") {
+        // Only the parsed console grammar may request a timed jog.
+        if (
+          client.commands.get(id)?.name === "console_command" &&
+          this.owner === client &&
+          this.policy?.id === 0 &&
+          jogGeneration === this.motionGeneration
+        )
+          this.consoleJog = {
+            client,
+            velocity: Number(m.velocity_pulses_s),
+            end: Date.now() + m.duration_ms,
+            next: Date.now() + 50,
+            busy: false,
+          };
+      }
+      if (code === 0 && m.type === "set_log_level") {
+        this.send(client, {
+          type: "console_output",
+          id,
+          data: this.readLogConfig(reply.payload),
+        });
+        this.status();
+      }
       if (code && m.type === "jog")
         this.revoke(results[code] ?? "DEVICE_REJECTED");
       if (code === 0 && m.type === "set_acceleration") {
@@ -398,8 +595,10 @@ export class Bridge {
     this.caps = undefined;
     this.simulationParameters = undefined;
     this.parser = new Parser();
+    this.lastParserErrors = 0;
     this.session = randomBytes(8).readBigUInt64LE() || 1n;
     this.requestId = 0;
+    this.log("info", "bridge", "Opening serial connection", { path });
     const transport = new Transport();
     this.transport = transport;
     this.status();
@@ -467,7 +666,10 @@ export class Bridge {
           (await this.request(Type.GET_SUBSCRIPTION)).payload,
         );
       }
+      if (this.caps.bits & 64)
+        this.readLogConfig((await this.request(Type.GET_LOG_CONFIG)).payload);
       this.link = "connected";
+      this.log("info", "bridge", "Serial connection established", { path });
       this.receivedAt = Date.now();
       this.status();
       for (const client of this.clients) this.telemetrySetup(client);
@@ -550,6 +752,14 @@ export class Bridge {
   private receive(packet: Packet) {
     if (packet.session !== this.session) return;
     try {
+      if (packet.type === Type.LOG_RECORD) {
+        const entry = this.logs.append({
+          ...deviceLog(packet.payload),
+          session_id: this.session.toString(16).padStart(16, "0"),
+        });
+        this.broadcast({ type: "log", entry });
+        return;
+      }
       if (packet.type === Type.POLICY_STATUS && packet.payload.length === 24) {
         this.policy = policyStatus(packet.payload);
         this.broadcast({ type: "policy_status", policy: this.policy });
@@ -594,6 +804,15 @@ export class Bridge {
         return;
       }
       if (packet.type === Type.EVENT && packet.payload.length === 16) {
+        // State events precede command ACKs. Use that authoritative state for
+        // immediate console commands without pretending a fresh sample arrived.
+        if (this.latest)
+          this.latest = {
+            ...this.latest,
+            state:
+              states[packet.payload[10]] ?? `UNKNOWN_${packet.payload[10]}`,
+            fault_bits: packet.payload.readUInt32LE(12),
+          };
         this.broadcast({
           type: "event",
           code: packet.payload.readUInt16LE(8),
@@ -616,11 +835,13 @@ export class Bridge {
         packet.type === Type.POLICY_DESCRIPTOR ||
         packet.type === Type.TELEMETRY_DESCRIPTOR;
       const extra =
-        packet.type === Type.POLICY_STATUS
-          ? 24
-          : packet.type === Type.SUBSCRIPTION
-            ? 16
-            : 0;
+        packet.type === Type.LOG_CONFIG
+          ? 12
+          : packet.type === Type.POLICY_STATUS
+            ? 24
+            : packet.type === Type.SUBSCRIPTION
+              ? 16
+              : 0;
       if (
         variable
           ? packet.payload.length < 12
@@ -642,16 +863,62 @@ export class Bridge {
   private revoke(reason: string) {
     const hadControl = !!this.owner;
     this.owner = undefined;
+    ++this.motionGeneration;
     this.jogging = false;
+    this.consoleJog = undefined;
     if (hadControl && this.transport && this.link === "connected")
       void this.request(Type.DISARM).catch(() => {});
     if (hadControl) {
+      this.log("warn", "bridge", reason);
       this.broadcast({ type: "notice", message: reason });
       this.status();
     }
   }
   private checkHealth() {
     if (this.closing) return;
+    const jog = this.consoleJog;
+    if (jog) {
+      if (
+        this.owner !== jog.client ||
+        this.link !== "connected" ||
+        Date.now() - this.lastPresence > 150 ||
+        Date.now() - this.receivedAt > 250
+      ) {
+        this.consoleJog = undefined;
+        this.revoke("Timed jog heartbeat or telemetry expired");
+      } else if (Date.now() >= jog.end) {
+        this.consoleJog = undefined;
+        this.jogging = false;
+        void this.request(Type.STOP)
+          .then((reply) => {
+            if (reply.payload.readUInt16LE(4) !== 0)
+              this.revoke("Timed jog stop rejected");
+            else this.log("info", "bridge", "Timed jog finished");
+          })
+          .catch(() => this.revoke("Timed jog stop failed"));
+      } else if (!jog.busy && Date.now() >= jog.next) {
+        jog.busy = true;
+        jog.next = Date.now() + 50;
+        this.lastIntent = Date.now();
+        const payload = Buffer.alloc(4);
+        payload.writeFloatLE(jog.velocity);
+        void this.request(Type.VELOCITY, payload)
+          .then((reply) => {
+            if (reply.payload.readUInt16LE(4) !== 0 && this.consoleJog === jog)
+              this.revoke("Timed jog rejected");
+          })
+          .catch(() => this.revoke("Timed jog failed"))
+          .finally(() => {
+            jog.busy = false;
+          });
+      }
+    }
+    if (this.parser.errors !== this.lastParserErrors) {
+      this.lastParserErrors = this.parser.errors;
+      this.log("warn", "bridge", "Serial parser errors", {
+        count: this.parser.errors,
+      });
+    }
     if (this.jogging && Date.now() - this.lastIntent > 150)
       this.revoke("Jog input expired");
     if (this.owner && Date.now() - this.lastPresence > 150)
@@ -669,6 +936,7 @@ export class Bridge {
     this.latest = undefined;
     this.caps = undefined;
     this.simulationParameters = undefined;
+    this.logConfig = undefined;
     this.policies = [];
     this.policy = undefined;
     this.catalog = [];
@@ -687,6 +955,7 @@ export class Bridge {
     }
     this.pending.clear();
     await transport?.close();
+    this.log("info", "bridge", "Serial connection closed", { reason });
     this.broadcast({ type: "notice", message: reason });
     this.status();
   }

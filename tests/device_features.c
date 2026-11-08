@@ -3,27 +3,38 @@
 #include <stdio.h>
 static packet_t reply, selected;
 static parser_t parser;
-static unsigned baseline_count, selected_count;
+static unsigned baseline_count, selected_count, log_count;
+static packet_t last_log;
+static bool reject_logs;
 static uint32_t next_id = 1;
 static bool collect(void *ctx, const uint8_t *b, size_t n, bool telemetry)
 {
     (void)ctx;
     (void)telemetry;
     packet_t p;
+    bool accepted = true;
     for (size_t i = 0; i < n; ++i)
         if (proto_feed(&parser, b[i], &p))
         {
-            if (p.type == TELEMETRY)
+            if (p.type == LOG_RECORD)
+            {
+                ++log_count;
+                last_log = p;
+                if (reject_logs)
+                    accepted = false;
+            }
+            else if (p.type == TELEMETRY)
                 ++baseline_count;
             else if (p.type == SELECTED_TELEMETRY)
             {
                 selected = p;
                 ++selected_count;
             }
-            else if (p.type != EVENT && !(p.type == POLICY_STATUS && get_u32(p.payload) == 0))
+            else if (p.type != EVENT && p.type != LOG_RECORD &&
+                     !(p.type == POLICY_STATUS && get_u32(p.payload) == 0))
                 reply = p;
         }
-    return true;
+    return accepted;
 }
 static void request(device_t *d, uint8_t type, const uint8_t *payload, uint16_t length)
 {
@@ -156,5 +167,50 @@ int main(void)
     unsigned count = selected_count;
     tick(&d, 851000);
     assert(count == selected_count);
+    /* Logging levels, rate limits, exact counters and TX backpressure. */
+    device_init(&d, collect, 0);
+    next_id = 1;
+    log_count = 0;
+    put_u64(b, 123);
+    request(&d, HELLO, b, 8);
+    assert(log_count == 1 && last_log.length == 32 && last_log.payload[12] == 20);
+    request(&d, GET_LOG_CONFIG, 0, 0);
+    assert(reply.type == LOG_CONFIG && reply.payload[4] == 20);
+    b[0] = 30;
+    request(&d, SET_LOG_LEVEL, b, 1);
+    unsigned before = log_count;
+    put_u16(b, 999);
+    request(&d, SELECT_POLICY, b, 2);
+    assert(log_count == before + 1 && last_log.payload[12] == 30 &&
+           get_u16(last_log.payload + 14) == 11);
+    b[0] = 40;
+    request(&d, SET_LOG_LEVEL, b, 1);
+    before = log_count;
+    put_u16(b, 999);
+    request(&d, SELECT_POLICY, b, 2);
+    assert(log_count == before);
+    b[0] = 10;
+    request(&d, SET_LOG_LEVEL, b, 1);
+    put_u16(b, 999);
+    for (unsigned i = 0; i < 50; ++i)
+        request(&d, SELECT_POLICY, b, 2);
+    assert(log_count == 10 && d.log_dropped > 0);
+    device_tick(&d, 1000000);
+    put_u16(b, 999);
+    request(&d, SELECT_POLICY, b, 2);
+    assert(get_u32(last_log.payload + 28) == d.log_dropped);
+    reject_logs = true;
+    uint32_t dropped = d.log_dropped;
+    request(&d, SELECT_POLICY, b, 2);
+    assert(d.log_dropped == dropped + 1 && d.state == IDLE && d.faults == 0);
+    reject_logs = false;
+    request(&d, GET_LOG_CONFIG, 0, 0);
+    assert(get_u32(reply.payload + 8) == d.log_dropped);
+    b[0] = 0;
+    request(&d, SET_LOG_LEVEL, b, 1);
+    before = log_count;
+    put_u16(b, 999);
+    request(&d, SELECT_POLICY, b, 2);
+    assert(log_count == before);
     puts("Device catalog, sparse stream, live policy changes, domain fault and lease passed.");
 }

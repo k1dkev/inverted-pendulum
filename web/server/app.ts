@@ -31,6 +31,16 @@ export async function createApp(
       res.end('{"ok":true}');
       return;
     }
+    if (pathname === "/api/logs") {
+      res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="pendulum-logs.ndjson"',
+      );
+      res.setHeader("Cache-Control", "no-store");
+      res.end(bridge.logsNDJSON());
+      return;
+    }
     if (pathname === "/api/ports") {
       try {
         res.setHeader("Content-Type", "application/json");

@@ -388,6 +388,20 @@ subscriptions into one MCU stream and filters it for each browser; only the
 motion owner may change policies or actuators. See the serial specification for
 wire layouts.
 
+### 6.6 Logging and operator command interfaces
+
+Structured MCU/bridge/command logs are separate from numeric telemetry, bounded
+and nonblocking, with severity/source filtering and NDJSON download in the browser.
+The browser command console uses the same validated command path and single
+motion owner as the existing buttons, including bounded timed jogs.
+
+CLI/TUI support is planned but deferred pending serial-sharing decisions. Prefer
+considering one serial-owning bridge with multiple browser/terminal clients;
+standalone exclusive-serial mode and the ownership handoff rules remain design
+questions. Do not introduce two independent serial controllers for one MCU.
+See [logging-and-console.md](logging-and-console.md) for current commands, limits,
+and the future terminal-client plan.
+
 ## 7. ESP32 firmware
 
 ### 7.1 Firmware stack

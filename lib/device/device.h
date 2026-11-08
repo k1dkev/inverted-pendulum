@@ -31,6 +31,7 @@ enum
     GET_CONFIG = 0x19,
     TELEMETRY = 0x20,
     EVENT = 0x21,
+    LOG_RECORD = 0x22,
     SIM_RESET = 0x30,
     SIM_STATE = 0x31,
     SIM_PAUSE = 0x32,
@@ -48,7 +49,10 @@ enum
     GET_SUBSCRIPTION = 0x52,
     SUBSCRIPTION = 0x53,
     SUBSCRIBE = 0x54,
-    SELECTED_TELEMETRY = 0x55
+    SELECTED_TELEMETRY = 0x55,
+    GET_LOG_CONFIG = 0x60,
+    LOG_CONFIG = 0x61,
+    SET_LOG_LEVEL = 0x62
 };
 enum
 {
@@ -83,6 +87,10 @@ typedef struct
     float acceleration_limit;
     uint64_t last_policy_status, last_selected_sample;
     uint32_t selected_mask, subscription_revision, selected_sample_seq;
+    uint64_t log_window;
+    uint32_t log_sequence, log_dropped;
+    uint8_t log_level, log_count, logged_phase, logged_error;
+    uint16_t logged_policy;
     uint16_t selected_hz;
     uint16_t telemetry_hz;
     uint8_t state, cache_next;

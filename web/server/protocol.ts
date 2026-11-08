@@ -16,6 +16,7 @@ export const Type = {
   GET_CONFIG: 0x19,
   TELEMETRY: 0x20,
   EVENT: 0x21,
+  LOG_RECORD: 0x22,
   SIM_RESET: 0x30,
   SIM_STATE: 0x31,
   SIM_PAUSE: 0x32,
@@ -34,6 +35,9 @@ export const Type = {
   SUBSCRIPTION: 0x53,
   SUBSCRIBE: 0x54,
   SELECTED_TELEMETRY: 0x55,
+  GET_LOG_CONFIG: 0x60,
+  LOG_CONFIG: 0x61,
+  SET_LOG_LEVEL: 0x62,
 } as const;
 export const states = ["BOOT", "IDLE", "ARMED", "RUNNING", "STOPPING", "FAULT"];
 export const results = [

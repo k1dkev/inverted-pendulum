@@ -119,7 +119,7 @@ new IDs. The device lease protects against an unavailable link.
 All offsets below are payload-relative. Every request gets RESPONSE, except
 HELLO / GET_CONFIG → HELLO_INFO, GET_STATUS → STATUS, and
 SIM_GET_PARAMETERS → SIM_PARAMETERS, and the catalog/status/subscription queries
-described in sections 5.2–5.3. Unknown types get RESPONSE with
+described in sections 5.2–5.4. Unknown types get RESPONSE with
 `UNSUPPORTED`. No response is sent to responses or unsolicited telemetry/events.
 
 | ID | Direction | Name | Payload |
@@ -161,7 +161,7 @@ HELLO_INFO payload (48 bytes):
 |---|---|---|
 | 0 | u32 | request_id |
 | 4 | u16 | board_id: 1 = NUCLEO-F767ZI |
-| 6 | u16 | capability bits: bit0 angle, bit1 manual jog, bit2 pulse count, bit3 simulation, bit4 policies, bit5 selectable telemetry |
+| 6 | u16 | capability bits: bit0 angle, bit1 manual jog, bit2 pulse count, bit3 simulation, bit4 policies, bit5 selectable telemetry, bit6 structured logging |
 | 8 | u32 | firmware version: major<<16 \| minor<<8 \| patch |
 | 12 | u32 | control period, µs; target 1000 |
 | 16 | f32 | maximum permitted absolute velocity, pulses/s |
@@ -397,6 +397,70 @@ masks at their maximum rate, and filters/downsamples for each browser. Closing a
 browser removes its subscription; reconnect starts with none. This permits
 independent graphs without a second motion authority. The Telemetry lab page
 renders a bounded history with gaps, while Overview retains its four plots.
+
+### 5.4 Structured logging
+
+Capability bit6 advertises framed logging and threshold control. Numeric telemetry
+remains unchanged. No unframed diagnostic text may be written to this UART.
+
+| ID | Direction | Name | Payload |
+|---|---|---|---|
+| 0x22 | MCU → host | LOG_RECORD | 32-byte record below, unsolicited |
+| 0x60 | Host → MCU | GET_LOG_CONFIG | Empty; returns LOG_CONFIG |
+| 0x61 | MCU → host | LOG_CONFIG | u32 request_id, u8 minimum_level, 3 zero reserved bytes, u32 dropped |
+| 0x62 | Host → MCU | SET_LOG_LEVEL | u8 minimum_level; returns LOG_CONFIG |
+
+Levels: 0 off, 10 debug, 20 info (boot default), 30 warn, 40 error. Reject other
+values/lengths. Configuration persists through simulation reset and session
+changes; reboot restores defaults. These queries/setters do not renew motion.
+
+LOG_RECORD layout:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0 | u64 | device time, microseconds |
+| 8 | u32 | log sequence; rate-limited/failed TX attempts create gaps |
+| 12 | u8 | severity 10/20/30/40 |
+| 13 | u8 | subsystem: 1 device, 2 policy, 3 simulation, 4 serial |
+| 14 | u16 | event code |
+| 16 | u32 | argument A |
+| 20 | u32 | argument B |
+| 24 | u32 | argument C |
+| 28 | u32 | cumulative rate/TX drops, saturating |
+
+Codes 1..6 correspond to existing EVENT codes (state changed, fault asserted,
+fault cleared, position zeroed, simulation reset/set, pause changed): arguments
+are current state, fault bits, paused flag. Code7 is policy selected (policy ID,
+was-running flag, config revision). Code8 is policy phase changed (policy ID,
+phase, error code). Code9 is configuration changed (command type, config revision,
+zero). Code10 is serial session established (zero arguments). Code11 is command
+rejected (command type, result code, host request ID). Unknown codes must preserve
+their numeric ID and argument array in exported logs.
+
+Firmware caps log attempts at ten transmitted records per one-second window,
+without queues or allocation. Emission uses low-priority TX admission so logs
+cannot consume the response reserve. A full TX buffer drops the log and increments
+the counter; it does not create a communications fault. Events remain best effort
+and latched faults are still reported independently in base telemetry. With all
+24 optional channels at 25 Hz plus existing streams, ten 54-byte framed log
+records/s bring typical maximum steady TX use to about 9550 of 11520 bytes/s;
+command bursts can still drop diagnostics. Validate timing/throughput on hardware.
+
+The bridge sends `log_history` (up to 50 retained entries on browser connection)
+and live `log` messages. Each normalized entry has server `id`, UTC `timestamp`,
+`level`, `source`, `message`, `fields`, and optional `session_id`/`device_time_us`.
+The server retains at most 1000 entries in memory. `GET /api/logs` downloads its
+current history as NDJSON. Server receive time and device sample time are distinct.
+
+Browser command requests use
+`{"v":1,"type":"console_command","id":123,"line":"status"}`. The server parses
+one bounded command and routes it through the same ownership/validation path as
+the existing controls. Optional `console_output` carries request `id` and `data`;
+the normal `result` message gives success/rejection. `help` is available offline;
+status/config/policy/log/telemetry queries are read-only. Mutation requires control
+ownership. The browser cannot submit raw shell/JavaScript or serial bytes.
+See [logging-and-console.md](logging-and-console.md) for grammar, timed-jog
+semantics, retention limits, and planned CLI/TUI serial-sharing decisions.
 
 ## 6. Motion authority and jog semantics
 
