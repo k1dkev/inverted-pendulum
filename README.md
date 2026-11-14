@@ -223,7 +223,12 @@ with filtering, bounded history, and NDJSON download. Type `help` for commands,
 The console shares ownership and serial access with the buttons. See
 [logging, console commands, and the future CLI/TUI plan](docs/logging-and-console.md).
 
-The four overview graphs stay on their existing 50 Hz stream. Open **Telemetry
+The four overview state graphs stay on their existing 50 Hz stream. An additional
+**Control effort · u** plot shows raw and acceleration-limited controller commands
+in mm/s² at 25 Hz. It distinguishes controller demand from the cart's acceleration;
+that command is still subject to the separate motor speed limit. No balancing
+command is plotted in Manual/OFF/faulted phases.
+ Open **Telemetry
 lab** to query the MCU's 25-channel catalog, choose additional signals and a
 5/10/25 Hz rate, and plot only those selected channels. Diagnostics include
 controller energy, energy threshold, raw/limited acceleration, integral, and

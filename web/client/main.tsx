@@ -6,6 +6,7 @@ import type {
   SimulationParameters,
 } from "../server/protocol";
 import { Apparatus } from "./Apparatus";
+import { ControlPlot, type ControlSample } from "./ControlPlot";
 import { Plot } from "./Plot";
 import { PolicyPanel } from "./PolicyPanel";
 import { TelemetryExplorer, type ExtraSample } from "./TelemetryExplorer";
@@ -73,6 +74,8 @@ function App() {
     channels: number[];
     rate_hz: number;
   }>({ catalog: [], subscription: null, channels: [], rate_hz: 0 });
+  const controlSamples = useRef<ControlSample[]>([]),
+    controlSession = useRef<string | null>(null);
   const extraSamples = useRef<ExtraSample[]>([]),
     extraEpoch = useRef<bigint | null>(null),
     extraRevision = useRef(-1);
@@ -223,7 +226,17 @@ function App() {
           if (m.policy) setPolicy(m.policy);
           if (m.serial !== "connected") setPolicy(null);
           if (m.serial !== "connected" || m.control !== "owned") stop();
+          if (
+            m.serial === "connected" &&
+            controlSession.current !== m.session_id
+          ) {
+            controlSession.current = m.session_id;
+            if (m.capabilities?.bits & 32)
+              send("control_subscribe", { enabled: true });
+          }
           if (m.serial !== "connected") {
+            controlSession.current = null;
+            controlSamples.current = [];
             setSample(null);
             samples.current = [];
             epoch.current = null;
@@ -247,6 +260,18 @@ function App() {
             extraEpoch.current = null;
             extraRevision.current = m.subscription?.revision ?? -1;
           }
+        }
+        if (m.type === "control_telemetry") {
+          const stamp = BigInt(m.time_us);
+          if (epoch.current === null) epoch.current = stamp;
+          const seconds = Number(stamp - epoch.current) / 1e6;
+          controlSamples.current.push({ ...m, seconds });
+          while (
+            controlSamples.current.length > 1500 ||
+            (controlSamples.current[0] &&
+              seconds - controlSamples.current[0].seconds > 30)
+          )
+            controlSamples.current.shift();
         }
         if (m.type === "selected_telemetry") {
           const stamp = BigInt(m.time_us);
@@ -281,6 +306,7 @@ function App() {
         if (m.type === "event" && (m.code === 5 || m.code === 4)) {
           extraSamples.current = [];
           extraEpoch.current = null;
+          controlSamples.current = [];
           samples.current = [];
           epoch.current = null;
         }
@@ -291,6 +317,8 @@ function App() {
         }
       };
       socket.onclose = () => {
+        controlSession.current = null;
+        controlSamples.current = [];
         connectionLost();
         stop();
         setSocketReady(false);
@@ -308,7 +336,7 @@ function App() {
       clearTimeout(retry);
       ws.current?.close();
     };
-  }, [refreshPorts, stop, receiveDiagnostic, connectionLost]);
+  }, [refreshPorts, stop, send, receiveDiagnostic, connectionLost]);
   useEffect(() => {
     const interval = setInterval(() => {
       const isFresh = Date.now() - lastTime.current <= 250;
@@ -509,7 +537,7 @@ function App() {
                 <i className="live-line" />
                 LIVE TRACES
               </span>
-              <span>50 Hz · 15 s window · device clock</span>
+              <span>State 50 Hz · u 25 Hz · 15 s window · device clock</span>
             </div>
             <div className="angle-graph-controls">
               <label htmlFor="angle-view">
@@ -587,6 +615,12 @@ function App() {
                 field={(s) => s.step_acceleration_pulses_s2}
               />
             </div>
+            <ControlPlot
+              samples={controlSamples}
+              available={
+                connected && !!((connection.capabilities?.bits ?? 0) & 32)
+              }
+            />
             <div className="trace-footer">
               <span>
                 {sim ? "Simulated pulse count" : "Pulse-derived values"} · No

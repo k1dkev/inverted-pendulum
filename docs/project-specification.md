@@ -383,7 +383,9 @@ Record:
 - Faults and warnings
 
 Logging must be nonblocking and use bounded memory. Keep the four overview graphs
-on the standard 50 Hz stream. The MCU also exposes a versioned telemetry catalog
+on the standard 50 Hz stream. A separate overview u chart shows raw and
+acceleration-limited control commands at 25 Hz, with controller units and
+motor-speed-saturation semantics labeled explicitly. The MCU also exposes a versioned telemetry catalog
 with channel IDs, names, units, and descriptions. Clients can query the current
 subscription and request a subset of diagnostic channels at 5, 10, or 25 Hz.
 A separate Telemetry lab page plots those selections. The bridge combines browser

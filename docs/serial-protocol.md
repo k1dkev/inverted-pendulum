@@ -321,7 +321,9 @@ its state machine is detailed in [recovery-policy.md](recovery-policy.md).
 
 Capability bit5 advertises a separate optional stream. The existing 64-byte
 TELEMETRY snapshot and the four overview charts remain unchanged at 50 Hz.
-Optional streaming starts disabled on each new serial session. Query the MCU
+Optional streaming starts disabled on each new serial session. The web overview
+then explicitly requests its u-plot channels using `control_subscribe`; this is
+separate from each browser's Telemetry lab choices. Query the MCU
 catalog and current subscription, then request only the channels of interest.
 IDs are stable within a schema version; consumers must discover metadata instead
 of assuming numeric IDs or units.
@@ -397,7 +399,17 @@ MCU `subscription` (mask/rate/revision/schema), and that browser's `channels` an
 `schema_version`, and a `values` object keyed by channel ID.
 
 The bridge serializes subscription updates, requests the union of all browser
-masks at their maximum rate, and filters/downsamples for each browser. Closing a
+masks at their maximum rate, and filters/downsamples for each browser.
+The overview sends `{"v":1,"type":"control_subscribe","id":24,"enabled":true}`
+after connecting. This read-only subscription adds channels 6/7/13/14 (raw u,
+limited u, phase, policy ID) at 25 Hz to the same MCU union. It does not modify that
+browser's lab channel selection. `control_telemetry` contains `time_us`,
+`sample_seq`, `rate_hz`, `active`, `policy_id`, `phase`, `raw_u_mm_s2`, and
+`limited_u_mm_s2`. OFF/Manual/FAILED produce inactive/null command values so a
+cached failure output cannot look like a still-active command. Stopping the lab
+stream leaves the separately subscribed overview plot running. Browser close or
+`control_subscribe` with `enabled:false` removes that subscription.
+ Closing a
 browser removes its subscription; reconnect starts with none. This permits
 independent graphs without a second motion authority. The Telemetry lab page
 renders a bounded history with gaps, while Overview retains its four plots.
@@ -644,10 +656,16 @@ is backlogged. The MCU lease remains necessary even with these host checks.
 
 ## 9. Frontend behavior
 
-- Four aligned time-series plots: angle (display degrees, retain radians), step
+- Four aligned state time-series plots: angle (display degrees, retain radians), step
   position (pulses), velocity (pulses/s), acceleration (pulses/s²). Show target and
   applied velocity as separate traces. Display “pulse-derived, not encoder
   feedback” by the stepper plots. Show gaps instead of connecting missing data.
+- A separate overview **Control effort · u** chart plots raw (dashed) and
+  acceleration-limited (solid) controller output in mm/s². It uses 25 Hz samples of
+  the 100 Hz controller, with step traces and visible gaps when inactive. It is
+  not a full-rate controller trace and can miss changes between samples. The
+  limited command is before motor-speed saturation and is distinct from the
+  simulator's 1 ms cart acceleration. The existing four state charts stay intact.
 - Angle graph selector: upright = 0°, bottom = 0°, horizontal = 0° with upright
   at +90°, absolute angle from upright, or cos(θ). Absolute angle is
   `abs(wrap_degrees(theta * 180 / pi))`, continuously folded into 0..180° with

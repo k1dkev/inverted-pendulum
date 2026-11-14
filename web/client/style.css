@@ -971,3 +971,10 @@ footer {
     gap: 12px;
   }
 }
+
+.control-effort-plot {
+  margin-top: 18px;
+}
+.control-effort-plot > .hint {
+  margin: 10px 4px 0;
+}

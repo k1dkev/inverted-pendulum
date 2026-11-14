@@ -43,10 +43,11 @@ export function TelemetryExplorer({
           </button>
         </div>
         <p className="hint">
-          The four overview plots remain on their own 50 Hz stream. These
-          optional channels are discovered from the microcontroller. Only
-          selected diagnostics are requested. Multiple browser subscriptions are
-          combined on the device and filtered for each browser.
+          The four state plots remain on their own 50 Hz stream; the overview u
+          plot requests controller channels separately at 25 Hz. These optional
+          channels are discovered from the microcontroller. Only selected
+          diagnostics are requested. Multiple browser subscriptions are combined
+          on the device and filtered for each browser.
         </p>
         <div className="channel-picker">
           {setup.catalog.map((channel) => (

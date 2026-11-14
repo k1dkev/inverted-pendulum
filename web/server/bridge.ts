@@ -3,6 +3,12 @@ import { WebSocket } from "ws";
 import type { VirtualSerialSimulator } from "./virtual-serial";
 import { Transport } from "./transport";
 import { LogStore, deviceLog } from "./logging";
+import {
+  CONTROL_CHANNELS,
+  CONTROL_MASK,
+  CONTROL_RATE_HZ,
+  controlTelemetry,
+} from "../shared/control";
 import { COMMAND_HELP, parseCommand } from "../shared/commands";
 import type { LogLevel, LogSource } from "../shared/logging";
 import {
@@ -41,6 +47,7 @@ type Client = {
   lastId: number;
   window: number;
   count: number;
+  controlSubscribed: boolean;
   selectedMask: number;
   selectedRate: number;
   nextSelectedUs: bigint;
@@ -189,6 +196,7 @@ export class Bridge {
       lastId: 0,
       window: Date.now(),
       count: 0,
+      controlSubscribed: false,
       selectedMask: 0,
       selectedRate: 0,
       nextSelectedUs: 0n,
@@ -360,6 +368,22 @@ export class Bridge {
           id,
           data: { catalog: this.catalog, subscription: this.subscription },
         });
+        this.result(client, id, true);
+        return;
+      }
+      if (m.type === "control_subscribe") {
+        if (this.link !== "connected") throw Error("NOT_CONNECTED");
+        if (typeof m.enabled !== "boolean") throw Error("BAD_PAYLOAD");
+        if (
+          m.enabled &&
+          !CONTROL_CHANNELS.every((id) =>
+            this.catalog.some((channel) => channel.id === id),
+          )
+        )
+          throw Error("UNSUPPORTED");
+        if (this.subscriptionQueued >= 8) throw Error("BUSY");
+        client.controlSubscribed = m.enabled;
+        await this.updateSubscription();
         this.result(client, id, true);
         return;
       }
@@ -747,11 +771,16 @@ export class Bridge {
           throw Error("DISCONNECTED");
         let mask = 0,
           rate = 0;
-        for (const client of this.clients)
+        for (const client of this.clients) {
+          if (client.controlSubscribed) {
+            mask |= CONTROL_MASK;
+            rate = Math.max(rate, CONTROL_RATE_HZ);
+          }
           if (client.selectedRate && client.selectedMask) {
             mask |= client.selectedMask;
             rate = Math.max(rate, client.selectedRate);
           }
+        }
         const payload = Buffer.alloc(8);
         payload.writeUInt32LE(mask >>> 0);
         payload.writeUInt16LE(rate, 4);
@@ -788,6 +817,12 @@ export class Bridge {
           frame.revision !== this.subscription?.revision
         )
           return;
+        if ((frame.mask & CONTROL_MASK) === CONTROL_MASK) {
+          const control = controlTelemetry(frame);
+          for (const client of this.clients)
+            if (client.controlSubscribed)
+              this.send(client, { type: "control_telemetry", ...control });
+        }
         const stamp = BigInt(frame.time_us);
         for (const client of this.clients)
           if (
@@ -959,6 +994,7 @@ export class Bridge {
     this.catalog = [];
     this.subscription = undefined;
     for (const client of this.clients) {
+      client.controlSubscribed = false;
       client.selectedMask = 0;
       client.selectedRate = 0;
       client.nextSelectedUs = 0n;

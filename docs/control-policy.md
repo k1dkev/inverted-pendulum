@@ -23,6 +23,9 @@ calibration, pulse generation, and driver enable are still unimplemented.
 2. Select `legacy swingup lqr` in the Control policy panel.
 3. Press Arm, then Run policy. Watch phase and output in the panel; use the
    Telemetry lab for energy, threshold, filtered angular velocity, and integral.
+   The overview's u plot separately shows raw and acceleration-limited control
+   effort in mm/s² (25 Hz samples from the 100 Hz law). The motor speed limit can
+   further reduce its effect, so it is not actual cart acceleration.
 4. Stop requests a ramp to zero and returns to ARMED. Disarm inhibits motion
    immediately. Clear a fault before selecting/restarting a policy.
 

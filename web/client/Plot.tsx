@@ -17,6 +17,9 @@ export function Plot<
   wrapPeriod,
   maxGapSeconds = 0.1,
   diagnosticScale = false,
+  secondary,
+  primaryLabel = "Applied",
+  step = false,
 }: {
   title: string;
   unit: string;
@@ -28,10 +31,15 @@ export function Plot<
   wrapPeriod?: number;
   maxGapSeconds?: number;
   diagnosticScale?: boolean;
+  secondary?: { field: (s: T) => number | null; label: string; color?: string };
+  primaryLabel?: string;
+  step?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const fieldRef = useRef(field);
   fieldRef.current = field;
+  const secondaryRef = useRef(secondary?.field);
+  secondaryRef.current = secondary?.field;
   useEffect(() => {
     let frame = 0,
       last = 0;
@@ -60,12 +68,13 @@ export function Plot<
       const values = data
         .filter((s) => s.seconds >= left)
         .flatMap((s) => {
-          const v = fieldRef.current(s);
-          return v == null
-            ? []
-            : target
-              ? [v, s.target_velocity_pulses_s ?? 0]
-              : [v];
+          const v = fieldRef.current(s),
+            extra = secondaryRef.current?.(s);
+          const result: number[] = [];
+          if (v != null && Number.isFinite(v)) result.push(v);
+          if (target && v != null) result.push(s.target_velocity_pulses_s ?? 0);
+          if (extra != null && Number.isFinite(extra)) result.push(extra);
+          return result;
         });
       let lo = Math.min(0, ...values),
         hi = Math.max(0, ...values);
@@ -131,12 +140,17 @@ export function Plot<
               Math.abs(value - (get(previous) ?? value)) > wrapPeriod / 2)
           )
             ctx.moveTo(x(sample.seconds), y(value));
-          else ctx.lineTo(x(sample.seconds), y(value));
+          else {
+            if (step) ctx.lineTo(x(sample.seconds), y(get(previous) ?? value));
+            ctx.lineTo(x(sample.seconds), y(value));
+          }
           previous = sample;
         }
         ctx.stroke();
         ctx.setLineDash([]);
       };
+      if (secondaryRef.current)
+        line(secondaryRef.current, secondary?.color ?? "#f3b37a", true);
       if (target) line((s) => s.target_velocity_pulses_s ?? 0, "#819292", true);
       line(fieldRef.current, color);
     };
@@ -151,6 +165,8 @@ export function Plot<
     unit,
     maxGapSeconds,
     diagnosticScale,
+    secondary?.color,
+    step,
   ]);
   return (
     <section className="plot">
@@ -162,6 +178,11 @@ export function Plot<
         <span>{unit}</span>
       </div>
       <canvas ref={canvas} aria-label={`${title} over time`} role="img" />
+      {secondary && (
+        <small className="legend">
+          Solid: {primaryLabel} · Dashed: {secondary.label}
+        </small>
+      )}
       {target && (
         <small className="legend">Solid: applied · Dashed: target</small>
       )}

@@ -73,6 +73,10 @@ test(
         ),
       );
       const firstSession = latest("connection")!.session_id;
+      assert.equal(
+        (await request("control_subscribe", { enabled: true })).ok,
+        true,
+      );
       assert.equal((await request("acquire_control")).ok, true);
       heartbeat = setInterval(() => {
         void request("keepalive").catch(() => {});
@@ -103,6 +107,16 @@ test(
       assert.equal((await request("select_policy", { policy_id: 2 })).ok, true);
       assert.equal((await request("arm")).ok, true);
       assert.equal((await request("start_policy")).ok, true);
+      const control = await until(() =>
+        latest("control_telemetry")?.active
+          ? latest("control_telemetry")
+          : undefined,
+      );
+      assert.ok(
+        Number.isFinite(control.raw_u_mm_s2) &&
+          Number.isFinite(control.limited_u_mm_s2),
+      );
+      assert.equal(control.policy_id, 2);
       assert.equal(
         (
           await request("telemetry_subscribe", {
@@ -242,14 +256,24 @@ test("closing the web server terminates its live virtual serial child", async ()
   assert.throws(() => process.kill(pid, 0));
 });
 
-test("native PTY cleans up when its owning server pipe disappears",{timeout:5000},async()=>{
- const executable=fileURLToPath(new URL("../../build/host/pendulum-sim",import.meta.url));
- const child=spawn(executable,["--pty"],{stdio:"pipe"});
- try{
-  const [ready]=await once(child.stdout,"data");
-  assert.equal(JSON.parse(String(ready)).type,"serial_ready");
-  const closed=once(child,"close");
-  child.stdin.end();
-  const [code]=await closed;assert.equal(code,0);
- }finally{if(child.exitCode===null && child.signalCode===null)child.kill("SIGKILL");}
-});
+test(
+  "native PTY cleans up when its owning server pipe disappears",
+  { timeout: 5000 },
+  async () => {
+    const executable = fileURLToPath(
+      new URL("../../build/host/pendulum-sim", import.meta.url),
+    );
+    const child = spawn(executable, ["--pty"], { stdio: "pipe" });
+    try {
+      const [ready] = await once(child.stdout, "data");
+      assert.equal(JSON.parse(String(ready)).type, "serial_ready");
+      const closed = once(child, "close");
+      child.stdin.end();
+      const [code] = await closed;
+      assert.equal(code, 0);
+    } finally {
+      if (child.exitCode === null && child.signalCode === null)
+        child.kill("SIGKILL");
+    }
+  },
+);

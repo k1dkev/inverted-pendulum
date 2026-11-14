@@ -161,9 +161,15 @@ test(
         (await owner.request("select_policy", { policy_id: 0 })).ok,
         true,
       );
-      await until(() =>
-        owner.latest("telemetry")?.state === "ARMED" ? true : undefined,
-      );
+      await until(() => {
+        const telemetry = owner.latest("telemetry"),
+          connection = owner.latest("connection");
+        if (telemetry?.state === "FAULT" || connection?.control !== "owned")
+          throw Error(
+            `Manual handoff failed: ${JSON.stringify({ telemetry, connection })}`,
+          );
+        return telemetry?.state === "ARMED" ? true : undefined;
+      });
       await until(() =>
         reader!.latest("selected_telemetry")?.values[8] === null
           ? true
