@@ -624,6 +624,9 @@ The exact order may change as hardware becomes available.
 - Local screen type and input controls.
 - SPI master/slave arrangement.
 - Future SPI framing and transport-specific telemetry budget (UART v1 is specified).
+- [ ] Investigate higher UART baud rates on real STM32/ST-LINK hardware. Measure
+  sustained telemetry throughput, dropped/CRC-invalid frames, command latency, and
+  control-loop timing under load before raising the default baud rate.
 - Mechanical travel limits, homing/reference method, and pulses-to-distance conversion.
 - Operating-mode and safety requirements.
 - Whether swing-up control is included in the initial release.
