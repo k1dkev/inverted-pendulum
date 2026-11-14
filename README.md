@@ -214,7 +214,9 @@ a stop before jogging. See [the exact legacy law and its quirks](docs/control-po
 
 Select **swingup lqr v2** for automatic retries after a fall, corrected
 angular velocity, and bounded centering with a RECENTER phase. It uses the
-original gains and slow energy ramp; recovery can require several attempts.
+original energy model and LQR gains, with an upright-energy target and a bounded
+increase in pumping when swings stop making progress. Recovery can require
+several attempts.
 See [the recovery policy](docs/recovery-policy.md) for thresholds and limits.
 
 The **Logs & command console** panel records structured MCU/server/operator events,

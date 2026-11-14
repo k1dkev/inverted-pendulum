@@ -69,7 +69,7 @@ export function PolicyPanel({
       </div>
       <p className="hint">
         {policy?.id === 2
-          ? "Swingup LQR v2: retries after falls, recenters near the track edges, and uses corrected angular velocity."
+          ? "Swingup LQR v2: retries after falls, increases pumping on stalled swings, recenters near the track edges, and uses corrected angular velocity."
           : policy?.id === 1
             ? "Swingup LQR v1 preserves the original 100 Hz loop and terminal balance-failure behavior."
             : "Select a compiled policy, then Arm and Run policy."}{" "}

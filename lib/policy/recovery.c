@@ -2,6 +2,11 @@
 #include <math.h>
 #define PI_F 3.14159265358979323846f
 #define MAX_ACCELERATION 10000.0f
+#define INITIAL_PUMP_ACCELERATION 600.0f
+#define MAX_PUMP_ACCELERATION 1800.0f
+#define PUMP_ACCELERATION_STEP 200.0f
+#define STALL_INTERVAL_US 3000000ULL
+#define PROGRESS_ANGLE (2 * PI_F / 180)
 static float clamp(float x, float lo, float hi) { return fminf(fmaxf(x, lo), hi); }
 static int sign(float x) { return (x > 0) - (x < 0); }
 static void begin_swing(policy_t *p, uint64_t now)
@@ -9,6 +14,9 @@ static void begin_swing(policy_t *p, uint64_t now)
     p->phase = POLICY_SWING_UP;
     p->started_us = now;
     p->integral = 0;
+    p->swingup_progress_us = now;
+    p->swingup_best_angle = PI_F;
+    p->swingup_acceleration = INITIAL_PUMP_ACCELERATION;
 }
 void recovery_start(policy_t *p, uint64_t now)
 {
@@ -68,12 +76,18 @@ void recovery_step(policy_t *p, uint64_t now, float x, float v, float angle)
         p->integral = 0;
     }
     if (p->phase == POLICY_RECENTER && fabsf(x) <= 50 && fabsf(v) <= 60)
-        begin_swing(p, now);
+    {
+        /* A track maneuver is part of this attempt, not a fresh energy ramp. */
+        p->phase = POLICY_SWING_UP;
+        p->integral = 0;
+    }
 
     p->elapsed_s = (float)(now - p->started_us) / 1000000.0f;
     p->energy = legacy_energy(angle, w);
-    p->energy_fraction = 0.65f + 0.004f * p->elapsed_s;
-    p->energy_threshold = p->energy_fraction * 133157.016f;
+    /* Target upright energy immediately with small headroom for estimator lag
+     * and losses. Retain the original ramp structure, with faster progress. */
+    p->energy_fraction = 1.05f + 0.02f * p->elapsed_s;
+    p->energy_threshold = p->energy_fraction * legacy_energy(0, 0);
     if (!isfinite(p->energy))
     {
         p->error = POLICY_NUMERIC;
@@ -83,6 +97,22 @@ void recovery_step(policy_t *p, uint64_t now, float x, float v, float angle)
     {
         p->phase = POLICY_LQR;
         p->integral = 0;
+    }
+    if (p->phase == POLICY_SWING_UP)
+    {
+        if (fabsf(angle) < p->swingup_best_angle - PROGRESS_ANGLE)
+        {
+            p->swingup_best_angle = fabsf(angle);
+            p->swingup_progress_us = now;
+        }
+        if (now - p->swingup_progress_us >= STALL_INTERVAL_US)
+        {
+            /* Preserve the bang-bang direction; only raise its bounded
+             * magnitude when successive swings stop approaching upright. */
+            p->swingup_acceleration =
+                fminf(p->swingup_acceleration + PUMP_ACCELERATION_STEP, MAX_PUMP_ACCELERATION);
+            p->swingup_progress_us = now;
+        }
     }
     if (p->phase == POLICY_RECENTER)
         p->raw_acceleration = -20 * x - 12 * v;
@@ -109,10 +139,10 @@ void recovery_step(policy_t *p, uint64_t now, float x, float v, float angle)
     {
         /* Track management is handled by RECENTER, not an additive wall term
          * that could cancel or reverse the energy-pumping command. */
-        p->raw_acceleration = -600 * sign((float)(w * cos(angle)));
+        p->raw_acceleration = -p->swingup_acceleration * sign((float)(w * cos(angle)));
         if (p->raw_acceleration == 0 && fabsf(angle) > 170 * PI_F / 180 && fabsf(w) < 0.1f &&
             fabsf(v) < 5)
-            p->raw_acceleration = x > 0 ? -600 : 600;
+            p->raw_acceleration = x > 0 ? -p->swingup_acceleration : p->swingup_acceleration;
     }
     else
         p->raw_acceleration = -(x + 1.5f * v);

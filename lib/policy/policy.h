@@ -44,6 +44,9 @@ typedef struct
     float integral, raw_acceleration, applied_acceleration, energy, energy_fraction,
         energy_threshold;
     float elapsed_s, sample_dt;
+    /* V2-only swing-up progress; unused by the historical v1 law. */
+    uint64_t swingup_progress_us;
+    float swingup_best_angle, swingup_acceleration;
 } policy_t;
 
 const policy_descriptor_t *policy_descriptor(uint16_t index);
