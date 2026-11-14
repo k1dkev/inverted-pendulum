@@ -25,9 +25,10 @@ typedef struct
 typedef struct
 {
     float angle, angular_velocity, velocity, acceleration, target;
+    float command_acceleration, command_velocity_limit;
     int64_t position;
     double fractional_position;
-    bool paused, direct_velocity;
+    bool paused, acceleration_controlled;
 } simulation_t;
 void simulation_reset(simulation_t *s);
 void simulation_tick(simulation_t *s, float dt, float acceleration_limit,

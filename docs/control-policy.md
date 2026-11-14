@@ -78,10 +78,12 @@ action and resets the integral, which the old one-shot program never restarted.
 
 Clamp acceleration to ±10000 mm/s² and integrate the velocity command with the
 sensor sample's dt. Limit speed to the old `62.83 rad/s * 16/pi`, approximately
-319.991 mm/s. Policy velocity updates bypass the manual acceleration ramp; adding
-that ramp would change the controller. The plant receives each velocity increment
-on a 1 ms physics step. This preserves the sampled law and actuator limits, not
-the original Arduino's pulse timing, ADC quantization, or loop scheduling jitter.
+319.991 mm/s. The shared simulator holds the commanded acceleration across every
+1 ms physics step until the next 100 Hz controller update, with a separate speed
+limit. It no longer compresses a 10 ms velocity increment into a single physics
+step. This actuator-model correction applies to both policy versions; the v1 law,
+filter, integral, and state machine remain the historical reference. The simulator
+does not reproduce Arduino pulse timing, ADC quantization, or loop scheduling jitter.
 
 The policy's mass, inertia, COM, and gains remain the legacy constants even when
 simulation inertia/damping are changed. Those model controls change the plant,

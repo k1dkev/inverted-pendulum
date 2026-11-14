@@ -11,6 +11,20 @@ int main(void)
     simulation_parameters_t parameters = {SIM_DEFAULT_INERTIA, SIM_DEFAULT_DAMPING};
     simulation_t a, b;
     simulation_reset(&a);
+    a.acceleration_controlled = true;
+    a.command_acceleration = 334.92f / SIM_MM_PER_PULSE;
+    a.command_velocity_limit = SIM_MAX_VELOCITY;
+    for (unsigned i = 0; i < 10; ++i)
+    {
+        simulation_tick(&a, .001f, SIM_DEFAULT_ACCELERATION, &parameters);
+        assert(absolute(a.acceleration * SIM_MM_PER_PULSE - 334.92f) < .01f);
+    }
+    assert(absolute(a.velocity * SIM_MM_PER_PULSE - 3.3492f) < .001f);
+    a.velocity = SIM_MAX_VELOCITY;
+    simulation_tick(&a, .001f, SIM_DEFAULT_ACCELERATION, &parameters);
+    assert(a.velocity == SIM_MAX_VELOCITY && a.acceleration == 0);
+
+    simulation_reset(&a);
     a.angle = 0;
     a.angular_velocity = 0;
     simulation_tick(&a, 0.001f, SIM_DEFAULT_ACCELERATION, &parameters);

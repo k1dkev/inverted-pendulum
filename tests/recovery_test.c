@@ -84,6 +84,31 @@ static void domain_and_transition_tests(void)
     policy_update(&p, 10000, 0, 0, NAN);
     assert(p.error == POLICY_NUMERIC && !p.running);
 }
+static void v2_control_tests(void)
+{
+    /* Pumping must not be cancelled by centering in the ordinary swing region. */
+    for (int direction = -1; direction <= 1; direction += 2)
+    {
+        policy_t p = fresh(0);
+        policy_update(&p, 10000, 80 * direction, 0, 3);
+        policy_update(&p, 20000, 80 * direction, 0, 3.002f);
+        assert(p.phase == POLICY_SWING_UP && p.raw_acceleration == 600);
+    }
+    /* Freeze integral into a speed limit, allow unwinding, preserve free-region integration. */
+    policy_t p = fresh(0);
+    policy_update(&p, 10000, 0, 0, 0);
+    policy_update(&p, 20000, 0, 0, 0);
+    policy_update(&p, 30000, 10, POLICY_MAX_VELOCITY_MM_S, 0);
+    assert(p.integral == 0 && p.raw_acceleration > 0);
+    p.integral = 100;
+    policy_update(&p, 40000, -10, POLICY_MAX_VELOCITY_MM_S, 0);
+    assert(p.integral < 100);
+    p.integral = 0;
+    policy_update(&p, 50000, -10, -POLICY_MAX_VELOCITY_MM_S, 0);
+    assert(p.integral == 0 && p.raw_acceleration < 0);
+    policy_update(&p, 60000, 10, 0, 0);
+    assert(p.integral > 0);
+}
 static void trajectory(float initial_angle, int repeated_falls, int position)
 {
     simulation_parameters_t parameters = {SIM_DEFAULT_INERTIA, SIM_DEFAULT_DAMPING};
@@ -91,24 +116,33 @@ static void trajectory(float initial_angle, int repeated_falls, int position)
     simulation_reset(&s);
     s.angle = initial_angle;
     s.position = position;
-    s.direct_velocity = true;
+    s.acceleration_controlled = true;
     policy_t p = fresh(0);
     unsigned captures = 0, last_phase = 0;
     bool recentered = false;
-    uint64_t duration = repeated_falls ? 420000000 : 300000000;
+    uint64_t duration = repeated_falls ? 900000000 : 300000000;
+    unsigned falls = 0;
+    uint64_t stable_since = 0;
     float max_position = 0;
     for (uint64_t t = 1000; t <= duration; t += 1000)
     {
-        if (repeated_falls && t == 5000000)
+        if (repeated_falls && falls < 2)
         {
-            s.angle = 1;
-            s.angular_velocity = 1;
-        }
-        if (repeated_falls && t == 180000000)
-        {
-            assert(p.phase == POLICY_LQR);
-            s.angle = -1;
-            s.angular_velocity = -1;
+            if (p.phase == POLICY_LQR && fabsf(s.angle) < .02f &&
+                fabsf(s.velocity * SIM_MM_PER_PULSE) < 10)
+            {
+                if (!stable_since)
+                    stable_since = t;
+                if (t - stable_since >= 5000000)
+                {
+                    s.angle = falls == 0 ? 1 : -1;
+                    s.angular_velocity = falls == 0 ? 1 : -1;
+                    ++falls;
+                    stable_since = 0;
+                }
+            }
+            else
+                stable_since = 0;
         }
         if (policy_update(&p, t, s.position * SIM_MM_PER_PULSE, s.velocity * SIM_MM_PER_PULSE,
                           s.angle))
@@ -117,6 +151,8 @@ static void trajectory(float initial_angle, int repeated_falls, int position)
             float velocity = s.velocity * SIM_MM_PER_PULSE + p.applied_acceleration * p.sample_dt;
             const float limit = (float)(62.83 * 16.0 / 3.14159265358979323846);
             s.target = fmaxf(-limit, fminf(limit, velocity)) / SIM_MM_PER_PULSE;
+            s.command_acceleration = p.applied_acceleration / SIM_MM_PER_PULSE;
+            s.command_velocity_limit = limit / SIM_MM_PER_PULSE;
             if (p.phase != last_phase)
             {
                 if (p.phase == POLICY_LQR)
@@ -139,7 +175,7 @@ static void trajectory(float initial_angle, int repeated_falls, int position)
         assert(p.phase == POLICY_LQR && fabsf(s.angle) < .02f &&
                fabsf(s.velocity * SIM_MM_PER_PULSE) < 10);
     if (repeated_falls)
-        assert(p.recovery_count >= 2 && captures >= 3);
+        assert(falls == 2 && p.recovery_count >= 2 && captures >= 3);
     if (position)
         assert(recentered);
     printf(
@@ -149,12 +185,14 @@ static void trajectory(float initial_angle, int repeated_falls, int position)
 int main(void)
 {
     sensor_tests();
+    v2_control_tests();
     domain_and_transition_tests();
     trajectory(.04f, 0, 0);
     trajectory(PI, 0, 0);
     trajectory(0, 1, 0);
     trajectory(PI, 0, 9000);
     trajectory(PI, 0, -9000);
-    puts("Corrected wrap/dt/filter, finite wall law, recovery, recentering and trajectories "
+    puts("Corrected wrap/dt/filter, separate pumping/track control, recovery, recentering and "
+         "trajectories "
          "passed.");
 }

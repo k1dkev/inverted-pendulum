@@ -74,7 +74,8 @@ static void set_state(device_t *d, uint8_t state)
 static void inhibit(device_t *d)
 {
     policy_stop(&d->policy);
-    d->sim.direct_velocity = false;
+    d->sim.acceleration_controlled = false;
+    d->sim.command_acceleration = 0;
     d->sim.target = 0;
     d->sim.velocity = 0;
     d->sim.acceleration = 0;
@@ -327,13 +328,16 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
         if (d->state == STOPPING)
             return WRONG_STATE;
         policy_init(&d->policy, id);
-        d->sim.direct_velocity = false;
+        d->sim.acceleration_controlled = false;
+        d->sim.command_acceleration = 0;
         ++d->config_revision;
         if (was_running && id)
         {
             policy_start(&d->policy, d->now);
             d->sim.target = d->sim.velocity;
-            d->sim.direct_velocity = true;
+            d->sim.acceleration_controlled = true;
+            d->sim.command_acceleration = 0;
+            d->sim.command_velocity_limit = POLICY_MAX_VELOCITY_MM_S / SIM_MM_PER_PULSE;
         }
         else if (was_running)
         {
@@ -358,7 +362,9 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
         if (!d->policy.id)
             return WRONG_STATE;
         policy_start(&d->policy, d->now);
-        d->sim.direct_velocity = true;
+        d->sim.acceleration_controlled = true;
+        d->sim.command_acceleration = 0;
+        d->sim.command_velocity_limit = POLICY_MAX_VELOCITY_MM_S / SIM_MM_PER_PULSE;
         d->lease_active = true;
         d->lease_deadline = d->now + 500000;
         set_state(d, RUNNING);
@@ -574,7 +580,8 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
         break;
     case STOP:
         policy_stop(&d->policy);
-        d->sim.direct_velocity = false;
+        d->sim.acceleration_controlled = false;
+        d->sim.command_acceleration = 0;
         if (d->state == FAULT)
             return FAULT_ACTIVE;
         d->sim.target = 0;
@@ -732,7 +739,8 @@ void device_tick(device_t *d, uint64_t now)
     if (d->lease_active && now >= d->lease_deadline && (d->state == ARMED || d->state == RUNNING))
     {
         policy_stop(&d->policy);
-        d->sim.direct_velocity = false;
+        d->sim.acceleration_controlled = false;
+        d->sim.command_acceleration = 0;
         d->faults |= 1U << 5;
         d->sim.target = 0;
         d->lease_active = false;
@@ -758,12 +766,13 @@ void device_tick(device_t *d, uint64_t now)
             {
                 float velocity = d->sim.velocity * SIM_MM_PER_PULSE +
                                  d->policy.applied_acceleration * d->policy.sample_dt;
-                const float limit = (float)(62.83 * 16.0 / 3.14159265358979323846);
+                const float limit = POLICY_MAX_VELOCITY_MM_S;
                 if (velocity > limit)
                     velocity = limit;
                 if (velocity < -limit)
                     velocity = -limit;
                 d->sim.target = velocity / SIM_MM_PER_PULSE;
+                d->sim.command_acceleration = d->policy.applied_acceleration / SIM_MM_PER_PULSE;
             }
         }
         simulation_tick(&d->sim, 0.001f, d->acceleration_limit, &d->simulation_parameters);

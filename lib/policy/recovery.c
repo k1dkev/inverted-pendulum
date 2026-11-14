@@ -90,22 +90,29 @@ void recovery_step(policy_t *p, uint64_t now, float x, float v, float angle)
     {
         float integral = clamp(p->integral + x * p->sample_dt, -2000, 2000);
         float output = legacy_lqr(x, v, angle, w, integral);
-        /* Only integrate while unsaturated or while reducing saturation. */
-        if (fabsf(output) <= MAX_ACCELERATION || x * output < 0)
+        float limited = clamp(output, -MAX_ACCELERATION, MAX_ACCELERATION);
+        float next_velocity = v + limited * p->sample_dt;
+        bool positive_saturation =
+            output > MAX_ACCELERATION || (output > 0 && next_velocity > POLICY_MAX_VELOCITY_MM_S);
+        bool negative_saturation =
+            output < -MAX_ACCELERATION || (output < 0 && next_velocity < -POLICY_MAX_VELOCITY_MM_S);
+        float change = integral - p->integral;
+        /* The integral contribution is +0.5*I. Freeze it when it would push
+         * further into either acceleration OR predicted speed saturation;
+         * always allow it to unwind in the opposite direction. */
+        if ((!positive_saturation && !negative_saturation) || (positive_saturation && change < 0) ||
+            (negative_saturation && change > 0))
             p->integral = integral;
         p->raw_acceleration = legacy_lqr(x, v, angle, w, p->integral);
     }
     else if (p->energy <= p->energy_threshold)
     {
-        /* Preserve the old pumping gains, but cap the wall term before log(0).
-         * Recentring takes priority near the wall; this bound protects the law
-         * throughout its input domain as well. */
-        float clearance = fmaxf(0.05f, 1 - fabsf(x) / 150);
-        p->raw_acceleration =
-            -600 * sign((float)(w * cos(angle))) + 822 * sign(x) * logf(clearance);
-        /* A deterministic inward kick escapes exact downward rest. */
-        if (fabsf(angle) > 170 * PI_F / 180 && fabsf(w) < 0.1f && fabsf(v) < 5)
-            p->raw_acceleration += x > 0 ? -600 : 600;
+        /* Track management is handled by RECENTER, not an additive wall term
+         * that could cancel or reverse the energy-pumping command. */
+        p->raw_acceleration = -600 * sign((float)(w * cos(angle)));
+        if (p->raw_acceleration == 0 && fabsf(angle) > 170 * PI_F / 180 && fabsf(w) < 0.1f &&
+            fabsf(v) < 5)
+            p->raw_acceleration = x > 0 ? -600 : 600;
     }
     else
         p->raw_acceleration = -(x + 1.5f * v);

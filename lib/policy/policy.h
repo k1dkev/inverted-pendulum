@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define POLICY_MAX_VELOCITY_MM_S ((float)(62.83 * 16.0 / 3.14159265358979323846))
+
 enum
 {
     POLICY_MANUAL = 0,

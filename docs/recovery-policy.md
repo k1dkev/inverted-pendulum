@@ -2,7 +2,7 @@
 
 Policy ID **2**, `recovery_swingup_lqr`, is a separate controller based on the
 original swing-up/LQR law. It keeps operating after losing balance, with corrected
-angular-velocity estimation and a bounded cart-centering term. Policy ID 1 remains
+angular-velocity estimation and separate track recentering. Policy ID 1 remains
 the faithful legacy reference; its equations, filter, and terminal failure are
 unchanged.
 
@@ -35,7 +35,9 @@ captures. This is not a promise of recovery from every initial state or model
 parameter setting. Gains and ramp speed have not been tuned for faster recovery.
 
 The position integral is limited to ±2000 mm·s and only advances when the tentative
-output is unsaturated or the integration reduces saturation. It resets when
+output is unsaturated or the integration reduces saturation. This accounts for
+both ±10000 mm/s² acceleration saturation and the predicted velocity at the
+±319.991 mm/s speed limit over the next control interval. It resets when
 leaving LQR. This prevents a failed balancing attempt from carrying a large
 integral into the next attempt. A small deterministic cart kick escapes exact
 motionless downward rest; its direction is inward when the cart is off-center.
@@ -63,10 +65,16 @@ inject a fresh measurement discontinuity. Policy selection/restart reinitializes
 
 ## Bounded centering and track recovery
 
-The logarithmic wall correction uses
-`822 * sign(x) * log(max(0.05, 1 - abs(x)/150))`. The argument is always positive,
-so the acceleration stays finite at and beyond the old ±150 mm singularity.
-The output is still limited to ±10000 mm/s².
+During energy pumping, `u = -600 * sign(w * cos(theta))`. There is no additive
+logarithmic wall correction: it could previously cancel or reverse that push
+well inside the track (for example at x=80 mm). Track management has its own
+RECENTER phase instead. A startup kick is used only when the normal pumping term
+is zero, so it cannot cancel an existing push either. No logarithmic singularity
+exists in this version. The output remains limited to ±10000 mm/s².
+
+The simulator holds this acceleration across the 1 ms steps until the next 100 Hz
+update, rather than applying velocity changes impulsively. Speed saturation can
+reduce the realized acceleration; v2's integral gate accounts for that constraint.
 
 A **RECENTER** phase (wire value 4) takes priority when `abs(x) >= 150 mm`, or when
 outward velocity predicts that `abs(x) + v²/(2*10000) + 5 mm >= 150 mm`. This is a
@@ -75,8 +83,7 @@ states. RECENTER requests `u = -20*x - 12*v` (mm units), subject to the same
 acceleration and speed limits. It returns to swing-up after reaching `abs(x) <=
 50 mm` and `abs(v) <= 60 mm/s`, resetting the attempt clock and integral.
 
-This handles the soft boundary without evaluating an invalid logarithm or
-permanently faulting at 150 mm. The ±190 mm hard limit remains a terminal fault.
+This handles the soft boundary without opposing the swing-up term or permanently faulting at 150 mm. The ±190 mm hard limit remains a terminal fault.
 Inertia/damping changes and near-limit initial outward velocities still need
 careful examination; the simulator's physical hard stops remain enforced as well.
 
@@ -96,7 +103,7 @@ phase logs report SWING_UP, LQR, and RECENTER automatically. The counter is zero
 for the legacy policy and unavailable in Manual or OFF.
 
 Tests cover both wrap directions, startup at long boot times, irregular sample
-intervals, warm-up, finite outputs around ±150 mm, repeated LQR fallback and
+intervals, warm-up, finite outputs and pumping direction around ±150 mm, repeated LQR fallback and
 recapture, recentering, integral reset, hard-limit/numeric faults, and continued
 lease/Stop enforcement. Default-model trajectories check bounds over hundreds of
 simulated seconds, including two imposed falls and starts near each track edge.

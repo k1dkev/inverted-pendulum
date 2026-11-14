@@ -42,8 +42,9 @@ The compiled policy registry currently offers manual velocity control and the
 [original swing-up/LQR controller](control-policy.md), plus the
 [recovery variant](recovery-policy.md) with repeated attempts and corrected sensing.
 Manual commands use a bounded
-acceleration ramp. The legacy policy runs at its original 100 Hz and directly
-updates the velocity command; both drive the same 1 kHz plant. The policy retains
+acceleration ramp. The policies run at their original 100 Hz and hold acceleration commands across
+all 1 ms plant steps, subject to the actuator speed limit. This prevents impulsive
+10× acceleration spikes without changing the v1 controller equations. The policy retains
 the legacy angular-velocity filter; a separate noisy sensor model is still
 planned. Future sensor and engine adapters must preserve the policy's input units
 and update contract.

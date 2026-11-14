@@ -107,7 +107,7 @@ int main(void)
     ok();
     request(&d, START_POLICY, 0, 0);
     ok();
-    assert(d.policy.running && d.sim.direct_velocity);
+    assert(d.policy.running && d.sim.acceleration_controlled);
     put_f32(b, 100);
     request(&d, VELOCITY, b, 4);
     assert(get_u16(reply.payload + 4) == WRONG_STATE);

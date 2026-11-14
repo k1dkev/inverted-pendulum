@@ -29,7 +29,9 @@ void simulation_reset(simulation_t *s)
     s->position = 0;
     s->fractional_position = 0;
     s->paused = false;
-    s->direct_velocity = false;
+    s->acceleration_controlled = false;
+    s->command_acceleration = 0;
+    s->command_velocity_limit = SIM_MAX_VELOCITY;
 }
 void simulation_tick(simulation_t *s, float dt, float acceleration_limit,
                      const simulation_parameters_t *parameters)
@@ -42,13 +44,33 @@ void simulation_tick(simulation_t *s, float dt, float acceleration_limit,
     if ((position >= SIM_BOUND_PULSES && target > 0) ||
         (position <= -SIM_BOUND_PULSES && target < 0))
         target = 0;
-    float delta = target - s->velocity,
-          max_delta = s->direct_velocity ? SIM_MAX_VELOCITY * 2 : acceleration_limit * dt;
-    if (delta > max_delta)
-        delta = max_delta;
-    else if (delta < -max_delta)
-        delta = -max_delta;
-    s->velocity += delta;
+    if (s->acceleration_controlled)
+    {
+        /* A policy holds acceleration over all 1 ms steps until its next
+         * control sample. Speed saturation can reduce the applied acceleration. */
+        float acceleration = s->command_acceleration;
+        if (acceleration > SIM_MAX_ACCELERATION)
+            acceleration = SIM_MAX_ACCELERATION;
+        if (acceleration < -SIM_MAX_ACCELERATION)
+            acceleration = -SIM_MAX_ACCELERATION;
+        s->velocity += acceleration * dt;
+        float limit = s->command_velocity_limit;
+        if (limit > SIM_MAX_VELOCITY)
+            limit = SIM_MAX_VELOCITY;
+        if (s->velocity > limit)
+            s->velocity = limit;
+        if (s->velocity < -limit)
+            s->velocity = -limit;
+    }
+    else
+    {
+        float delta = target - s->velocity, max_delta = acceleration_limit * dt;
+        if (delta > max_delta)
+            delta = max_delta;
+        else if (delta < -max_delta)
+            delta = -max_delta;
+        s->velocity += delta;
+    }
     s->fractional_position += (double)s->velocity * dt;
     int64_t pulses = (int64_t)s->fractional_position;
     s->position += pulses;
