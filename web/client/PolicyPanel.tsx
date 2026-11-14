@@ -69,9 +69,9 @@ export function PolicyPanel({
       </div>
       <p className="hint">
         {policy?.id === 2
-          ? "Recovery swing-up → LQR: retries after falls, recenters near the track edges, and uses corrected angular velocity."
+          ? "Swingup LQR v2: retries after falls, recenters near the track edges, and uses corrected angular velocity."
           : policy?.id === 1
-            ? "Legacy swing-up → LQR preserves the original 100 Hz loop and terminal balance-failure behavior."
+            ? "Swingup LQR v1 preserves the original 100 Hz loop and terminal balance-failure behavior."
             : "Select a compiled policy, then Arm and Run policy."}{" "}
         A live policy change resets controller state; plant state is retained.
         Selecting Manual requests a stop before manual jogging.

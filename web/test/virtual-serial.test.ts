@@ -69,7 +69,7 @@ test(
       assert.equal(latest("telemetry")!.mode, "SIMULATION");
       assert.ok(
         latest("connection")!.policies.some(
-          (p: Message) => p.name === "recovery_swingup_lqr",
+          (p: Message) => p.name === "swingup_lqr_v2",
         ),
       );
       const firstSession = latest("connection")!.session_id;

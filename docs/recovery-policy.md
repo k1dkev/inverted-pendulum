@@ -1,18 +1,18 @@
 # Recovery swing-up and LQR
 
-Policy ID **2**, `recovery_swingup_lqr`, is a separate controller based on the
+Policy ID **2**, `swingup_lqr_v2`, is a separate controller based on the
 original swing-up/LQR law. It keeps operating after losing balance, with corrected
 angular-velocity estimation and separate track recentering. Policy ID 1 remains
 the faithful legacy reference; its equations, filter, and terminal failure are
 unchanged.
 
 This currently controls the on-STM32/native simulator, with physical motor outputs
-still unimplemented. Run the current firmware, select **recovery swingup lqr**,
+still unimplemented. Run the current firmware, select **swingup lqr v2**,
 then Arm and Run policy. The browser console equivalent, after connection, is:
 
 ```text
 control acquire
-policy select recovery_swingup_lqr
+policy select swingup_lqr_v2
 arm
 policy start
 ```

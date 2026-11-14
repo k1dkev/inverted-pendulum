@@ -102,8 +102,8 @@ typedef struct
 } policy_entry_t;
 static const policy_entry_t registry[] = {
     {{POLICY_MANUAL, "manual"}, 0, 0},
-    {{POLICY_LEGACY, "legacy_swingup_lqr"}, legacy_start, legacy_step},
-    {{POLICY_RECOVERY, "recovery_swingup_lqr"}, recovery_start, recovery_step}};
+    {{POLICY_LEGACY, "swingup_lqr_v1"}, legacy_start, legacy_step},
+    {{POLICY_RECOVERY, "swingup_lqr_v2"}, recovery_start, recovery_step}};
 uint16_t policy_count(void) { return sizeof(registry) / sizeof(registry[0]); }
 const policy_descriptor_t *policy_descriptor(uint16_t index)
 {

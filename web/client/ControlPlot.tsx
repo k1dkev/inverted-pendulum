@@ -11,24 +11,29 @@ export function ControlPlot({
 }) {
   return (
     <div className="control-effort-plot">
-      <Plot
-        title="Control effort · u"
-        unit="mm/s²"
-        color="#7ee5bf"
-        samples={samples}
-        field={(sample) => sample.limited_u_mm_s2}
-        primaryLabel="Limited u"
-        secondary={{
-          field: (sample) => sample.raw_u_mm_s2,
-          label: "Raw u",
-          color: "#f3b37a",
-        }}
-        step
-        maxGapSeconds={0.12}
-      />
+      <div className="control-effort-grid">
+        <Plot
+          title="Raw control effort · u"
+          unit="mm/s²"
+          color="#f3b37a"
+          samples={samples}
+          field={(sample) => sample.raw_u_mm_s2}
+          step
+          maxGapSeconds={0.12}
+        />
+        <Plot
+          title="Limited control effort · u"
+          unit="mm/s²"
+          color="#7ee5bf"
+          samples={samples}
+          field={(sample) => sample.limited_u_mm_s2}
+          step
+          maxGapSeconds={0.12}
+        />
+      </div>
       <p className="hint">
         {available
-          ? "25 Hz command samples from the 100 Hz controller. Gaps mean no active policy. Limited u is before the motor speed limit; it is not the cart acceleration plotted above."
+          ? "25 Hz command samples from the 100 Hz controller. Gaps mean no active policy. Raw u is the controller demand; limited u is clamped to ±10,000 mm/s², before the motor speed limit. The plots match when that clamp is inactive. Each vertical axis scales independently. Cart acceleration is plotted above."
           : "Connect current firmware or a local simulator to stream controller output. Manual mode has no balancing control effort."}
       </p>
     </div>

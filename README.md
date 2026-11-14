@@ -206,13 +206,13 @@ The server listens only on loopback. Close other applications using the serial
 port before connecting. If the board still runs the old LED sequence, flash
 the current firmware before expecting telemetry.
 
-In the **Control policy** panel, choose **legacy swingup lqr**, then **Arm** and
+In the **Control policy** panel, choose **swingup lqr v1**, then **Arm** and
 **Run policy** to run the original 100 Hz swing-up → LQR controller against the
 simulation. You can change policies while running; the incoming controller starts
 with fresh internal state and retains the plant state. Selecting Manual requests
 a stop before jogging. See [the exact legacy law and its quirks](docs/control-policy.md).
 
-Select **recovery swingup lqr** for automatic retries after a fall, corrected
+Select **swingup lqr v2** for automatic retries after a fall, corrected
 angular velocity, and bounded centering with a RECENTER phase. It uses the
 original gains and slow energy ramp; recovery can require several attempts.
 See [the recovery policy](docs/recovery-policy.md) for thresholds and limits.
@@ -223,13 +223,13 @@ with filtering, bounded history, and NDJSON download. Type `help` for commands,
 The console shares ownership and serial access with the buttons. See
 [logging, console commands, and the future CLI/TUI plan](docs/logging-and-console.md).
 
-The four overview state graphs stay on their existing 50 Hz stream. An additional
-**Control effort · u** plot shows raw and acceleration-limited controller commands
-in mm/s² at 25 Hz. It distinguishes controller demand from the cart's acceleration;
-that command is still subject to the separate motor speed limit. No balancing
+The four overview state graphs stay on their existing 50 Hz stream. Two additional plots show **Raw control effort · u** and **Limited control effort · u**
+in mm/s² at 25 Hz, using separate solid traces and independent vertical scales.
+They match when the ±10,000 mm/s² acceleration clamp is inactive. The limited
+command is still subject to the motor speed limit; actual cart acceleration
+appears in the existing state plot. No balancing
 command is plotted in Manual/OFF/faulted phases.
- Open **Telemetry
-lab** to query the MCU's 25-channel catalog, choose additional signals and a
+Open **Telemetry lab** to query the MCU's 25-channel catalog, choose additional signals and a
 5/10/25 Hz rate, and plot only those selected channels. Diagnostics include
 controller energy, energy threshold, raw/limited acceleration, integral, and
 filtered angular velocity. Optional streaming starts disabled. Read-only browser

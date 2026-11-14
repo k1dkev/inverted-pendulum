@@ -383,7 +383,7 @@ Record:
 - Faults and warnings
 
 Logging must be nonblocking and use bounded memory. Keep the four overview graphs
-on the standard 50 Hz stream. A separate overview u chart shows raw and
+on the standard 50 Hz stream. Separate overview u charts show raw and
 acceleration-limited control commands at 25 Hz, with controller units and
 motor-speed-saturation semantics labeled explicitly. The MCU also exposes a versioned telemetry catalog
 with channel IDs, names, units, and descriptions. Clients can query the current

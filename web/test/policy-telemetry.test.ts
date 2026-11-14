@@ -55,7 +55,7 @@ test(
       const connection = owner.latest("connection")!;
       assert.deepEqual(
         connection.policies.map((p: Message) => p.name),
-        ["manual", "legacy_swingup_lqr", "recovery_swingup_lqr"],
+        ["manual", "swingup_lqr_v1", "swingup_lqr_v2"],
       );
       assert.equal(owner.latest("telemetry_setup")!.catalog.length, 25);
       assert.equal(owner.latest("telemetry_setup")!.subscription.mask, 0);

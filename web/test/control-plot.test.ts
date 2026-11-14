@@ -53,15 +53,18 @@ test("control trace preserves raw and limited u and hides stale inactive outputs
     false,
   );
 });
-test("overview control plot labels units, sampling, and both traces explicitly", () => {
+test("overview separates raw and limited control effort into labeled plots", () => {
   const markup = renderToStaticMarkup(
     createElement(ControlPlot, { samples: { current: [] }, available: true }),
   );
-  assert.ok(markup.includes("Control effort · u"));
+  assert.ok(markup.includes("Raw control effort · u"));
+  assert.ok(markup.includes("Limited control effort · u"));
+  assert.equal((markup.match(/<canvas/g) ?? []).length, 2);
   assert.ok(markup.includes("mm/s²"));
-  assert.ok(markup.includes("Limited u") && markup.includes("Raw u"));
+  assert.ok(!markup.includes("Dashed:"));
   assert.ok(markup.includes("25 Hz") && markup.includes("100 Hz"));
   assert.ok(markup.includes("before the motor speed limit"));
+  assert.ok(markup.includes("match when that clamp is inactive"));
 });
 test(
   "overview u subscription shares MCU diagnostics without changing personal lab selections",

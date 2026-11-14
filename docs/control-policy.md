@@ -2,7 +2,7 @@
 
 The firmware and native simulator now share a compiled policy registry. The
 console discovers it over serial. Policy `0` is manual velocity control; policy
-`1`, `legacy_swingup_lqr`, ports the controller from
+`1`, `swingup_lqr_v1`, ports the controller from
 `inverted-pendulum-main-v2/src/main.cpp` at commit `340351a` (the parent of the
 legacy deletion). Its sensor filter comes from `lib/P3Encoder/P3Encoder.cpp` and
 its actuator limits from `lib/BiPolarStepper/BiPolarStepper.cpp` in that revision.
@@ -10,9 +10,9 @@ its actuator limits from `lib/BiPolarStepper/BiPolarStepper.cpp` in that revisio
 The class-demo controller at `6044f7ab` has the same law and stepper implementation;
 only the encoder's default calibration values differ substantively.
 
-Policy **2**, [`recovery_swingup_lqr`](recovery-policy.md), adds automatic
-swing-up retries, corrected angular velocity, and bounded centering. The original
-policy documented below remains available unchanged.
+Policy **2**, [`swingup_lqr_v2`](recovery-policy.md), adds automatic
+swing-up retries, corrected angular velocity, and bounded centering. Version 1 is
+a time capsule: its control law, filter, gains, and state machine remain unchanged. The shared actuator model is described below.
 
 This currently controls the **on-device simulation**. Physical ADC acquisition,
 calibration, pulse generation, and driver enable are still unimplemented.
@@ -20,10 +20,10 @@ calibration, pulse generation, and driver enable are still unimplemented.
 ## Running and changing policies
 
 1. Connect, acquire control, and set/reset simulation state while disarmed.
-2. Select `legacy swingup lqr` in the Control policy panel.
+2. Select `swingup lqr v1` in the Control policy panel.
 3. Press Arm, then Run policy. Watch phase and output in the panel; use the
    Telemetry lab for energy, threshold, filtered angular velocity, and integral.
-   The overview's u plot separately shows raw and acceleration-limited control
+   The overview's two u plots show raw and acceleration-limited control
    effort in mm/s² (25 Hz samples from the 100 Hz law). The motor speed limit can
    further reduce its effect, so it is not actual cart acceleration.
 4. Stop requests a ramp to zero and returns to ARMED. Disarm inhibits motion

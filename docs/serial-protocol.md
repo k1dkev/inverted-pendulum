@@ -288,7 +288,7 @@ for provenance, equations, sampling, and live switching semantics.
 
 Names are UTF-8 without a terminator. Descriptor flags: bit0 runnable policy,
 bit1 live selection supported. Current entries: ID 0 `manual`, ID 1
-`legacy_swingup_lqr`, ID 2 `recovery_swingup_lqr`. Unknown IDs are rejected without changing the selection.
+`swingup_lqr_v1`, ID 2 `swingup_lqr_v2`. Unknown IDs are rejected without changing the selection.
 Selection is permitted in IDLE/ARMED/RUNNING when fault-free, rejected in STOPPING.
 In RUNNING it starts a fresh context while preserving plant state; selecting
 Manual stops with the normal ramp. In IDLE/ARMED selection only configures the
@@ -379,6 +379,39 @@ or 3750 bytes/s. Add base telemetry (4300), policy status (460), and 20 Hz
 keepalive responses (600): about 9110 bytes/s of 11520 transmit capacity, leaving
 room for normal commands. Queues stay bounded and diagnostics may drop rather
 than block control; target timing and throughput still require bench validation.
+
+### Sampling rate and serial bandwidth
+
+The selected-channel 25 Hz ceiling is a conservative firmware setting, not a USB
+speed limit. The ST-LINK virtual COM connection currently uses a **115200 baud,
+8N1 UART**: ten wire bits per byte gives **11520 bytes/s per direction**. USB does
+not bypass that UART bottleneck.
+
+For the overview's four-channel u subscription, each selected-telemetry sample
+uses 66 framed bytes (44 payload + 20 header/CRC + 2 COBS/delimiter). Base state
+telemetry uses 86 framed bytes at 50 Hz, or 4300 bytes/s. A budget including
+10 Hz policy status (460 bytes/s), 20 Hz keepalive replies (600 bytes/s), and the
+maximum 10 Hz log stream (540 bytes/s) is:
+
+| u sample rate | u bytes/s | Combined transmit bytes/s | UART capacity |
+| --- | ---: | ---: | ---: |
+| 25 Hz (current) | 1650 | 7550 | 66% |
+| 50 Hz (hypothetical) | 3300 | 9200 | 80% |
+| 100 Hz (hypothetical) | 6600 | 12500 | 109% |
+
+This excludes catalog/configuration replies and additional command replies.
+Additional lab channels increase the single combined subscription's packet size;
+the four overview channels are not transmitted twice. All 25 channels at 25 Hz,
+with the same background traffic, use about 9650 bytes/s (84%).
+
+A compact, batched 100 Hz u trace is a plausible future extension at this baud,
+with one timestamp/header for multiple samples. Raising the existing packet rate
+alone would exceed this budget. Higher UART baud rates need firmware/host changes
+and bench verification. Native pipe/PTY simulation has no physical UART bottleneck,
+but currently follows the same subscription limits. The present 25 Hz stream can
+miss control changes between samples; it is not a full-rate recording of the
+100 Hz policy. Changing its limit or adding batched samples is a separate protocol
+change; no throughput increase is claimed here as a measured hardware result.
 
 WebSocket commands (new monotonic request IDs as usual):
 
@@ -660,9 +693,10 @@ is backlogged. The MCU lease remains necessary even with these host checks.
   position (pulses), velocity (pulses/s), acceleration (pulses/s²). Show target and
   applied velocity as separate traces. Display “pulse-derived, not encoder
   feedback” by the stepper plots. Show gaps instead of connecting missing data.
-- A separate overview **Control effort · u** chart plots raw (dashed) and
-  acceleration-limited (solid) controller output in mm/s². It uses 25 Hz samples of
-  the 100 Hz controller, with step traces and visible gaps when inactive. It is
+- Separate overview **Raw control effort · u** and **Limited control effort · u**
+  charts plot controller output in mm/s² with solid traces and independent vertical
+  scales. They match when the ±10,000 mm/s² acceleration clamp is inactive. They
+  use 25 Hz samples of the 100 Hz controller, with step traces and visible gaps when inactive. This is
   not a full-rate controller trace and can miss changes between samples. The
   limited command is before motor-speed saturation and is distinct from the
   simulator's 1 ms cart acceleration. The existing four state charts stay intact.
