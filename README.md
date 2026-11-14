@@ -212,6 +212,11 @@ simulation. You can change policies while running; the incoming controller start
 with fresh internal state and retains the plant state. Selecting Manual requests
 a stop before jogging. See [the exact legacy law and its quirks](docs/control-policy.md).
 
+Select **recovery swingup lqr** for automatic retries after a fall, corrected
+angular velocity, and bounded centering with a RECENTER phase. It uses the
+original gains and slow energy ramp; recovery can require several attempts.
+See [the recovery policy](docs/recovery-policy.md) for thresholds and limits.
+
 The **Logs & command console** panel records structured MCU/server/operator events,
 with filtering, bounded history, and NDJSON download. Type `help` for commands,
 `status` to query the MCU, or `jog 20 500` for a timed manual jog after arming.
@@ -219,22 +224,28 @@ The console shares ownership and serial access with the buttons. See
 [logging, console commands, and the future CLI/TUI plan](docs/logging-and-console.md).
 
 The four overview graphs stay on their existing 50 Hz stream. Open **Telemetry
-lab** to query the MCU's 24-channel catalog, choose additional signals and a
+lab** to query the MCU's 25-channel catalog, choose additional signals and a
 5/10/25 Hz rate, and plot only those selected channels. Diagnostics include
 controller energy, energy threshold, raw/limited acceleration, integral, and
 filtered angular velocity. Optional streaming starts disabled. Read-only browser
 clients can choose their own graphs without acquiring motion control.
 
-To develop without a board, the same portable C protocol/device/simulation core
-can run as a native process:
+To run locally without a board, with a real virtual serial port:
 
 ```sh
-just web-mock
+just web-sim
 ```
 
-Select **Native C simulator** in the console. This exercises the same binary
-protocol and browser flow but does not validate USB, USART timing, or the MCU.
-The native test option is unavailable in the ordinary `just web` server.
+Select **Local C simulator · virtual serial · /dev/…** in the console. The server
+launches the same C device/model/policy core, creates a raw OS pseudo-terminal,
+and connects through the normal SerialPort path. Reset, graphs, policies, logs,
+and the command console work as they do with the STM32 simulation. Ctrl-C stops
+the server and simulator. See [local virtual-serial simulation](docs/local-simulation.md)
+for lifecycle, reconnect behavior, and what this mode validates.
+
+`just web-mock` retains the lighter process-pipe simulator used by earlier tests;
+select **Native C simulator** in that mode. Neither local mode validates USB,
+electrical UART timing, or MCU execution.
 
 Checks and production server:
 

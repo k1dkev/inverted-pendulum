@@ -17,7 +17,9 @@ exact legacy law and its source history.
 :caption: Start here
 
 getting-started
+local-simulation
 control-policy
+recovery-policy
 logging-and-console
 ```
 

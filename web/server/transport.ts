@@ -1,21 +1,25 @@
 import { EventEmitter } from "node:events";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import type { VirtualPort } from "./virtual-serial";
 import { SerialPort } from "serialport";
 
 export class Transport extends EventEmitter {
   private serial?: SerialPort;
   private child?: ChildProcessWithoutNullStreams;
   private closing = false;
-  static async ports(mock: boolean) {
+  static async ports(mock: boolean, virtualPort?: VirtualPort) {
     const ports = await SerialPort.list();
     return [
-      ...ports.map((p) => ({
-        path: p.path,
-        label: [p.path, p.manufacturer, p.serialNumber]
-          .filter(Boolean)
-          .join(" · "),
-      })),
+      ...ports
+        .filter((p) => p.path !== virtualPort?.path)
+        .map((p) => ({
+          path: p.path,
+          label: [p.path, p.manufacturer, p.serialNumber]
+            .filter(Boolean)
+            .join(" · "),
+        })),
+      ...(virtualPort ? [virtualPort] : []),
       ...(mock
         ? [
             {
@@ -26,7 +30,7 @@ export class Transport extends EventEmitter {
         : []),
     ];
   }
-  async open(path: string, mock: boolean) {
+  async open(path: string, mock: boolean, virtualPort?: VirtualPort) {
     if (path === "native-simulation") {
       if (!mock) throw Error("Native simulation is disabled");
       const executable = fileURLToPath(
@@ -46,7 +50,7 @@ export class Transport extends EventEmitter {
       return;
     }
     const available = await SerialPort.list();
-    if (!available.some((p) => p.path === path))
+    if (!available.some((p) => p.path === path) && virtualPort?.path !== path)
       throw Error("Select an available serial port");
     this.serial = new SerialPort({
       path,

@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "tsx server/main.ts --dev",
     "dev:mock": "tsx server/main.ts --dev --mock",
+    "dev:serial-sim": "tsx server/main.ts --dev --serial-sim",
     "build": "tsc --noEmit && vite build",
     "start": "tsx server/main.ts",
-    "test": "tsx --test test/*.test.ts"
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts"
   },
   "dependencies": {
     "react": "19.3.1",

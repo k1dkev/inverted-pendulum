@@ -55,9 +55,9 @@ test(
       const connection = owner.latest("connection")!;
       assert.deepEqual(
         connection.policies.map((p: Message) => p.name),
-        ["manual", "legacy_swingup_lqr"],
+        ["manual", "legacy_swingup_lqr", "recovery_swingup_lqr"],
       );
-      assert.equal(owner.latest("telemetry_setup")!.catalog.length, 24);
+      assert.equal(owner.latest("telemetry_setup")!.catalog.length, 25);
       assert.equal(owner.latest("telemetry_setup")!.subscription.mask, 0);
       reader = await open();
       assert.equal((await reader.request("get_telemetry_setup")).ok, true); // no motion ownership required
@@ -229,6 +229,59 @@ test(
         owner.messages.filter((m) => m.type === "selected_telemetry").length,
         optionalCount,
       );
+      // The new policy is selectable through the same API and recenters instead
+      // of faulting at the old logarithm boundary. Its channels stay valid.
+      assert.equal((await owner.request("clear_fault")).ok, true);
+      assert.equal(
+        (
+          await owner.request("sim_state", {
+            angle_rad: 3.14,
+            angular_velocity_rad_s: 0,
+            position_pulses: "7550",
+            velocity_pulses_s: 0,
+            paused: false,
+          })
+        ).ok,
+        true,
+      );
+      assert.equal(
+        (await owner.request("select_policy", { policy_id: 2 })).ok,
+        true,
+      );
+      assert.equal(
+        (
+          await owner.request("telemetry_subscribe", {
+            channels: [15, 24],
+            rate_hz: 25,
+          })
+        ).ok,
+        true,
+      );
+      assert.equal((await owner.request("arm")).ok, true);
+      assert.equal((await owner.request("start_policy")).ok, true);
+      await until(() =>
+        owner.latest("policy_status")?.policy.phase_name === "RECENTER"
+          ? true
+          : undefined,
+      );
+      const diagnostic = await until(() => {
+        const frame = owner.latest("selected_telemetry");
+        return frame?.values[24] === 0 && frame?.values[15] != null
+          ? frame
+          : undefined;
+      });
+      assert.deepEqual(Object.keys(diagnostic.values), ["15", "24"]);
+      await until(() => {
+        const telemetry = owner.latest("telemetry");
+        if (telemetry?.state === "FAULT")
+          throw Error(`Recenter fault: ${JSON.stringify(telemetry)}`);
+        return owner.latest("policy_status")?.policy.phase_name === "SWING_UP"
+          ? true
+          : undefined;
+      });
+      assert.equal(owner.latest("telemetry")!.fault_bits, 0);
+      assert.equal(owner.latest("telemetry")!.state, "RUNNING");
+      assert.equal((await owner.request("disarm")).ok, true);
     } finally {
       if (heartbeat) clearInterval(heartbeat);
       owner.ws.terminate();

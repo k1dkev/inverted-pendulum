@@ -10,6 +10,10 @@ its actuator limits from `lib/BiPolarStepper/BiPolarStepper.cpp` in that revisio
 The class-demo controller at `6044f7ab` has the same law and stepper implementation;
 only the encoder's default calibration values differ substantively.
 
+Policy **2**, [`recovery_swingup_lqr`](recovery-policy.md), adds automatic
+swing-up retries, corrected angular velocity, and bounded centering. The original
+policy documented below remains available unchanged.
+
 This currently controls the **on-device simulation**. Physical ADC acquisition,
 calibration, pulse generation, and driver enable are still unimplemented.
 

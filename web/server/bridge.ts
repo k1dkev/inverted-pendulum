@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { WebSocket } from "ws";
+import type { VirtualSerialSimulator } from "./virtual-serial";
 import { Transport } from "./transport";
 import { LogStore, deviceLog } from "./logging";
 import { COMMAND_HELP, parseCommand } from "../shared/commands";
@@ -107,7 +108,17 @@ export class Bridge {
   private link = "disconnected";
   private interval: ReturnType<typeof setInterval>;
   private closing = false;
-  constructor(readonly mock = false) {
+  constructor(
+    readonly mock = false,
+    readonly virtualSerial?: VirtualSerialSimulator,
+  ) {
+    virtualSerial?.on("lost", (error: Error, path?: string) => {
+      if (this.closing) return;
+      this.log("error", "bridge", error.message);
+      if (this.path === path && this.link !== "disconnected")
+        void this.disconnect(error.message);
+      else this.status();
+    });
     this.interval = setInterval(() => this.checkHealth(), 25);
   }
   private send(client: Client, data: Record<string, unknown>) {
@@ -128,6 +139,12 @@ export class Bridge {
         type: "connection",
         serial: this.link,
         path: this.path,
+        simulation_runner:
+          this.path === "native-simulation"
+            ? "native-pipe"
+            : this.virtualSerial?.port?.path === this.path
+              ? "native-pty"
+              : "stm32",
         control:
           this.owner === client ? "owned" : this.owner ? "other" : "available",
         capabilities: this.caps ?? null,
@@ -609,7 +626,7 @@ export class Bridge {
       if (this.transport === transport) void this.disconnect(error.message);
     });
     try {
-      await transport.open(path, this.mock);
+      await transport.open(path, this.mock, this.virtualSerial?.port);
       transport.write(Buffer.from([0]));
       const hello = Buffer.alloc(8);
       hello.writeBigUInt64LE(this.session);

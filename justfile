@@ -39,6 +39,10 @@ native:
 web-mock: native
     npm --prefix web run dev:mock
 
+# Start a local C simulator on a real virtual serial port and launch the console.
+web-sim: native
+    npm --prefix web run dev:serial-sim
+
 # Build the production frontend and type-check server/client code.
 web-build:
     npm --prefix web run build

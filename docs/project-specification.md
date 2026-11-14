@@ -327,6 +327,9 @@ Use HAL for all peripherals initially. Introduce LL or direct register access on
 and LQR policy retains its original 100 Hz sampling interval. Policy selection is
 a compiled, discoverable registry with live switching and fresh controller context;
 see [control-policy.md](control-policy.md) for the exact law, provenance, and limits.
+The separate [recovery policy](recovery-policy.md) adds continuous swing-up retries,
+corrected wrapped-angle velocity estimation, bounded wall correction, and track
+recentering while retaining Stop/lease/fault enforcement.
 
 Each control iteration:
 
@@ -387,6 +390,11 @@ A separate Telemetry lab page plots those selections. The bridge combines browse
 subscriptions into one MCU stream and filters it for each browser; only the
 motion owner may change policies or actuators. See the serial specification for
 wire layouts.
+
+The native runner also supports [virtual serial simulation](local-simulation.md)
+with `just web-sim`: the server creates a raw PTY, registers only its live child
+endpoint, and uses the normal SerialPort/WebSocket path without a board. Physics
+and command leases remain responsive under bounded, nonblocking TX backpressure.
 
 ### 6.6 Logging and operator command interfaces
 

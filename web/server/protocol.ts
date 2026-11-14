@@ -168,7 +168,8 @@ export function policyStatus(p: Buffer): PolicyStatus {
   return {
     id: p.readUInt16LE(4),
     phase: p[6],
-    phase_name: ["OFF", "SWING_UP", "LQR", "FAILED"][p[6]] ?? "UNKNOWN",
+    phase_name:
+      ["OFF", "SWING_UP", "LQR", "FAILED", "RECENTER"][p[6]] ?? "UNKNOWN",
     running: !!(p[7] & 1),
     error_code: p[7] >> 1,
     generation: p.readUInt32LE(8),

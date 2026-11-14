@@ -31,6 +31,7 @@ type Connection = {
   policies?: PolicyDescriptor[];
   policy?: PolicyStatus | null;
   path?: string;
+  simulation_runner?: "native-pipe" | "native-pty" | "stm32";
 };
 const initial: Connection = {
   serial: "disconnected",
@@ -445,7 +446,13 @@ function App() {
             </p>
           </div>
           <span className={`mode-pill ${sim ? "sim" : ""}`}>
-            {sim ? "◈ ON-DEVICE SIMULATION" : "NUCLEO-F767ZI"}
+            {sim
+              ? connection.simulation_runner === "native-pty"
+                ? "◈ LOCAL SERIAL SIMULATION"
+                : connection.simulation_runner === "native-pipe"
+                  ? "◈ LOCAL SIMULATION"
+                  : "◈ ON-DEVICE SIMULATION"
+              : "NUCLEO-F767ZI"}
           </span>
         </div>
         {page === "telemetry" && (

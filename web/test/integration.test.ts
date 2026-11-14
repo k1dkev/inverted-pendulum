@@ -170,9 +170,11 @@ test(
           : undefined,
       );
       for (let i = 0; i < 12; i++) {
+        const reversal = await request("jog", { velocity_pulses_s: -200 });
         assert.equal(
-          (await request("jog", { velocity_pulses_s: -200 })).ok,
+          reversal.ok,
           true,
+          JSON.stringify({ result: reversal, telemetry: latest() }),
         );
         await new Promise((r) => setTimeout(r, 40));
       }

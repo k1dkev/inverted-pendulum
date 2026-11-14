@@ -212,5 +212,52 @@ int main(void)
     put_u16(b, 999);
     request(&d, SELECT_POLICY, b, 2);
     assert(log_count == before);
+    /* The recovery policy retries within RUNNING and exposes its diagnostics. */
+    device_init(&d, collect, 0);
+    next_id = 1;
+    put_u64(b, 123);
+    request(&d, HELLO, b, 8);
+    put_u16(b, POLICY_RECOVERY);
+    request(&d, SELECT_POLICY, b, 2);
+    ok();
+    for (unsigned i = 0; i < 24; i++)
+        b[i] = 0;
+    request(&d, SIM_STATE, b, 24);
+    ok();
+    request(&d, ARM, 0, 0);
+    ok();
+    request(&d, START_POLICY, 0, 0);
+    ok();
+    tick(&d, 20000);
+    assert(d.state == RUNNING && d.policy.phase == POLICY_LQR);
+    d.sim.angle = .8f;
+    tick(&d, 30000);
+    assert(d.state == RUNNING && !d.faults && d.policy.running && d.policy.recovery_count == 1);
+    request(&d, GET_POLICY, 0, 0);
+    assert(reply.type == POLICY_STATUS && reply.payload[6] == POLICY_SWING_UP &&
+           reply.payload[7] == 1);
+    put_u32(b, 1U << 24);
+    put_u16(b + 4, 25);
+    put_u16(b + 6, 0);
+    request(&d, SUBSCRIBE, b, 8);
+    tick(&d, 40000);
+    assert(selected.length == 32 && get_u32(selected.payload + 24) == (1U << 24) &&
+           get_f32(selected.payload + 28) == 1);
+    d.sim.position = 7550;
+    d.sim.fractional_position = 0;
+    d.sim.velocity = 0;
+    d.sim.target = 0;
+    d.sim.angle = 3.14f;
+    tick(&d, 50000);
+    assert(d.policy.phase == POLICY_RECENTER && !d.faults && d.state == RUNNING);
+    request(&d, STOP, 0, 0);
+    ok();
+    tick(&d, 70000);
+    assert(d.state == ARMED && !d.policy.running);
+    request(&d, START_POLICY, 0, 0);
+    ok();
+    assert(d.policy.recovery_count == 0 && !d.policy.measurement_initialized);
+    tick(&d, 650000);
+    assert(d.state == FAULT && (d.faults & (1U << 5)) && !d.policy.running);
     puts("Device catalog, sparse stream, live policy changes, domain fault and lease passed.");
 }

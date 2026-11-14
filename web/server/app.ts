@@ -4,12 +4,17 @@ import { resolve, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { Bridge } from "./bridge";
+import { VirtualSerialSimulator } from "./virtual-serial";
 import { Transport } from "./transport";
 
 export async function createApp(
-  options: { mock?: boolean; dev?: boolean } = {},
+  options: { mock?: boolean; dev?: boolean; virtualSerial?: boolean } = {},
 ) {
-  const bridge = new Bridge(options.mock);
+  const virtualSerial = options.virtualSerial
+    ? new VirtualSerialSimulator()
+    : undefined;
+  await virtualSerial?.start();
+  const bridge = new Bridge(options.mock, virtualSerial);
   const root = fileURLToPath(new URL("..", import.meta.url)),
     dist = resolve(root, "dist");
   let middleware:
@@ -44,7 +49,11 @@ export async function createApp(
     if (pathname === "/api/ports") {
       try {
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify(await Transport.ports(!!options.mock)));
+        res.end(
+          JSON.stringify(
+            await Transport.ports(!!options.mock, virtualSerial?.port),
+          ),
+        );
       } catch {
         res.writeHead(503).end('{"error":"Unable to enumerate serial ports"}');
       }
@@ -82,11 +91,17 @@ export async function createApp(
   let vite: import("vite").ViteDevServer | undefined;
   if (options.dev) {
     const { createServer: createVite } = await import("vite");
-    vite = await createVite({
-      root,
-      server: { middlewareMode: true, hmr: { server } },
-      appType: "spa",
-    });
+    try {
+      vite = await createVite({
+        root,
+        server: { middlewareMode: true, hmr: { server } },
+        appType: "spa",
+      });
+    } catch (error) {
+      await bridge.close();
+      await virtualSerial?.close();
+      throw error;
+    }
     middleware = (req, res) => vite!.middlewares(req, res);
   }
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
@@ -108,8 +123,10 @@ export async function createApp(
   return {
     server,
     bridge,
+    virtualSerial,
     async close() {
       await bridge.close();
+      await virtualSerial?.close();
       wss.close();
       await vite?.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));

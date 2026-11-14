@@ -12,7 +12,7 @@ Only the STM32-controller/external-simulated-plant arrangement is excluded.
 |---|---|---|---|---|
 | On-STM32 simulation | STM32 | Real ST-LINK USB serial → server → WebSocket | Target execution, UART, USB, protocol, operator workflow | Implemented; new firmware still needs physical bench verification |
 | Native process | Mac/Linux; builtin C initially, engine adapters later | Process pipes → server → WebSocket | Shared-core/protocol tests and quick development | Builtin implemented as `just web-mock`; other engines planned |
-| Native virtual serial | Mac/Linux; selected supported engine | Pseudo-terminal → actual SerialPort path → server → WebSocket | Normal serial API without hardware | Planned; macOS PTY byte round trip verified |
+| Native virtual serial | Mac/Linux; selected supported engine | Pseudo-terminal → actual SerialPort path → server → WebSocket | Normal serial API without hardware | Implemented as `just web-sim`; macOS integration verified, Linux CI configured |
 | Browser WebAssembly | Shared C compiled to WASM in a worker | Worker adapter → frontend | Interactive simulation without a board or local serial server | Planned |
 | Headless experiments | Native C, fixed-step scenarios | Saved traces and metrics | Controller regression, parameter sweeps, gain tuning | Planned; native tests provide a foundation |
 | Recorded-data replay | Saved telemetry, optionally offline estimation | Replay adapter → frontend | Reproduce issues and inspect prior runs | Planned; replay itself is not physics simulation |
@@ -39,7 +39,9 @@ operator commands → device state machine → controller/velocity target
 ```
 
 The compiled policy registry currently offers manual velocity control and the
-[original swing-up/LQR controller](control-policy.md). Manual commands use a bounded
+[original swing-up/LQR controller](control-policy.md), plus the
+[recovery variant](recovery-policy.md) with repeated attempts and corrected sensing.
+Manual commands use a bounded
 acceleration ramp. The legacy policy runs at its original 100 Hz and directly
 updates the velocity command; both drive the same 1 kHz plant. The policy retains
 the legacy angular-velocity filter; a separate noisy sensor model is still
@@ -211,14 +213,21 @@ Use an OS pseudo-terminal pair in raw binary mode. The simulator owns the primar
 side; the ordinary server opens the replica pathname using `serialport`.
 macOS `openpty()` provides both descriptors and the pathname; see
 [Apple's manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/openpty.3.html).
-A byte round trip was verified with the existing dependency; full application
-PTY integration remains to be built.
+The full application path is now implemented as `just web-sim`; see
+[local-simulation.md](local-simulation.md) for usage and tested behavior.
 
-Explicitly register and label simulator ports in the picker because PTYs need
-not appear in USB/serial enumeration. Own their process/descriptor lifecycle,
-handle disconnects, disable echo/newline/line-buffer processing, and keep logs
-separate from protocol bytes. Use the same framing, sessions, and command leases
-as real serial operation. Optional byte fragmentation/pacing supports fault tests.
+The server launches the C process with `--pty`, receives its allocated pathname,
+and registers the live endpoint in memory because PTYs may not appear in OS serial
+enumeration. The ordinary SerialPort code opens it. Native stdin/stdout pipe mode
+is retained for existing tests. Raw terminal configuration preserves binary bytes;
+startup readiness and process diagnostics stay separate from wire traffic.
+The server owns cleanup and removes registration when the process exits.
+Nonblocking, bounded native TX keeps the device clock and command lease advancing
+when a serial reader is absent/backlogged. Normal UI serial reconnects preserve
+simulator state without replaying commands.
+
+Optional byte fragmentation/pacing and injected transport faults remain future
+extensions; real serial read fragmentation already occurs in the PTY tests.
 
 A PTY exercises the OS serial API but does not emulate USB enumeration, ST-LINK,
 electrical UART timing, or MCU interrupts. Keep process pipes as the cheaper
@@ -264,7 +273,7 @@ recorded motion commands to real hardware.
 
 1. Keep on-STM32 simulation and the native helper reliable; extract the builtin
    engine boundary and verify bounds, reversal, timing, and command-loss behavior.
-2. Add native PTY mode and its explicit serial-port registration/integration tests.
+2. Maintain native PTY mode, explicit live-port registration, and serial integration/backpressure tests (implemented).
 3. Add the frontend backend abstraction and WASM worker; compare trajectories.
 4. Add reusable headless scenarios, metrics, recording, and read-only replay.
 5. Add an optional native MuJoCo adapter and versioned MJCF model; validate its

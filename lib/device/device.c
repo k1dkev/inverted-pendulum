@@ -195,8 +195,9 @@ static void subscription_status(device_t *d, packet_t *reply, uint32_t request)
 static float selected_value(device_t *d, unsigned channel, bool *valid)
 {
     double x = (double)d->sim.position + d->sim.fractional_position;
-    if (((channel >= 6 && channel <= 12) || channel == 15) &&
-        (d->policy.id != POLICY_LEGACY || d->policy.phase == POLICY_OFF))
+    if (((channel >= 6 && channel <= 12) || channel == 15 || channel == 24) &&
+        ((d->policy.id != POLICY_LEGACY && d->policy.id != POLICY_RECOVERY) ||
+         d->policy.phase == POLICY_OFF))
         *valid = false;
     switch (channel)
     {
@@ -250,6 +251,8 @@ static float selected_value(device_t *d, unsigned channel, bool *valid)
         return x >= SIM_BOUND_PULSES ? 1 : 0;
     case 23:
         return d->state;
+    case 24:
+        return (float)d->policy.recovery_count;
     default:
         *valid = false;
         return 0;

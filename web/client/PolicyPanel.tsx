@@ -24,7 +24,7 @@ export function PolicyPanel({
     "Logarithm domain: |x| ≥ 150 mm",
     "Balance lost: outside ±45° for 500 ms",
     "Nonfinite policy output",
-    "Legacy ±190 mm travel limit",
+    "±190 mm policy travel limit",
   ][policy?.error_code ?? 0];
   return (
     <section className="panel">
@@ -68,8 +68,12 @@ export function PolicyPanel({
         </button>
       </div>
       <p className="hint">
-        Legacy swing-up → LQR · original 100 Hz loop. A live policy change
-        resets its filter, integral, and timers; plant state is retained.
+        {policy?.id === 2
+          ? "Recovery swing-up → LQR: retries after falls, recenters near the track edges, and uses corrected angular velocity."
+          : policy?.id === 1
+            ? "Legacy swing-up → LQR preserves the original 100 Hz loop and terminal balance-failure behavior."
+            : "Select a compiled policy, then Arm and Run policy."}{" "}
+        A live policy change resets controller state; plant state is retained.
         Selecting Manual requests a stop before manual jogging.
       </p>
       {!!policy?.id && (
