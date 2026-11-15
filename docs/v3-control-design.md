@@ -1,6 +1,6 @@
 # V3 control and identification design
 
-This page describes the proposed v3 algorithm. **V3 is not implemented yet.**
+V3 is selectable as `swingup_lqr_v3` (policy ID 3) in the simulation.
 Angles are measured from upright; SI units are used throughout this page.
 
 The plant is
@@ -25,7 +25,7 @@ e = E - 2
 E_dot = -u*omega*cos(theta) - (c/a)*omega²
 ```
 
-A proposed constrained swing-up command is
+The constrained swing-up command is
 
 ```text
 u_raw = kE*e*omega*cos(theta) - kx*(x - x_center) - kv*v
@@ -63,9 +63,26 @@ P_new = (I - K*phi^T)*P
 H = sum(phi*phi^T/R)
 ```
 
+The controller and regression accumulation run at 1 kHz. The prior is
+`a = 0.094*9.81*0.1444/0.00267683`, `c = 0.15`, with diagonal covariance
+`(100, 1)` and observation variance `R = 0.25`. Estimates are clipped to
+`a = 5..150 s⁻²` and `c = 0..5 s⁻¹`. Windows shorter than 0.1 s are deferred;
+windows without enough travel after 10 s are discarded. Every completed window
+updates RLS; `v3.excited` flags a minimum information-matrix eigenvalue above
+0.1. The accumulated information has no forgetting and is a diagnostic rather
+than a guarantee of present excitation. Estimates, excitation status, and
+window counts are available in Telemetry lab.
+
+The gains are `kE = 0.55`, `kx = 0.3`, and `kv = 0.2` in SI units. The
+acceleration limit is 10 m/s², the track spans ±0.19 m, and braking starts at
+the calculated stopping distance plus 0.01 m. A small kick escapes exact
+downward rest. LQR is entered within 15° of upright and 1 rad/s angular velocity;
+it exits outside 30°. These simulation-tuned values and the braking model have
+not been validated on physical hardware.
+
 Bounds on each estimate provide a practical safeguard. The smallest eigenvalue
 of `H` can flag poor excitation; bounds clipping is not equivalent to solving a
-box-constrained least-squares problem. The implementation must specify priors,
-window timing, excitation thresholds, covariance handling, and behavior before
-identification is reliable. It also needs a startup disturbance at exact downward
-rest, and an angle **and angular-velocity** capture condition for balancing.
+box-constrained least-squares problem. Clipped estimates retain the ordinary RLS covariance, so uncertainty near a bound
+is approximate. The estimator uses the most recent angle difference for window endpoints to
+reduce filter-delay bias; the controller uses a five-sample average. Simulation
+quantization and real sensor noise can bias identification; treat these estimates as exploratory.

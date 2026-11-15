@@ -46,7 +46,7 @@ add_library(stm32_hal STATIC
 target_link_libraries(stm32_hal PUBLIC mcu_options)
 
 add_library(pendulum_core STATIC
-  ../../lib/protocol/protocol.c ../../lib/simulation/simulation.c ../../lib/device/device.c ../../lib/policy/policy.c ../../lib/policy/recovery.c ../../lib/telemetry/telemetry.c)
+  ../../lib/protocol/protocol.c ../../lib/simulation/simulation.c ../../lib/device/device.c ../../lib/policy/policy.c ../../lib/policy/recovery.c ../../lib/policy/v3.c ../../lib/telemetry/telemetry.c)
 target_include_directories(pendulum_core PUBLIC ../../lib/protocol ../../lib/simulation ../../lib/device ../../lib/policy ../../lib/telemetry)
 target_link_libraries(pendulum_core PUBLIC mcu_options)
 target_compile_options(pendulum_core PRIVATE -Wall -Wextra -Werror)

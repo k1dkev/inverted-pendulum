@@ -55,9 +55,9 @@ test(
       const connection = owner.latest("connection")!;
       assert.deepEqual(
         connection.policies.map((p: Message) => p.name),
-        ["manual", "swingup_lqr_v1", "swingup_lqr_v2"],
+        ["manual", "swingup_lqr_v1", "swingup_lqr_v2", "swingup_lqr_v3"],
       );
-      assert.equal(owner.latest("telemetry_setup")!.catalog.length, 25);
+      assert.equal(owner.latest("telemetry_setup")!.catalog.length, 30);
       assert.equal(owner.latest("telemetry_setup")!.subscription.mask, 0);
       reader = await open();
       assert.equal((await reader.request("get_telemetry_setup")).ok, true); // no motion ownership required

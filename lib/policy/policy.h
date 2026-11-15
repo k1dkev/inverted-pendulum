@@ -9,7 +9,8 @@ enum
 {
     POLICY_MANUAL = 0,
     POLICY_LEGACY = 1,
-    POLICY_RECOVERY = 2
+    POLICY_RECOVERY = 2,
+    POLICY_V3 = 3
 };
 enum
 {
@@ -47,6 +48,14 @@ typedef struct
     /* V2-only swing-up progress; unused by the historical v1 law. */
     uint64_t swingup_progress_us;
     float swingup_best_angle, swingup_acceleration;
+    /* V3 estimator state and previous realized cart acceleration, in mm/s². */
+    float realized_acceleration;
+    float v3_a, v3_c, v3_p00, v3_p01, v3_p11;
+    float v3_h00, v3_h01, v3_h11;
+    float v3_travel, v3_phi0, v3_phi1, v3_start_w;
+    float v3_last_f, v3_window_s;
+    uint32_t v3_updates, v3_rejected;
+    bool v3_excited;
 } policy_t;
 
 const policy_descriptor_t *policy_descriptor(uint16_t index);

@@ -33,7 +33,7 @@ export function ControlPlot({
       </div>
       <p className="hint">
         {available
-          ? "25 Hz command samples from the 100 Hz controller. Gaps mean no active policy. Raw u is the controller demand; limited u is clamped to ±10,000 mm/s², before the motor speed limit. The plots match when that clamp is inactive. Each vertical axis scales independently. Cart acceleration is plotted above."
+          ? "25 Hz command samples from the controller (v1/v2: 100 Hz; v3: 1 kHz). Gaps mean no active policy. Raw u is the controller demand; limited u is clamped to ±10,000 mm/s², before the motor speed limit. The plots match when that clamp is inactive. Each vertical axis scales independently. Cart acceleration is plotted above."
           : "Connect current firmware or a local simulator to stream controller output. Manual mode has no balancing control effort."}
       </p>
     </div>

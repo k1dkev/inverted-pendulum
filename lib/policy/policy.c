@@ -1,5 +1,6 @@
 #include "policy.h"
 #include "recovery.h"
+#include "v3.h"
 #include <math.h>
 #define PI 3.14159265358979323846
 static float absolute(float x) { return x < 0 ? -x : x; }
@@ -103,7 +104,8 @@ typedef struct
 static const policy_entry_t registry[] = {
     {{POLICY_MANUAL, "manual"}, 0, 0},
     {{POLICY_LEGACY, "swingup_lqr_v1"}, legacy_start, legacy_step},
-    {{POLICY_RECOVERY, "swingup_lqr_v2"}, recovery_start, recovery_step}};
+    {{POLICY_RECOVERY, "swingup_lqr_v2"}, recovery_start, recovery_step},
+    {{POLICY_V3, "swingup_lqr_v3"}, v3_start, v3_step}};
 uint16_t policy_count(void) { return sizeof(registry) / sizeof(registry[0]); }
 const policy_descriptor_t *policy_descriptor(uint16_t index)
 {
@@ -140,7 +142,7 @@ void policy_stop(policy_t *p)
 }
 bool policy_update(policy_t *p, uint64_t now, float x, float v, float angle)
 {
-    if (!p->running || now - p->last_control_us < 10000)
+    if (!p->running || now - p->last_control_us < (p->id == POLICY_V3 ? 1000U : 10000U))
         return false;
     p->last_control_us = now;
     const policy_entry_t *e = entry(p->id);

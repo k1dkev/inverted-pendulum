@@ -25,6 +25,7 @@ export const COMMAND_COMPLETIONS = [
   "policy select manual",
   "policy select swingup_lqr_v1",
   "policy select swingup_lqr_v2",
+  "policy select swingup_lqr_v3",
   "policy start",
   "jog 20 500",
   "jog -20 500",

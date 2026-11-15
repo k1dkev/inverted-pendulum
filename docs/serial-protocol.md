@@ -288,7 +288,7 @@ for provenance, equations, sampling, and live switching semantics.
 
 Names are UTF-8 without a terminator. Descriptor flags: bit0 runnable policy,
 bit1 live selection supported. Current entries: ID 0 `manual`, ID 1
-`swingup_lqr_v1`, ID 2 `swingup_lqr_v2`. Unknown IDs are rejected without changing the selection.
+`swingup_lqr_v1`, ID 2 `swingup_lqr_v2`, ID 3 `swingup_lqr_v3`. Unknown IDs are rejected without changing the selection.
 Selection is permitted in IDLE/ARMED/RUNNING when fault-free, rejected in STOPPING.
 In RUNNING it starts a fresh context while preserving plant state; selecting
 Manual stops with the normal ramp. In IDLE/ARMED selection only configures the
@@ -341,7 +341,7 @@ Descriptor: u32 request_id at 0, u16 schema_version at 4, u16 channel_count at 6
 u16 channel_id at 8, u8 value_type at 10 (`1` = f32), u8 flags at 11 (reserved 0),
 u8 name/unit/description byte lengths at 12/13/14, u8 reserved=0 at 15,
 then concatenated UTF-8 name, unit, description without terminators.
-Schema 1 contains 25 channels (IDs 0..24), including model state, policy outputs,
+Schema 1 contains 30 channels (IDs 0..29), including model state, policy outputs,
 energy/threshold, position integral, filtered angular velocity, model parameters,
 lease time, diagnostics, bounds, and device state. Names and units come from
 `lib/telemetry/telemetry.c`.
@@ -367,16 +367,19 @@ SELECTED_TELEMETRY:
 
 Length is `28 + 4 * popcount(mask)`. Only requested values are serialized.
 An invalid/unavailable value has its validity bit cleared and a zero wire value;
-the bridge maps it to JSON null and the graph shows a gap. Historical `legacy.*` channels describe either selected swing-up/LQR policy,
-including the recovery variant; they are unavailable in Manual or OFF. Channel 24
+the bridge maps it to JSON null and the graph shows a gap. Historical `legacy.*`
+channels describe v1/v2 and shared controller signals. V3 marks the legacy energy,
+fraction and threshold channels unavailable because its energy is normalized.
+Channels 25..29 expose v3 estimated a, estimated c, excitation flag, completed
+window count, and timed-out window count; they are unavailable for other policies. Channel 24
 `controller.recovery_count` counts LQR recovery attempts (zero for the legacy law),
 with the same availability. FAILED retains the
 last diagnostic values. Diagnostic counts/enums use f32 in schema 1 and are
 approximate above 2^24; existing exact position/time fields remain in base telemetry.
 
-At all 25 channels/25 Hz the optional stream uses at most 150 UART bytes/sample,
-or 3750 bytes/s. Add base telemetry (4300), policy status (460), and 20 Hz
-keepalive responses (600): about 9110 bytes/s of 11520 transmit capacity, leaving
+At all 30 channels/25 Hz the optional stream uses at most 170 UART bytes/sample,
+or 4250 bytes/s. Add base telemetry (4300), policy status (460), and 20 Hz
+keepalive responses (600): about 9610 bytes/s of 11520 transmit capacity, leaving
 room for normal commands. Queues stay bounded and diagnostics may drop rather
 than block control; target timing and throughput still require bench validation.
 
@@ -401,8 +404,8 @@ maximum 10 Hz log stream (540 bytes/s) is:
 
 This excludes catalog/configuration replies and additional command replies.
 Additional lab channels increase the single combined subscription's packet size;
-the four overview channels are not transmitted twice. All 25 channels at 25 Hz,
-with the same background traffic, use about 9650 bytes/s (84%).
+the four overview channels are not transmitted twice. All 30 channels at 25 Hz,
+with the same background traffic, use about 10150 bytes/s (88%).
 
 A compact, batched 100 Hz u trace is a plausible future extension at this baud,
 with one timestamp/header for multiple samples. Raising the existing packet rate
@@ -410,7 +413,7 @@ alone would exceed this budget. Higher UART baud rates need firmware/host change
 and bench verification. Native pipe/PTY simulation has no physical UART bottleneck,
 but currently follows the same subscription limits. The present 25 Hz stream can
 miss control changes between samples; it is not a full-rate recording of the
-100 Hz policy. Changing its limit or adding batched samples is a separate protocol
+100 Hz v1/v2 or 1 kHz v3 policy. Changing its limit or adding batched samples is a separate protocol
 change; no throughput increase is claimed here as a measured hardware result.
 
 WebSocket commands (new monotonic request IDs as usual):
@@ -491,8 +494,8 @@ without queues or allocation. Emission uses low-priority TX admission so logs
 cannot consume the response reserve. A full TX buffer drops the log and increments
 the counter; it does not create a communications fault. Events remain best effort
 and latched faults are still reported independently in base telemetry. With all
-25 optional channels at 25 Hz plus existing streams, ten 54-byte framed log
-records/s bring typical maximum steady TX use to about 9650 of 11520 bytes/s;
+30 optional channels at 25 Hz plus existing streams, ten 54-byte framed log
+records/s bring typical maximum steady TX use to about 10150 of 11520 bytes/s;
 command bursts can still drop diagnostics. Validate timing/throughput on hardware.
 
 The bridge sends `log_history` (up to 50 retained entries on browser connection)
@@ -696,7 +699,7 @@ is backlogged. The MCU lease remains necessary even with these host checks.
 - Separate overview **Raw control effort · u** and **Limited control effort · u**
   charts plot controller output in mm/s² with solid traces and independent vertical
   scales. They match when the ±10,000 mm/s² acceleration clamp is inactive. They
-  use 25 Hz samples of the 100 Hz controller, with step traces and visible gaps when inactive. This is
+  use 25 Hz samples of the controller (100 Hz for v1/v2, 1 kHz for v3), with step traces and visible gaps when inactive. This is
   not a full-rate controller trace and can miss changes between samples. The
   limited command is before motor-speed saturation and is distinct from the
   simulator's 1 ms cart acceleration. The existing four state charts stay intact.

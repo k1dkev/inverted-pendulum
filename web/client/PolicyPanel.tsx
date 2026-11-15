@@ -68,7 +68,9 @@ export function PolicyPanel({
         </button>
       </div>
       <p className="hint">
-        {policy?.id === 2
+        {policy?.id === 3
+          ? "Swingup LQR v3: energy swing-up, track braking, and online parameter estimation."
+          : policy?.id === 2
           ? "Swingup LQR v2: retries after falls, increases pumping on stalled swings, recenters near the track edges, and uses corrected angular velocity."
           : policy?.id === 1
             ? "Swingup LQR v1 preserves the original 100 Hz loop and terminal balance-failure behavior."

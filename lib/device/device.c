@@ -197,9 +197,13 @@ static float selected_value(device_t *d, unsigned channel, bool *valid)
 {
     double x = (double)d->sim.position + d->sim.fractional_position;
     if (((channel >= 6 && channel <= 12) || channel == 15 || channel == 24) &&
-        ((d->policy.id != POLICY_LEGACY && d->policy.id != POLICY_RECOVERY) ||
+        ((d->policy.id != POLICY_LEGACY && d->policy.id != POLICY_RECOVERY && d->policy.id != POLICY_V3) ||
          d->policy.phase == POLICY_OFF))
         *valid = false;
+    if (channel >= 25 && (d->policy.id != POLICY_V3 || d->policy.phase == POLICY_OFF))
+        *valid = false;
+    if ((channel == 8 || channel == 9 || channel == 10) && d->policy.id == POLICY_V3)
+        *valid = false; /* Legacy energy channels use physical, not normalized units. */
     switch (channel)
     {
     case 0:
@@ -254,6 +258,11 @@ static float selected_value(device_t *d, unsigned channel, bool *valid)
         return d->state;
     case 24:
         return (float)d->policy.recovery_count;
+    case 25: return d->policy.v3_a;
+    case 26: return d->policy.v3_c;
+    case 27: return d->policy.v3_excited ? 1 : 0;
+    case 28: return (float)d->policy.v3_updates;
+    case 29: return (float)d->policy.v3_rejected;
     default:
         *valid = false;
         return 0;
@@ -756,6 +765,7 @@ void device_tick(device_t *d, uint64_t now)
     while (now - d->last_tick >= 1000)
     {
         d->last_tick += 1000;
+        d->policy.realized_acceleration = d->sim.acceleration * SIM_MM_PER_PULSE;
         if (d->policy.running && d->state == RUNNING && !d->sim.paused &&
             policy_update(&d->policy, d->last_tick, (float)d->sim.position * SIM_MM_PER_PULSE,
                           d->sim.velocity * SIM_MM_PER_PULSE, d->sim.angle))

@@ -231,7 +231,7 @@ They match when the ±10,000 mm/s² acceleration clamp is inactive. The limited
 command is still subject to the motor speed limit; actual cart acceleration
 appears in the existing state plot. No balancing
 command is plotted in Manual/OFF/faulted phases.
-Open **Telemetry lab** to query the MCU's 25-channel catalog, choose additional signals and a
+Open **Telemetry lab** to query the MCU's 30-channel catalog, choose additional signals and a
 5/10/25 Hz rate, and plot only those selected channels. Diagnostics include
 controller energy, energy threshold, raw/limited acceleration, integral, and
 filtered angular velocity. Optional streaming starts disabled. Read-only browser

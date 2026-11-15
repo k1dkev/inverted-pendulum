@@ -24,7 +24,12 @@ static const telemetry_descriptor_t catalog[] = {
     {"bounds.left", "bool", "Cart at the left hard stop"},
     {"bounds.right", "bool", "Cart at the right hard stop"},
     {"device.state", "enum", "Device operating state"},
-    {"controller.recovery_count", "count", "LQR recovery attempts during current run"}};
+    {"controller.recovery_count", "count", "LQR recovery attempts during current run"},
+    {"v3.a", "1/s2", "Estimated gravitational parameter"},
+    {"v3.c", "1/s", "Estimated damping parameter"},
+    {"v3.excited", "bool", "Information matrix meets excitation threshold"},
+    {"v3.updates", "count", "Completed identification windows"},
+    {"v3.rejected", "count", "Timed-out identification windows"}};
 _Static_assert(sizeof(catalog) / sizeof(catalog[0]) == TELEMETRY_CHANNELS,
                "Catalog count mismatch");
 const telemetry_descriptor_t *telemetry_descriptor(uint16_t id)
