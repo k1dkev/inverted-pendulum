@@ -20,6 +20,7 @@ getting-started
 local-simulation
 control-policy
 recovery-policy
+v3-control-design
 logging-and-console
 ```
 
