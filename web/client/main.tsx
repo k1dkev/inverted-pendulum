@@ -17,6 +17,7 @@ import type {
   Subscription,
 } from "../server/protocol";
 import { ConsolePanel } from "./ConsolePanel";
+import { Faults } from "./Faults";
 import { useDiagnostics } from "./useDiagnostics";
 import { JogKeys } from "./jog";
 import { ANGLE_VIEWS, displayAngle, type AngleView } from "./angle";
@@ -454,6 +455,16 @@ function App() {
           </a>
         </nav>
         <div className="header-status">
+          <a
+            className={`fault-indicator ${connected && fresh ? (sample?.fault_bits ? "active" : "") : "warning"}`}
+            href="#faults"
+          >
+            {connected && fresh
+              ? sample?.fault_bits
+                ? "FAULT"
+                : "NO FAULTS"
+              : "STATUS UNKNOWN"}
+          </a>
           <span className={`dot ${connected && fresh ? "live" : ""}`} />
           {connected
             ? fresh
@@ -1003,6 +1014,12 @@ function App() {
             )}
           </aside>
         </div>
+        <Faults
+          bits={sample?.fault_bits ?? 0}
+          connected={connected && fresh}
+          owned={owned}
+          clear={() => send("clear_fault")}
+        />
         <ConsolePanel
           logs={logs}
           commands={commands}

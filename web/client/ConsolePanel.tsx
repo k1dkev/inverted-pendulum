@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { COMMAND_COMPLETIONS, COMMAND_HELP } from "../shared/commands";
+import { COMMAND_HELP } from "../shared/commands";
 import type { LogRecord } from "../shared/logging";
 import type { CommandEntry } from "./useDiagnostics";
 export const ConsolePanel = memo(function ConsolePanel({
@@ -236,7 +236,6 @@ export const ConsolePanel = memo(function ConsolePanel({
               placeholder="help"
               autoComplete="off"
               spellCheck={false}
-              list="command-suggestions"
               onChange={(event) => {
                 setLine(event.target.value);
                 setHistoryIndex(-1);
@@ -253,12 +252,6 @@ export const ConsolePanel = memo(function ConsolePanel({
                 }
               }}
             />
-            <datalist id="command-suggestions">
-              {COMMAND_COMPLETIONS.map((value) => (
-                <option key={value} value={value} />
-              ))}
-            </datalist>
-            <button disabled={!ready || !line.trim()}>Run</button>
           </form>
           <p className="hint">
             Motion and configuration commands require ownership. Timed{" "}

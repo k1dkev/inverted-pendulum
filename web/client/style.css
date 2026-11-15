@@ -119,6 +119,9 @@ select:focus-visible {
   outline-offset: 3px;
 }
 header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   height: 86px;
   border-bottom: 1px solid #2a3635;
   display: flex;
@@ -989,3 +992,20 @@ footer {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.fault-panel {
+  margin-top: 18px;
+  scroll-margin-top: 100px;
+}
+.fault-panel li {
+  margin: 8px 0;
+}
+.fault-indicator {
+  color: #a8b9b4;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.fault-indicator.active {
+  color: #ff8585;
+}
+.fault-indicator.warning { color: #e6be7a; }

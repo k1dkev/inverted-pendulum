@@ -271,3 +271,12 @@ test(
     }
   },
 );
+
+test("diagnostic codes decode independent active bits and unknown faults", async () => {
+  const { decodeFaults, Faults } = await import("../client/Faults");
+  assert.deepEqual(decodeFaults((1 << 4) | (1 << 7)).map((x) => x.code), ["IP0005", "IP0008"]);
+  assert.equal(decodeFaults(1 << 4)[0].description, "Control overrun");
+  assert.equal(decodeFaults(1 << 20)[0].description, "Unknown fault bit 20");
+  const html = renderToStaticMarkup(createElement(Faults, { bits: 16, connected: true, owned: true, clear: () => {} }));
+  assert.ok(html.includes("IP0005") && html.includes("Control overrun"));
+});

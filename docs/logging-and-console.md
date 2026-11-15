@@ -130,3 +130,16 @@ Do not open the same USB serial port independently from two active controllers.
 A separate broker or explicit exclusive mode should resolve that conflict before
 adding the terminal UI. Existing multiple-browser tests and per-client telemetry
 subscriptions provide a starting point for testing whichever model is selected.
+
+## Diagnostic trouble codes
+
+The overview displays active device fault bits as stable project-specific codes
+`IP0001` through `IP0008`, corresponding to bits 0 through 7; unknown bits get
+an `IP` code too. `IP0005` means control overrun. The top banner shows FAULT,
+NO FAULTS, or STATUS UNKNOWN when telemetry is unavailable. The device's
+existing fault-clear command clears its latched active bits.
+
+The browser records transitions it observes while the page is open, including
+an occurrence count and last observed time. This is session-only history: it is
+not stored in device nonvolatile memory and cannot report events missed while
+disconnected. The existing server event log remains separately downloadable.
