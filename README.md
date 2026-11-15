@@ -225,12 +225,11 @@ with filtering, bounded history, and NDJSON download. Type `help` for commands,
 The console shares ownership and serial access with the buttons. See
 [logging, console commands, and the future CLI/TUI plan](docs/logging-and-console.md).
 
-The four overview state graphs stay on their existing 50 Hz stream. Two additional plots show **Raw control effort · u** and **Limited control effort · u**
-in mm/s² at 25 Hz, using separate solid traces and independent vertical scales.
-They match when the ±10,000 mm/s² acceleration clamp is inactive. The limited
-command is still subject to the motor speed limit; actual cart acceleration
-appears in the existing state plot. No balancing
-command is plotted in Manual/OFF/faulted phases.
+The four overview state graphs stay on their existing 50 Hz stream. The control
+plot overlays raw and acceleration-limited u, with toggles for each trace and a
+separate 0/1 clipping plot. Clipping refers to the acceleration clamp before
+the separate motor speed limit. When available, the overview also shows v3's
+estimated a and c alongside the simulation plant's actual parameters.
 Open **Telemetry lab** to query the MCU's 30-channel catalog, choose additional signals and a
 5/10/25 Hz rate, and plot only those selected channels. Diagnostics include
 controller energy, energy threshold, raw/limited acceleration, integral, and

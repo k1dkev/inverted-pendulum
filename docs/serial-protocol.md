@@ -390,21 +390,22 @@ speed limit. The ST-LINK virtual COM connection currently uses a **115200 baud,
 8N1 UART**: ten wire bits per byte gives **11520 bytes/s per direction**. USB does
 not bypass that UART bottleneck.
 
-For the overview's four-channel u subscription, each selected-telemetry sample
-uses 66 framed bytes (44 payload + 20 header/CRC + 2 COBS/delimiter). Base state
+For the overview's eight-channel subscription (four controller channels plus
+four model/estimator channels when available), each selected-telemetry sample
+uses 82 framed bytes (60 payload + 20 header/CRC + 2 COBS/delimiter). Base state
 telemetry uses 86 framed bytes at 50 Hz, or 4300 bytes/s. A budget including
 10 Hz policy status (460 bytes/s), 20 Hz keepalive replies (600 bytes/s), and the
 maximum 10 Hz log stream (540 bytes/s) is:
 
 | u sample rate | u bytes/s | Combined transmit bytes/s | UART capacity |
 | --- | ---: | ---: | ---: |
-| 25 Hz (current) | 1650 | 7550 | 66% |
-| 50 Hz (hypothetical) | 3300 | 9200 | 80% |
-| 100 Hz (hypothetical) | 6600 | 12500 | 109% |
+| 25 Hz (current) | 2050 | 7950 | 69% |
+| 50 Hz (hypothetical) | 4100 | 10000 | 87% |
+| 100 Hz (hypothetical) | 8200 | 14100 | 122% |
 
 This excludes catalog/configuration replies and additional command replies.
 Additional lab channels increase the single combined subscription's packet size;
-the four overview channels are not transmitted twice. All 30 channels at 25 Hz,
+the overview channels are not transmitted twice. All 30 channels at 25 Hz,
 with the same background traffic, use about 10150 bytes/s (88%).
 
 A compact, batched 100 Hz u trace is a plausible future extension at this baud,
@@ -696,13 +697,11 @@ is backlogged. The MCU lease remains necessary even with these host checks.
   position (pulses), velocity (pulses/s), acceleration (pulses/s²). Show target and
   applied velocity as separate traces. Display “pulse-derived, not encoder
   feedback” by the stepper plots. Show gaps instead of connecting missing data.
-- Separate overview **Raw control effort · u** and **Limited control effort · u**
-  charts plot controller output in mm/s² with solid traces and independent vertical
-  scales. They match when the ±10,000 mm/s² acceleration clamp is inactive. They
-  use 25 Hz samples of the controller (100 Hz for v1/v2, 1 kHz for v3), with step traces and visible gaps when inactive. This is
-  not a full-rate controller trace and can miss changes between samples. The
-  limited command is before motor-speed saturation and is distinct from the
-  simulator's 1 ms cart acceleration. The existing four state charts stay intact.
+- The overview control-effort plot overlays raw and acceleration-limited u,
+  with toggles for both traces. A separate 0/1 plot indicates whether the
+  acceleration clamp is active and has its own toggle. All are 25 Hz samples;
+  speed saturation is separate. V3 estimated parameters and the simulation's
+  actual a and c are displayed when their channels are available.
 - Angle graph selector: upright = 0°, bottom = 0°, horizontal = 0° with upright
   at +90°, absolute angle from upright, or cos(θ). Absolute angle is
   `abs(wrap_degrees(theta * 180 / pi))`, continuously folded into 0..180° with

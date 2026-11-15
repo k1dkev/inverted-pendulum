@@ -5,6 +5,7 @@ import { Transport } from "./transport";
 import { LogStore, deviceLog } from "./logging";
 import {
   CONTROL_CHANNELS,
+  CONTROL_OPTIONAL_CHANNELS,
   CONTROL_MASK,
   CONTROL_RATE_HZ,
   controlTelemetry,
@@ -774,6 +775,9 @@ export class Bridge {
         for (const client of this.clients) {
           if (client.controlSubscribed) {
             mask |= CONTROL_MASK;
+            for (const id of CONTROL_OPTIONAL_CHANNELS)
+              if (this.catalog.some((channel) => channel.id === id))
+                mask |= 1 << id;
             rate = Math.max(rate, CONTROL_RATE_HZ);
           }
           if (client.selectedRate && client.selectedMask) {

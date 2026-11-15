@@ -30,6 +30,11 @@ test("control trace preserves raw and limited u and hides stale inactive outputs
   assert.equal(point.raw_u_mm_s2, 24000);
   assert.equal(point.limited_u_mm_s2, 10000);
   assert.equal(point.time_us, frame.time_us);
+  const v3 = controlTelemetry({ ...frame, values: { ...frame.values, 14: 3, 16: .00267683, 17: .0004015245, 25: 49.7, 26: .15 } });
+  assert.equal(v3.estimated_a, 49.7);
+  assert.equal(v3.estimated_c, .15);
+  assert.equal(v3.model_inertia, .00267683);
+  assert.equal(v3.model_damping, .0004015245);
   for (const phase of [0, 3]) {
     const inactive = controlTelemetry({
       ...frame,
@@ -53,18 +58,20 @@ test("control trace preserves raw and limited u and hides stale inactive outputs
     false,
   );
 });
-test("overview separates raw and limited control effort into labeled plots", () => {
+test("overview overlays control effort and shows clipping on a separate scale", () => {
   const markup = renderToStaticMarkup(
     createElement(ControlPlot, { samples: { current: [] }, available: true }),
   );
-  assert.ok(markup.includes("Raw control effort · u"));
-  assert.ok(markup.includes("Limited control effort · u"));
+  assert.ok(markup.includes("Control effort · u"));
+  assert.ok(markup.includes("Is acceleration limited"));
   assert.equal((markup.match(/<canvas/g) ?? []).length, 2);
   assert.ok(markup.includes("mm/s²"));
   assert.ok(!markup.includes("Dashed:"));
-  assert.ok(markup.includes("25 Hz") && markup.includes("100 Hz"));
-  assert.ok(markup.includes("before the motor speed limit"));
-  assert.ok(markup.includes("match when that clamp is inactive"));
+  assert.ok(markup.includes("25 Hz"));
+  assert.ok(markup.includes("before motor speed limiting"));
+  assert.ok(
+    markup.includes("estimated") && markup.includes("simulated actual"),
+  );
 });
 test(
   "overview u subscription shares MCU diagnostics without changing personal lab selections",
@@ -118,7 +125,7 @@ test(
       assert.equal(idle.raw_u_mm_s2, null);
       assert.equal(
         viewer.latest("telemetry_setup")!.subscription.mask,
-        CONTROL_MASK,
+        CONTROL_MASK | (1 << 16) | (1 << 17) | (1 << 25) | (1 << 26),
       );
       assert.deepEqual(viewer.latest("telemetry_setup")!.channels, []);
       assert.equal(viewer.latest("telemetry_setup")!.rate_hz, 0);
@@ -137,7 +144,7 @@ test(
       );
       assert.equal(
         owner.latest("telemetry_setup")!.subscription.mask,
-        CONTROL_MASK | (1 << 8),
+        CONTROL_MASK | (1 << 8) | (1 << 16) | (1 << 17) | (1 << 25) | (1 << 26),
       );
       assert.deepEqual(owner.latest("telemetry_setup")!.channels, [8]);
       assert.equal((await owner.request("acquire_control")).ok, true);
@@ -185,7 +192,7 @@ test(
       );
       assert.equal(
         owner.latest("telemetry_setup")!.subscription.mask,
-        CONTROL_MASK,
+        CONTROL_MASK | (1 << 16) | (1 << 17) | (1 << 25) | (1 << 26),
       );
       const count = viewer.messages.filter(
         (m) => m.type === "control_telemetry",

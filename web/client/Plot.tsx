@@ -20,6 +20,7 @@ export function Plot<
   secondary,
   primaryLabel = "Applied",
   step = false,
+  showLegend = true,
 }: {
   title: string;
   unit: string;
@@ -34,6 +35,7 @@ export function Plot<
   secondary?: { field: (s: T) => number | null; label: string; color?: string };
   primaryLabel?: string;
   step?: boolean;
+  showLegend?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const fieldRef = useRef(field);
@@ -178,7 +180,7 @@ export function Plot<
         <span>{unit}</span>
       </div>
       <canvas ref={canvas} aria-label={`${title} over time`} role="img" />
-      {secondary && (
+      {secondary && showLegend && (
         <small className="legend">
           Solid: {primaryLabel} · Dashed: {secondary.label}
         </small>
