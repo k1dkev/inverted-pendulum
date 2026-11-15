@@ -138,7 +138,13 @@ int main(int argc, char **argv)
                 break;
             }
         }
-        device_tick(&device, clock_us() - start);
+        /* Host scheduling pauses do not represent missed MCU deadlines. Advance
+         * the virtual device in bounded wall-clock slices: this preserves lease
+         * expiry and simulated elapsed time without raising a hardware overrun. */
+        uint64_t now = clock_us() - start;
+        while (now - device.last_tick > 32000)
+            device_tick(&device, device.last_tick + 32000);
+        device_tick(&device, now);
         if (!drain_output())
         {
             perror("write");

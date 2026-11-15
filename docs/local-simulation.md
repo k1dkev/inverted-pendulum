@@ -88,3 +88,9 @@ and CPU load do not compete with the real-time lease/overrun checks.
 
 The implementation targets macOS and Linux. The real serial path was verified on
 macOS during development; the repository's Linux CI runs the same tests when pushed.
+
+The native simulator advances missed wall-clock time in slices of at most 32 ms.
+A host scheduling pause therefore does not create a simulated MCU control-overrun
+fault, while simulated time and command leases continue to advance. This applies
+to the Mac/Linux native simulator only; the STM32 still reports a genuine device
+control overrun if its actual control loop falls behind.

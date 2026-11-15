@@ -107,6 +107,19 @@ test(
       assert.equal((await request("select_policy", { policy_id: 2 })).ok, true);
       assert.equal((await request("arm")).ok, true);
       assert.equal((await request("start_policy")).ok, true);
+      // A host scheduling pause must not masquerade as an MCU overrun.
+      const beforePause = latest("telemetry")!.sample_seq;
+      process.kill(pid, "SIGSTOP");
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 70));
+      } finally {
+        process.kill(pid, "SIGCONT");
+      }
+      const afterPause = await until(() => {
+        const point = latest("telemetry");
+        return point && point.sample_seq !== beforePause ? point : undefined;
+      });
+      assert.equal(afterPause.fault_bits & (1 << 4), 0);
       const control = await until(() =>
         latest("control_telemetry")?.active
           ? latest("control_telemetry")
