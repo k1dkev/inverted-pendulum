@@ -40,3 +40,10 @@ add_test(NAME v3 COMMAND v3-tests)
 add_executable(scenario-tests ../../tests/scenarios_test.c ../../tests/scenario.c)
 target_link_libraries(scenario-tests PRIVATE pendulum_core)
 add_test(NAME scenarios COMMAND scenario-tests)
+
+# Small C ABI for batch Python experiments; controller and model stay in C.
+add_library(pendulum_experiments SHARED ../../experiments/experiment_api.c ../../tests/scenario.c
+  ../../lib/simulation/simulation.c ../../lib/policy/policy.c ../../lib/policy/recovery.c ../../lib/policy/v3.c)
+target_include_directories(pendulum_experiments PRIVATE ../../tests ../../lib/simulation ../../lib/policy)
+target_compile_options(pendulum_experiments PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(pendulum_experiments PRIVATE m)

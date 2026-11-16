@@ -51,6 +51,7 @@ web-build:
 test: native
     ctest --test-dir build/host --output-on-failure
     npm --prefix web test
+    PYTHONPATH=experiments/python python3 -m pytest -q experiments/tests
 
 # Build the searchable Sphinx documentation; warnings fail the build.
 docs-build:
@@ -63,3 +64,11 @@ docs: docs-build
 # Run deterministic controller/plant scenarios without starting the web app.
 test-controller: native
     ctest --test-dir build/host --output-on-failure -R '^(scenarios|v3|recovery|policy-reference)$'
+
+# Build the native batch API and plot the default v3 experiment.
+plot-v3: native
+    python3 experiments/scripts/plot_v3.py
+
+# Run Python binding and experiment regression tests.
+test-experiments: native
+    PYTHONPATH=experiments/python python3 -m pytest -q experiments/tests

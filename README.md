@@ -302,3 +302,5 @@ The previous Arduino and web project remains in Git history on `dev`; the fresh
 STM32 work lives on `stm32-bringup`.
 
 For repeatable controller/plant scenarios, run `nix develop --command just test-controller`. See [controller testing](docs/controller-testing.md) for scenario inputs, metrics, and limits.
+
+For Python plots and parameter sweeps using the C simulator, see [Python experiments](docs/experiments.md). Run `nix develop --command just plot-v3` to generate the default v3 plot.

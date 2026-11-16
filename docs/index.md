@@ -33,6 +33,7 @@ stm32-pinout-plan
 serial-protocol
 simulation-strategy
 controller-testing
+experiments
 ```
 
 ```{toctree}

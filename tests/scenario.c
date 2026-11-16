@@ -50,6 +50,8 @@ scenario_result_t scenario_run(const scenario_t *scenario, scenario_observer_t o
             .acceleration_mm_s2 = sim.acceleration * SIM_MM_PER_PULSE,
             .raw_control = policy.raw_acceleration,
             .limited_control = policy.applied_acceleration,
+            .estimated_a = policy.id == POLICY_V3 ? policy.v3_a : NAN,
+            .estimated_c = policy.id == POLICY_V3 ? policy.v3_c : NAN,
             .phase = policy.phase,
             .error = policy.error,
         };

@@ -19,6 +19,7 @@ typedef struct
     uint64_t time_us;
     float position_mm, velocity_mm_s, angle, angular_velocity, acceleration_mm_s2;
     float raw_control, limited_control;
+    float estimated_a, estimated_c;
     uint8_t phase, error;
 } scenario_sample_t;
 typedef void (*scenario_observer_t)(const scenario_sample_t *, void *);

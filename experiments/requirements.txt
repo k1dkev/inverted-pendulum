@@ -1,0 +1,4 @@
+# Used by non-Nix CI; the development shell uses its pinned nixpkgs revision.
+numpy==2.2.6
+matplotlib==3.10.3
+pytest==8.3.5

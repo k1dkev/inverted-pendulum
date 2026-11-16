@@ -42,3 +42,6 @@ protocol and watchdog; the existing native-peer/WebSocket tests exercise those
 integration paths. It does not prove MCU timing, hardware dynamics, or safety.
 Future extensions can add seeded disturbances, parameter sweeps, trace export,
 and hardware-in-the-loop tests once the physical interfaces are available.
+
+For Python scripts and plots using the same scenario runner, see the repository’s
+`experiments/README.md` and run `just plot-v3` or `just test-experiments`.
