@@ -1008,4 +1008,29 @@ footer {
 .fault-indicator.active {
   color: #ff8585;
 }
-.fault-indicator.warning { color: #e6be7a; }
+.fault-indicator.warning {
+  color: #e6be7a;
+}
+
+.parameter-panel {
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid #344743;
+  border-radius: 8px;
+  background: #172322;
+}
+.parameter-panel h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.parameter-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+}
+.parameter-values > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}

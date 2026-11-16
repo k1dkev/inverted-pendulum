@@ -7,6 +7,7 @@ import type {
 } from "../server/protocol";
 import { Apparatus } from "./Apparatus";
 import { ControlPlot, type ControlSample } from "./ControlPlot";
+import type { ControlTelemetry } from "../shared/control";
 import { Plot } from "./Plot";
 import { PolicyPanel } from "./PolicyPanel";
 import { TelemetryExplorer, type ExtraSample } from "./TelemetryExplorer";
@@ -60,6 +61,9 @@ function App() {
     [socketReady, setSocketReady] = useState(false),
     [held, setHeld] = useState(0);
   const [policy, setPolicy] = useState<PolicyStatus | null>(null);
+  const [controlLatest, setControlLatest] = useState<ControlTelemetry | null>(
+    null,
+  );
   const [page, setPage] = useState(
     location.hash === "#telemetry" ? "telemetry" : "main",
   );
@@ -238,6 +242,7 @@ function App() {
           if (m.serial !== "connected") {
             controlSession.current = null;
             controlSamples.current = [];
+            setControlLatest(null);
             setSample(null);
             samples.current = [];
             epoch.current = null;
@@ -267,6 +272,7 @@ function App() {
           if (epoch.current === null) epoch.current = stamp;
           const seconds = Number(stamp - epoch.current) / 1e6;
           controlSamples.current.push({ ...m, seconds });
+          setControlLatest(m);
           while (
             controlSamples.current.length > 1500 ||
             (controlSamples.current[0] &&
@@ -308,6 +314,7 @@ function App() {
           extraSamples.current = [];
           extraEpoch.current = null;
           controlSamples.current = [];
+          setControlLatest(null);
           samples.current = [];
           epoch.current = null;
         }
@@ -320,6 +327,7 @@ function App() {
       socket.onclose = () => {
         controlSession.current = null;
         controlSamples.current = [];
+        setControlLatest(null);
         connectionLost();
         stop();
         setSocketReady(false);
@@ -628,6 +636,7 @@ function App() {
             </div>
             <ControlPlot
               samples={controlSamples}
+              latest={controlLatest}
               available={
                 connected && !!((connection.capabilities?.bits ?? 0) & 32)
               }

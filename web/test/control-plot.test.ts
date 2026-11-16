@@ -30,11 +30,21 @@ test("control trace preserves raw and limited u and hides stale inactive outputs
   assert.equal(point.raw_u_mm_s2, 24000);
   assert.equal(point.limited_u_mm_s2, 10000);
   assert.equal(point.time_us, frame.time_us);
-  const v3 = controlTelemetry({ ...frame, values: { ...frame.values, 14: 3, 16: .00267683, 17: .0004015245, 25: 49.7, 26: .15 } });
+  const v3 = controlTelemetry({
+    ...frame,
+    values: {
+      ...frame.values,
+      14: 3,
+      16: 0.00267683,
+      17: 0.0004015245,
+      25: 49.7,
+      26: 0.15,
+    },
+  });
   assert.equal(v3.estimated_a, 49.7);
-  assert.equal(v3.estimated_c, .15);
-  assert.equal(v3.model_inertia, .00267683);
-  assert.equal(v3.model_damping, .0004015245);
+  assert.equal(v3.estimated_c, 0.15);
+  assert.equal(v3.model_inertia, 0.00267683);
+  assert.equal(v3.model_damping, 0.0004015245);
   for (const phase of [0, 3]) {
     const inactive = controlTelemetry({
       ...frame,
@@ -70,8 +80,46 @@ test("overview overlays control effort and shows clipping on a separate scale", 
   assert.ok(markup.includes("25 Hz"));
   assert.ok(markup.includes("before motor speed limiting"));
   assert.ok(
-    markup.includes("estimated") && markup.includes("simulated actual"),
+    markup.includes("Estimated") && markup.includes("Simulated actual"),
   );
+});
+test("v3 estimates display current measurements and explain when unavailable", () => {
+  const latest = controlTelemetry({
+    time_us: "100",
+    sample_seq: 1,
+    rate_hz: 25,
+    values: {
+      6: 0,
+      7: 0,
+      13: 1,
+      14: 3,
+      16: 0.00267683,
+      17: 0.0004015245,
+      25: 45,
+      26: 0.2,
+    },
+  });
+  const render = (point: typeof latest | null) =>
+    renderToStaticMarkup(
+      createElement(ControlPlot, {
+        samples: { current: [] },
+        available: true,
+        latest: point,
+      }),
+    );
+  const active = render(latest);
+  assert.ok(
+    active.includes("Estimated 45.000") && active.includes("Estimated 0.200"),
+  );
+  assert.ok(
+    active.includes("Simulated actual 49.744") &&
+      active.includes("Simulated actual 0.150"),
+  );
+  assert.ok(render({ ...latest, active: false }).includes("Arm and run v3"));
+  assert.ok(
+    render({ ...latest, policy_id: 2 }).includes("Select swingup lqr v3"),
+  );
+  assert.ok(render(null).includes("Waiting for controller telemetry"));
 });
 test(
   "overview u subscription shares MCU diagnostics without changing personal lab selections",
@@ -181,6 +229,22 @@ test(
           Number.isFinite(active.limited_u_mm_s2),
       );
       assert.ok(Math.abs(active.limited_u_mm_s2) <= 10000);
+      assert.equal(
+        (await owner.request("select_policy", { policy_id: 3 })).ok,
+        true,
+      );
+      const v3 = await until(() => {
+        const point = viewer!.latest("control_telemetry");
+        return point?.policy_id === 3 &&
+          point.active &&
+          Number.isFinite(point.estimated_a) &&
+          Number.isFinite(point.estimated_c)
+          ? point
+          : undefined;
+      });
+      assert.ok(
+        Number.isFinite(v3.model_inertia) && Number.isFinite(v3.model_damping),
+      );
       assert.equal(
         (
           await owner.request("telemetry_subscribe", {

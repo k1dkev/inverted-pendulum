@@ -5,14 +5,16 @@ export type ControlSample = ControlTelemetry & { seconds: number };
 export function ControlPlot({
   samples,
   available,
+  latest = null,
 }: {
   samples: RefObject<ControlSample[]>;
   available: boolean;
+  latest?: ControlTelemetry | null;
 }) {
   const [raw, setRaw] = useState(true),
     [limited, setLimited] = useState(true),
     [isLimited, setIsLimited] = useState(true);
-  const sample = samples.current.at(-1);
+  const sample = latest;
   const inertia = sample?.model_inertia,
     damping = sample?.model_damping;
   const actualA =
@@ -23,6 +25,34 @@ export function ControlPlot({
     x == null ? "—" : x.toFixed(3);
   return (
     <div className="control-effort-plot">
+      <section className="parameter-panel" aria-label="V3 parameter estimates">
+        <h2>V3 parameter estimates</h2>
+        <p className="hint">
+          {!available
+            ? "Connect to the current simulator or firmware."
+            : !sample
+              ? "Waiting for controller telemetry."
+              : sample.policy_id !== 3
+                ? "Select swingup lqr v3, then arm and run the policy to see estimates."
+                : !sample.active
+                  ? "Arm and run v3 to start estimation."
+                  : sample.estimated_a == null || sample.estimated_c == null
+                    ? "Estimates unavailable: restart the web server and update the simulator or firmware."
+                    : "Updated from v3 telemetry. Actual values are calculated from the simulation model."}
+        </p>
+        <div className="parameter-values">
+          <div>
+            <strong>a · gravity</strong>
+            <span>Estimated {display(sample?.estimated_a)} s⁻²</span>
+            <span>Simulated actual {display(actualA)} s⁻²</span>
+          </div>
+          <div>
+            <strong>c · damping</strong>
+            <span>Estimated {display(sample?.estimated_c)} s⁻¹</span>
+            <span>Simulated actual {display(actualC)} s⁻¹</span>
+          </div>
+        </div>
+      </section>
       <div className="control-legend" aria-label="Control graph series">
         <label>
           <input
@@ -87,11 +117,6 @@ export function ControlPlot({
         {available
           ? "25 Hz samples; is limited indicates acceleration clipping, before motor speed limiting. Gaps mean no active policy."
           : "Connect current firmware or a local simulator to stream controller output."}
-      </p>
-      <p className="hint">
-        V3 parameters · a: estimated {display(sample?.estimated_a)} / simulated
-        actual {display(actualA)} s⁻² · c: estimated{" "}
-        {display(sample?.estimated_c)} / simulated actual {display(actualC)} s⁻¹
       </p>
     </div>
   );
