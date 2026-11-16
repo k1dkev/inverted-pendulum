@@ -65,10 +65,14 @@ docs: docs-build
 test-controller: native
     ctest --test-dir build/host --output-on-failure -R '^(scenarios|v3|recovery|policy-reference)$'
 
-# Build the native batch API and plot the default v3 experiment.
+# Build the native batch API and open the default v3 plot.
 plot-v3: native
     python3 experiments/scripts/plot_v3.py
 
 # Run Python binding and experiment regression tests.
 test-experiments: native
     PYTHONPATH=experiments/python python3 -m pytest -q experiments/tests
+
+# Generate the v3 plot without opening a GUI window.
+plot-v3-file: native
+    python3 experiments/scripts/plot_v3.py --no-show

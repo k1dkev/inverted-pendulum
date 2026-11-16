@@ -4,9 +4,6 @@ import argparse
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 from pendulum import COLUMNS, run
 
@@ -21,7 +18,11 @@ parser.add_argument("--duration", type=float, default=30, help="duration, second
 parser.add_argument("--sample-ms", type=int, default=10, help="trace sampling interval, milliseconds")
 parser.add_argument("--output", type=Path, default=Path("build/experiments/v3-swingup.png"))
 parser.add_argument("--csv", type=Path, help="also save sampled trace as CSV")
+parser.add_argument("--no-show", action="store_true", help="save without opening a window (for headless runs)")
 args = parser.parse_args()
+import matplotlib
+matplotlib.use("Agg" if args.no_show else "TkAgg")
+import matplotlib.pyplot as plt
 r = run(initial_angle_deg=args.angle, angular_velocity_rad_s=args.omega, position_mm=args.position,
         velocity_mm_s=args.velocity, inertia=args.inertia, damping=args.damping,
         duration_s=args.duration, sample_every_ms=args.sample_ms)
@@ -64,4 +65,8 @@ if args.csv:
     print(f"Trace: {args.csv}")
 print(f"Plot: {args.output}")
 print(f"First capture: {r.capture_time_s} s; settled: {r.settling_time_s} s; max |x|: {r.max_position_mm:.2f} mm; recoveries: {r.recoveries}; policy error: {r.policy_error}; finite: {r.finite}")
-if r.policy_error or not r.finite: raise SystemExit(1)
+if r.policy_error or not r.finite:
+    raise SystemExit(1)
+if not args.no_show:
+    print("Close the plot window to return to the terminal.", flush=True)
+    plt.show()

@@ -8,7 +8,10 @@ just plot-v3
 just test-experiments
 ```
 
-The plot is written to `build/experiments/v3-swingup.png`. To change a scenario:
+`just plot-v3` opens an interactive Matplotlib window with zoom, pan and save
+controls. Close the window to return to the terminal. It also writes
+`build/experiments/v3-swingup.png`. For a headless run, use `just plot-v3-file`
+or pass `--no-show` to the script. To change a scenario:
 
 ```sh
 python3 experiments/scripts/plot_v3.py --angle 180 --duration 60 \

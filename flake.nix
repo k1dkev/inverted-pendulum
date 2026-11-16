@@ -10,7 +10,7 @@
         let pkgs = import nixpkgs { inherit system; };
         in { default = pkgs.mkShell {
           packages = with pkgs; [ just cmake ninja gcc-arm-embedded openocd git nodejs_22
-            (python3.withPackages (ps: with ps; [ sphinx myst-parser furo numpy matplotlib pytest ]))
+            (python3.withPackages (ps: with ps; [ sphinx myst-parser furo numpy matplotlib pytest tkinter ]))
           ];
         }; });
     };

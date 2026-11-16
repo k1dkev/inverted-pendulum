@@ -34,3 +34,20 @@ def test_disturbance_and_legacy_policy():
     v2 = run(policy="swingup_lqr_v2", duration_s=60)
     assert v2.capture_time_s is not None and v2.policy_error == 0
     assert np.isnan(v2.estimated_a).all()
+
+
+def test_plot_script_can_run_headless(tmp_path):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[1] / "scripts" / "plot_v3.py"
+    output = tmp_path / "plot.png"
+    trace = tmp_path / "trace.csv"
+    result = subprocess.run(
+        [sys.executable, str(script), "--no-show", "--duration", "1", "--output", str(output), "--csv", str(trace)],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert output.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert trace.read_text().startswith("time_s,angle_rad,")
