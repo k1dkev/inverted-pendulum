@@ -1063,11 +1063,6 @@ footer {
 .expandable:not([open]) > summary::after {
   content: "▸";
 }
-.expandable .panel-content {
-  max-height: min(60vh, 550px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
 @media (min-width: 761px) {
   aside {
     position: sticky;
