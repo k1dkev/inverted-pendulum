@@ -390,18 +390,18 @@ speed limit. The ST-LINK virtual COM connection currently uses a **115200 baud,
 8N1 UART**: ten wire bits per byte gives **11520 bytes/s per direction**. USB does
 not bypass that UART bottleneck.
 
-For the overview's eight-channel subscription (four controller channels plus
-four model/estimator channels when available), each selected-telemetry sample
-uses 82 framed bytes (60 payload + 20 header/CRC + 2 COBS/delimiter). Base state
+For the overview's ten-channel subscription (four controller channels plus
+six model/estimator channels when available), each selected-telemetry sample
+uses 90 framed bytes (68 payload + 20 header/CRC + 2 COBS/delimiter). Base state
 telemetry uses 86 framed bytes at 50 Hz, or 4300 bytes/s. A budget including
 10 Hz policy status (460 bytes/s), 20 Hz keepalive replies (600 bytes/s), and the
 maximum 10 Hz log stream (540 bytes/s) is:
 
 | u sample rate | u bytes/s | Combined transmit bytes/s | UART capacity |
 | --- | ---: | ---: | ---: |
-| 25 Hz (current) | 2050 | 7950 | 69% |
-| 50 Hz (hypothetical) | 4100 | 10000 | 87% |
-| 100 Hz (hypothetical) | 8200 | 14100 | 122% |
+| 25 Hz (current) | 2250 | 8150 | 71% |
+| 50 Hz (hypothetical) | 4500 | 10400 | 90% |
+| 100 Hz (hypothetical) | 9000 | 14900 | 129% |
 
 This excludes catalog/configuration replies and additional command replies.
 Additional lab channels increase the single combined subscription's packet size;

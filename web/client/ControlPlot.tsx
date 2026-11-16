@@ -40,6 +40,19 @@ export function ControlPlot({
                     ? "Estimates unavailable: restart the web server and update the simulator or firmware."
                     : "Updated from v3 telemetry. Actual values are calculated from the simulation model."}
         </p>
+        {sample?.active && sample.policy_id === 3 && (
+          <p className="hint">
+            Identification windows: {sample.estimator_updates ?? "—"} ·
+            Excitation:{" "}
+            {sample.estimator_excited == null
+              ? "unknown"
+              : sample.estimator_excited
+                ? "threshold reached"
+                : "below threshold"}
+            . Updates need 135° of angular travel; estimates can stop changing
+            once balanced.
+          </p>
+        )}
         <div className="parameter-values">
           <div>
             <strong>a · gravity</strong>

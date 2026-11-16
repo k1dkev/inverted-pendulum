@@ -39,10 +39,14 @@ test("control trace preserves raw and limited u and hides stale inactive outputs
       17: 0.0004015245,
       25: 49.7,
       26: 0.15,
+      27: 1,
+      28: 4,
     },
   });
   assert.equal(v3.estimated_a, 49.7);
   assert.equal(v3.estimated_c, 0.15);
+  assert.equal(v3.estimator_excited, true);
+  assert.equal(v3.estimator_updates, 4);
   assert.equal(v3.model_inertia, 0.00267683);
   assert.equal(v3.model_damping, 0.0004015245);
   for (const phase of [0, 3]) {
@@ -173,7 +177,13 @@ test(
       assert.equal(idle.raw_u_mm_s2, null);
       assert.equal(
         viewer.latest("telemetry_setup")!.subscription.mask,
-        CONTROL_MASK | (1 << 16) | (1 << 17) | (1 << 25) | (1 << 26),
+        CONTROL_MASK |
+          (1 << 16) |
+          (1 << 17) |
+          (1 << 25) |
+          (1 << 26) |
+          (1 << 27) |
+          (1 << 28),
       );
       assert.deepEqual(viewer.latest("telemetry_setup")!.channels, []);
       assert.equal(viewer.latest("telemetry_setup")!.rate_hz, 0);
@@ -192,7 +202,14 @@ test(
       );
       assert.equal(
         owner.latest("telemetry_setup")!.subscription.mask,
-        CONTROL_MASK | (1 << 8) | (1 << 16) | (1 << 17) | (1 << 25) | (1 << 26),
+        CONTROL_MASK |
+          (1 << 8) |
+          (1 << 16) |
+          (1 << 17) |
+          (1 << 25) |
+          (1 << 26) |
+          (1 << 27) |
+          (1 << 28),
       );
       assert.deepEqual(owner.latest("telemetry_setup")!.channels, [8]);
       assert.equal((await owner.request("acquire_control")).ok, true);
@@ -256,7 +273,13 @@ test(
       );
       assert.equal(
         owner.latest("telemetry_setup")!.subscription.mask,
-        CONTROL_MASK | (1 << 16) | (1 << 17) | (1 << 25) | (1 << 26),
+        CONTROL_MASK |
+          (1 << 16) |
+          (1 << 17) |
+          (1 << 25) |
+          (1 << 26) |
+          (1 << 27) |
+          (1 << 28),
       );
       const count = viewer.messages.filter(
         (m) => m.type === "control_telemetry",
