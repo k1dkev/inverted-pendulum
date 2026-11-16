@@ -10,6 +10,7 @@ just test-experiments
 
 `just plot-v3` opens two interactive Matplotlib windows with zoom, pan and save
 controls: the overview and a separate acceleration/control-effort comparison.
+Click a trace’s legend label or swatch in the acceleration window to toggle it.
 Close both windows to return to the terminal. It also writes
 `build/experiments/v3-swingup.png` and `build/experiments/v3-swingup-acceleration.png`.
 The trace defaults to 1 ms samples so fast changes are visible when zooming. For a headless run, use `just plot-v3-file`

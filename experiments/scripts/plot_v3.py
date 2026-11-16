@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
 import numpy as np
 from pendulum import COLUMNS, run
+from pendulum.plotting import toggleable_legend
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--angle", type=float, default=180, help="initial angle in degrees (upright = 0)")
@@ -58,18 +59,18 @@ for ax in axes:
     ax.grid(True, alpha=.2)
     if r.capture_time_s is not None: ax.axvline(r.capture_time_s, color="#587e67", ls="--", lw=.8, alpha=.8)
 # A separate window gives these signals the full plotting area and its own
-# toolbar. Dashed/dotted lines stay distinguishable where signals overlap.
+# toolbar. Click a legend entry to show or hide its trace.
 acceleration_fig, acceleration_ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
 acceleration_fig.canvas.manager.set_window_title("V3 acceleration and control effort")
-acceleration_ax.plot(r.time_s, r.raw_u_mm_s2, color="#cc7744", linestyle="--", linewidth=1.2, label="Raw u")
-acceleration_ax.plot(r.time_s, r.limited_u_mm_s2, color="#2b6eaa", linestyle="-", linewidth=1.2, label="Clamped u")
-acceleration_ax.plot(r.time_s, r.acceleration_mm_s2, color="#7956a2", linestyle=":", linewidth=1.6, label="Applied cart acceleration")
+raw_line, = acceleration_ax.plot(r.time_s, r.raw_u_mm_s2, color="#cc7744", linewidth=1.2, label="Raw u")
+limited_line, = acceleration_ax.plot(r.time_s, r.limited_u_mm_s2, color="#2b6eaa", linewidth=1.2, label="Clamped u")
+applied_line, = acceleration_ax.plot(r.time_s, r.acceleration_mm_s2, color="#7956a2", linewidth=1.6, label="Applied cart acceleration")
 acceleration_ax.axhline(0, color="#555", linewidth=.6)
 if r.capture_time_s is not None:
-    acceleration_ax.axvline(r.capture_time_s, color="#587e67", linestyle="--", linewidth=.8, label="First LQR capture")
+    acceleration_ax.axvline(r.capture_time_s, color="#587e67", linewidth=.8)
 acceleration_ax.set(title="V3 control effort and applied cart acceleration", xlabel="Simulated time (s)", ylabel="Acceleration (mm/s²)")
 acceleration_ax.grid(True, alpha=.2)
-acceleration_ax.legend(loc="best")
+toggleable_legend(acceleration_ax, [raw_line, limited_line, applied_line])
 acceleration_output = args.output.with_name(args.output.stem + "-acceleration" + args.output.suffix)
 args.output.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(args.output, dpi=150)

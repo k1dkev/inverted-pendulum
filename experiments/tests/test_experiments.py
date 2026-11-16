@@ -52,3 +52,25 @@ def test_plot_script_can_run_headless(tmp_path):
     assert output.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert (tmp_path / "plot-acceleration.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert trace.read_text().startswith("time_s,angle_rad,")
+
+
+def test_acceleration_legend_toggles_each_line_without_losing_zoom():
+    from types import SimpleNamespace
+    import matplotlib
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+    from pendulum.plotting import toggleable_legend
+
+    fig, ax = plt.subplots()
+    lines = [ax.plot([0, 1], [i, i + 1], label=name)[0]
+             for i, name in enumerate(("Raw u", "Clamped u", "Applied acceleration"))]
+    ax.set_xlim(.2, .8)
+    callback, legend = toggleable_legend(ax, lines)
+    for line, swatch, label in zip(lines, legend.legend_handles, legend.get_texts()):
+        callback(SimpleNamespace(artist=swatch))
+        assert not line.get_visible() and swatch.get_alpha() == .25
+        callback(SimpleNamespace(artist=label))
+        assert line.get_visible() and label.get_alpha() == 1
+    assert ax.get_xlim() == (.2, .8)
+    assert all(line.get_linestyle() == "-" for line in lines)
+    plt.close(fig)
