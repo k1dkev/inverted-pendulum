@@ -262,6 +262,31 @@ test(
       assert.ok(
         Number.isFinite(v3.model_inertia) && Number.isFinite(v3.model_damping),
       );
+      const liveState = {
+        angle_rad: 1,
+        angular_velocity_rad_s: 0,
+        position_pulses: "100",
+        velocity_pulses_s: 0,
+        paused: false,
+      };
+      assert.equal((await owner.request("sim_state", liveState)).ok, true);
+      assert.equal(
+        (await owner.request("sim_state", { ...liveState, paused: true })).code,
+        "WRONG_STATE",
+      );
+      await until(() => {
+        const point = owner.latest("telemetry");
+        return point?.state === "RUNNING" && Math.abs(point.angle_rad - 1) < 0.2
+          ? point
+          : undefined;
+      });
+      await until(() =>
+        viewer!.latest("control_telemetry")?.policy_id === 3 &&
+        viewer!.latest("control_telemetry")?.active
+          ? true
+          : undefined,
+      );
+
       assert.equal(
         (
           await owner.request("telemetry_subscribe", {

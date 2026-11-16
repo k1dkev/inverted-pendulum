@@ -547,7 +547,10 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
             absf(get_f32(b + 16)) > SIM_MAX_VELOCITY || position < -SIM_BOUND_PULSES ||
             position > SIM_BOUND_PULSES)
             return LIMIT_EXCEEDED;
-        if (d->state != IDLE)
+        bool running_policy = d->state == RUNNING && d->policy.running && d->policy.id != POLICY_MANUAL;
+        if (d->state != IDLE && !running_policy)
+            return WRONG_STATE;
+        if (running_policy && b[20])
             return WRONG_STATE;
         simulation_reset(&d->sim);
         d->sim.angle = get_f32(b);
@@ -556,6 +559,14 @@ static uint16_t command(device_t *d, const packet_t *p, packet_t *reply)
         d->sim.velocity = get_f32(b + 16);
         d->sim.target = d->sim.velocity;
         d->sim.paused = b[20] != 0;
+        if (running_policy)
+        {
+            /* Reset controller and estimator histories after a discontinuous
+             * simulated state change while retaining the active policy/lease. */
+            policy_start(&d->policy, d->now);
+            d->sim.acceleration_controlled = true;
+            d->sim.command_velocity_limit = POLICY_MAX_VELOCITY_MM_S / SIM_MM_PER_PULSE;
+        }
         event(d, 5);
         return OK;
     }

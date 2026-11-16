@@ -439,7 +439,7 @@ function App() {
       angular_velocity_rad_s: Number(form.omega),
       position_pulses: form.position,
       velocity_pulses_s: Number(form.velocity),
-      paused: form.paused,
+      paused: sample?.state === "RUNNING" ? false : form.paused,
     });
   };
   return (
@@ -462,6 +462,73 @@ function App() {
             Telemetry lab
           </a>
         </nav>
+        <details className="connection-menu">
+          <summary>Connection · {connection.serial}</summary>
+          <div className="connection-popup">
+            <section className="panel">
+              <div className="panel-heading">
+                <h2>Connection</h2>
+                <span className={`badge ${connected ? "good" : ""}`}>
+                  {connection.serial}
+                </span>
+              </div>
+              <label htmlFor="port">USB serial device</label>
+              <div className="port-row">
+                <select
+                  id="port"
+                  value={path}
+                  onChange={(e) => setPath(e.target.value)}
+                  disabled={connected}
+                >
+                  {ports.length === 0 ? (
+                    <option value="">No serial devices found</option>
+                  ) : (
+                    ports.map((p) => (
+                      <option key={p.path} value={p.path}>
+                        {p.label}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <button
+                  className="icon-button"
+                  onClick={() => void refreshPorts()}
+                  aria-label="Refresh serial devices"
+                >
+                  ↻
+                </button>
+              </div>
+              <button
+                className="connect"
+                disabled={
+                  !socketReady ||
+                  (!connected && !path) ||
+                  connection.serial === "connecting" ||
+                  (connected && !owned)
+                }
+                onClick={() =>
+                  send(
+                    connected ? "disconnect" : "connect",
+                    connected ? {} : { path },
+                  )
+                }
+              >
+                {connected ? "Disconnect device" : "Connect device"}
+              </button>
+              {connected && !owned && (
+                <button
+                  onClick={() => send("acquire_control")}
+                  disabled={connection.control === "other"}
+                >
+                  {connection.control === "other"
+                    ? "Controlled by another browser"
+                    : "Take control"}
+                </button>
+              )}
+              <p className="hint">CN1 / ST-LINK · 115200 baud</p>
+            </section>
+          </div>
+        </details>
         <div className="header-status">
           <a
             className={`fault-indicator ${connected && fresh ? (sample?.fault_bits ? "active" : "") : "warning"}`}
@@ -669,357 +736,312 @@ function App() {
                 send("select_policy", { policy_id: id });
               }}
             />
-            <section className="panel">
-              <div className="panel-heading">
-                <h2>Connection</h2>
-                <span className={`badge ${connected ? "good" : ""}`}>
-                  {connection.serial}
-                </span>
-              </div>
-              <label htmlFor="port">USB serial device</label>
-              <div className="port-row">
-                <select
-                  id="port"
-                  value={path}
-                  onChange={(e) => setPath(e.target.value)}
-                  disabled={connected}
-                >
-                  {ports.length === 0 ? (
-                    <option value="">No serial devices found</option>
-                  ) : (
-                    ports.map((p) => (
-                      <option key={p.path} value={p.path}>
-                        {p.label}
-                      </option>
-                    ))
-                  )}
-                </select>
-                <button
-                  className="icon-button"
-                  onClick={() => void refreshPorts()}
-                  aria-label="Refresh serial devices"
-                >
-                  ↻
-                </button>
-              </div>
-              <button
-                className="connect"
-                disabled={
-                  !socketReady ||
-                  (!connected && !path) ||
-                  connection.serial === "connecting" ||
-                  (connected && !owned)
-                }
-                onClick={() =>
-                  send(
-                    connected ? "disconnect" : "connect",
-                    connected ? {} : { path },
-                  )
-                }
-              >
-                {connected ? "Disconnect device" : "Connect device"}
-              </button>
-              {connected && !owned && (
-                <button
-                  onClick={() => send("acquire_control")}
-                  disabled={connection.control === "other"}
-                >
-                  {connection.control === "other"
-                    ? "Controlled by another browser"
-                    : "Take control"}
-                </button>
-              )}
-              <p className="hint">CN1 / ST-LINK · 115200 baud</p>
-            </section>
-            <section className="panel">
-              <div className="panel-heading">
+            <details className="panel expandable" open>
+              <summary className="panel-heading">
                 <h2>Manual motion</h2>
                 <span className="badge">{sample?.state ?? "OFFLINE"}</span>
-              </div>
-              <label htmlFor="speed">
-                Jog velocity <span>pulses/s</span>
-              </label>
-              <input
-                id="speed"
-                type="number"
-                min="0"
-                max={connection.capabilities?.max_velocity ?? 16000}
-                value={speed}
-                onChange={(e) =>
-                  setSpeed(
-                    Math.max(
-                      0,
-                      Math.min(
-                        connection.capabilities?.max_velocity ?? 16000,
-                        Number(e.target.value),
+              </summary>
+              <div className="panel-content">
+                <label htmlFor="speed">
+                  Jog velocity <span>pulses/s</span>
+                </label>
+                <input
+                  id="speed"
+                  type="number"
+                  min="0"
+                  max={connection.capabilities?.max_velocity ?? 16000}
+                  value={speed}
+                  onChange={(e) =>
+                    setSpeed(
+                      Math.max(
+                        0,
+                        Math.min(
+                          connection.capabilities?.max_velocity ?? 16000,
+                          Number(e.target.value),
+                        ),
                       ),
-                    ),
-                  )
-                }
-              />
-              <input
-                aria-label="Jog velocity slider"
-                type="range"
-                min="0"
-                max={connection.capabilities?.max_velocity ?? 16000}
-                step="10"
-                value={speed}
-                onChange={(e) => setSpeed(Number(e.target.value))}
-              />
-              <label htmlFor="acceleration">
-                Acceleration / deceleration <span>mm/s²</span>
-              </label>
-              <input
-                id="acceleration"
-                type="number"
-                min="1"
-                max="10000"
-                step="1"
-                value={acceleration}
-                onChange={(e) => setAcceleration(Number(e.target.value))}
-              />
-              <button
-                disabled={
-                  !owned ||
-                  !fresh ||
-                  !["IDLE", "ARMED"].includes(sample?.state ?? "") ||
-                  sample?.step_velocity_pulses_s !== 0 ||
-                  !Number.isFinite(acceleration) ||
-                  acceleration < 1 ||
-                  acceleration > 10000
-                }
-                onClick={() =>
-                  send("set_acceleration", {
-                    acceleration_pulses_s2: Math.round(
-                      acceleration /
-                        (connection.capabilities?.mm_per_pulse ?? 0.02),
-                    ),
-                  })
-                }
-              >
-                Apply acceleration
-              </button>
-              <p className="hint">
-                Legacy default: 10,000 mm/s². Adjust while stationary.
-              </p>
-              <button
-                className="arm"
-                disabled={
-                  !owned ||
-                  !fresh ||
-                  !idle ||
-                  policy?.id !== 0 ||
-                  !!sample?.simulation_paused
-                }
-                onClick={() => send("arm")}
-              >
-                {["ARMED", "RUNNING"].includes(sample?.state ?? "")
-                  ? "Manual mode armed"
-                  : "Arm manual motion"}
-              </button>
-              <div className="jog-row">
+                    )
+                  }
+                />
+                <input
+                  aria-label="Jog velocity slider"
+                  type="range"
+                  min="0"
+                  max={connection.capabilities?.max_velocity ?? 16000}
+                  step="10"
+                  value={speed}
+                  onChange={(e) => setSpeed(Number(e.target.value))}
+                />
+                <label htmlFor="acceleration">
+                  Acceleration / deceleration <span>mm/s²</span>
+                </label>
+                <input
+                  id="acceleration"
+                  type="number"
+                  min="1"
+                  max="10000"
+                  step="1"
+                  value={acceleration}
+                  onChange={(e) => setAcceleration(Number(e.target.value))}
+                />
                 <button
-                  className={held === -1 ? "active" : ""}
-                  disabled={!jogAllowed}
-                  onPointerDown={pointer(-1)}
-                  onPointerUp={releasePointer}
-                  onPointerCancel={releasePointer}
-                  onLostPointerCapture={releasePointer}
+                  disabled={
+                    !owned ||
+                    !fresh ||
+                    !["IDLE", "ARMED"].includes(sample?.state ?? "") ||
+                    sample?.step_velocity_pulses_s !== 0 ||
+                    !Number.isFinite(acceleration) ||
+                    acceleration < 1 ||
+                    acceleration > 10000
+                  }
+                  onClick={() =>
+                    send("set_acceleration", {
+                      acceleration_pulses_s2: Math.round(
+                        acceleration /
+                          (connection.capabilities?.mm_per_pulse ?? 0.02),
+                      ),
+                    })
+                  }
                 >
-                  ← <span>Hold left</span>
+                  Apply acceleration
                 </button>
+                <p className="hint">
+                  Legacy default: 10,000 mm/s². Adjust while stationary.
+                </p>
                 <button
-                  className={held === 1 ? "active" : ""}
-                  disabled={!jogAllowed}
-                  onPointerDown={pointer(1)}
-                  onPointerUp={releasePointer}
-                  onPointerCancel={releasePointer}
-                  onLostPointerCapture={releasePointer}
+                  className="arm"
+                  disabled={
+                    !owned ||
+                    !fresh ||
+                    !idle ||
+                    policy?.id !== 0 ||
+                    !!sample?.simulation_paused
+                  }
+                  onClick={() => send("arm")}
                 >
-                  <span>Hold right</span> →
+                  {["ARMED", "RUNNING"].includes(sample?.state ?? "")
+                    ? "Manual mode armed"
+                    : "Arm manual motion"}
                 </button>
-              </div>
-              <div className="stop-row">
-                <button
-                  className="stop"
-                  disabled={!owned}
-                  onClick={() => {
-                    stop();
-                    send("stop");
-                  }}
-                >
-                  ■ Stop
-                </button>
-                <button
-                  disabled={!owned}
-                  onClick={() => {
-                    stop();
-                    send("disarm");
-                  }}
-                >
-                  Disarm
-                </button>
-              </div>
-              <p className="hint">
-                Hold ← / → to jog. Release to stop.
-                <br />
-                Arm once; release stops without disarming. Space stops motion.
-              </p>
-              {sample?.faults.length ? (
-                <div className="fault">
-                  {sample.faults.join(" · ")}
-                  <button disabled={!owned} onClick={() => send("clear_fault")}>
-                    Clear fault
+                <div className="jog-row">
+                  <button
+                    className={held === -1 ? "active" : ""}
+                    disabled={!jogAllowed}
+                    onPointerDown={pointer(-1)}
+                    onPointerUp={releasePointer}
+                    onPointerCancel={releasePointer}
+                    onLostPointerCapture={releasePointer}
+                  >
+                    ← <span>Hold left</span>
+                  </button>
+                  <button
+                    className={held === 1 ? "active" : ""}
+                    disabled={!jogAllowed}
+                    onPointerDown={pointer(1)}
+                    onPointerUp={releasePointer}
+                    onPointerCancel={releasePointer}
+                    onLostPointerCapture={releasePointer}
+                  >
+                    <span>Hold right</span> →
                   </button>
                 </div>
-              ) : null}
-            </section>
-            {sim && (
-              <section className="panel simulation">
-                <div className="panel-heading">
-                  <h2>Simulation lab</h2>
-                  <span className="badge good">STM32</span>
+                <div className="stop-row">
+                  <button
+                    className="stop"
+                    disabled={!owned}
+                    onClick={() => {
+                      stop();
+                      send("stop");
+                    }}
+                  >
+                    ■ Stop
+                  </button>
+                  <button
+                    disabled={!owned}
+                    onClick={() => {
+                      stop();
+                      send("disarm");
+                    }}
+                  >
+                    Disarm
+                  </button>
                 </div>
                 <p className="hint">
-                  Set initial conditions while idle. Pause freezes physics;
-                  serial and watchdog stay active.
+                  Hold ← / → to jog. Release to stop.
+                  <br />
+                  Arm once; release stops without disarming. Space stops motion.
                 </p>
-                <form
-                  className="model-form"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    send("sim_parameters", {
-                      inertia_kg_m2: Number(model.inertia),
-                      damping_n_m_s: Number(model.damping),
-                    });
-                  }}
-                >
-                  <h3>Pendulum model</h3>
-                  <div className="form-grid">
-                    <label>
-                      Pivot inertia<small>kg·m²</small>
-                      <input
-                        aria-label="Pendulum inertia"
-                        type="number"
-                        min="0.0001"
-                        max="0.1"
-                        step="any"
-                        required
-                        value={model.inertia}
-                        onChange={(event) =>
-                          setModel({ ...model, inertia: event.target.value })
-                        }
-                      />
-                    </label>
-                    <label>
-                      Viscous damping<small>N·m·s/rad</small>
-                      <input
-                        aria-label="Pendulum damping"
-                        type="number"
-                        min="0"
-                        max="0.05"
-                        step="any"
-                        required
-                        value={model.damping}
-                        onChange={(event) =>
-                          setModel({ ...model, damping: event.target.value })
-                        }
-                      />
-                    </label>
+                {sample?.faults.length ? (
+                  <div className="fault">
+                    {sample.faults.join(" · ")}
+                    <button
+                      disabled={!owned}
+                      onClick={() => send("clear_fault")}
+                    >
+                      Clear fault
+                    </button>
                   </div>
-                  <button
-                    disabled={
-                      !owned ||
-                      !fresh ||
-                      !["IDLE", "ARMED"].includes(sample?.state ?? "") ||
-                      sample?.step_velocity_pulses_s !== 0 ||
-                      sample?.target_velocity_pulses_s !== 0
-                    }
-                  >
-                    Apply model parameters
-                  </button>
+                ) : null}
+              </div>
+            </details>
+            {sim && (
+              <details className="panel simulation expandable" open>
+                <summary className="panel-heading">
+                  <h2>Simulation lab</h2>
+                  <span className="badge good">SIMULATION</span>
+                </summary>
+                <div className="panel-content">
                   <p className="hint">
-                    Mass 0.094 kg · center of mass 0.1444 m. Apply while the
-                    cart is stationary. Preserved on simulation reset.
+                    Set simulated state while idle or while a policy is running.
+                    Applying a live state restarts the policy estimator and
+                    controller; the policy keeps running.
                   </p>
-                </form>
-                <form onSubmit={setInitial}>
-                  <div className="form-grid">
-                    {[
-                      ["angle", "Angle", "degrees"],
-                      ["omega", "Angular velocity", "rad/s"],
-                      ["position", "Stepper position", "pulses"],
-                      ["velocity", "Stepper velocity", "pulses/s"],
-                    ].map(([key, label, unit]) => (
-                      <label key={key}>
-                        {label}
-                        <small>{unit}</small>
+                  <form
+                    className="model-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      send("sim_parameters", {
+                        inertia_kg_m2: Number(model.inertia),
+                        damping_n_m_s: Number(model.damping),
+                      });
+                    }}
+                  >
+                    <h3>Pendulum model</h3>
+                    <div className="form-grid">
+                      <label>
+                        Pivot inertia<small>kg·m²</small>
                         <input
-                          aria-label={`Initial ${label.toLowerCase()}`}
+                          aria-label="Pendulum inertia"
                           type="number"
+                          min="0.0001"
+                          max="0.1"
+                          step="any"
                           required
-                          step={key === "position" ? "1" : "any"}
-                          min={
-                            key === "angle"
-                              ? -180
-                              : key === "omega"
-                                ? -50
-                                : key === "velocity"
-                                  ? -(
-                                      connection.capabilities?.max_velocity ??
-                                      16000
-                                    )
-                                  : -9500
-                          }
-                          max={
-                            key === "angle"
-                              ? 180
-                              : key === "omega"
-                                ? 50
-                                : key === "velocity"
-                                  ? (connection.capabilities?.max_velocity ??
-                                    16000)
-                                  : 9500
-                          }
-                          value={form[key as keyof typeof form] as string}
-                          onChange={(e) =>
-                            setForm({ ...form, [key]: e.target.value })
+                          value={model.inertia}
+                          onChange={(event) =>
+                            setModel({ ...model, inertia: event.target.value })
                           }
                         />
                       </label>
-                    ))}
-                  </div>
-                  <label className="checkbox">
-                    <input
-                      type="checkbox"
-                      checked={form.paused}
-                      onChange={(e) =>
-                        setForm({ ...form, paused: e.target.checked })
+                      <label>
+                        Viscous damping<small>N·m·s/rad</small>
+                        <input
+                          aria-label="Pendulum damping"
+                          type="number"
+                          min="0"
+                          max="0.05"
+                          step="any"
+                          required
+                          value={model.damping}
+                          onChange={(event) =>
+                            setModel({ ...model, damping: event.target.value })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <button
+                      disabled={
+                        !owned ||
+                        !fresh ||
+                        !["IDLE", "ARMED"].includes(sample?.state ?? "") ||
+                        sample?.step_velocity_pulses_s !== 0 ||
+                        sample?.target_velocity_pulses_s !== 0
                       }
-                    />{" "}
-                    Start paused
-                  </label>
-                  <button disabled={!owned || !idle}>
-                    Apply initial state
-                  </button>
-                </form>
-                <div className="stop-row">
-                  <button
-                    disabled={!owned || !idle}
-                    onClick={() =>
-                      send("sim_pause", { paused: !sample?.simulation_paused })
-                    }
-                  >
-                    {sample?.simulation_paused ? "▶ Resume" : "Ⅱ Pause"}
-                  </button>
-                  <button
-                    disabled={!owned || !idle}
-                    onClick={() => send("sim_reset")}
-                  >
-                    ↺ Reset
-                  </button>
+                    >
+                      Apply model parameters
+                    </button>
+                    <p className="hint">
+                      Mass 0.094 kg · center of mass 0.1444 m. Apply while the
+                      cart is stationary. Preserved on simulation reset.
+                    </p>
+                  </form>
+                  <form onSubmit={setInitial}>
+                    <div className="form-grid">
+                      {[
+                        ["angle", "Angle", "degrees"],
+                        ["omega", "Angular velocity", "rad/s"],
+                        ["position", "Stepper position", "pulses"],
+                        ["velocity", "Stepper velocity", "pulses/s"],
+                      ].map(([key, label, unit]) => (
+                        <label key={key}>
+                          {label}
+                          <small>{unit}</small>
+                          <input
+                            aria-label={`Initial ${label.toLowerCase()}`}
+                            type="number"
+                            required
+                            step={key === "position" ? "1" : "any"}
+                            min={
+                              key === "angle"
+                                ? -180
+                                : key === "omega"
+                                  ? -50
+                                  : key === "velocity"
+                                    ? -(
+                                        connection.capabilities?.max_velocity ??
+                                        16000
+                                      )
+                                    : -9500
+                            }
+                            max={
+                              key === "angle"
+                                ? 180
+                                : key === "omega"
+                                  ? 50
+                                  : key === "velocity"
+                                    ? (connection.capabilities?.max_velocity ??
+                                      16000)
+                                    : 9500
+                            }
+                            value={form[key as keyof typeof form] as string}
+                            onChange={(e) =>
+                              setForm({ ...form, [key]: e.target.value })
+                            }
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        disabled={!idle}
+                        checked={idle && form.paused}
+                        onChange={(e) =>
+                          setForm({ ...form, paused: e.target.checked })
+                        }
+                      />{" "}
+                      Start paused
+                    </label>
+                    <button
+                      disabled={
+                        !owned ||
+                        !fresh ||
+                        !(idle || (sample?.state === "RUNNING" && !!policy?.id))
+                      }
+                    >
+                      Apply simulated state
+                    </button>
+                  </form>
+                  <div className="stop-row">
+                    <button
+                      disabled={!owned || !idle}
+                      onClick={() =>
+                        send("sim_pause", {
+                          paused: !sample?.simulation_paused,
+                        })
+                      }
+                    >
+                      {sample?.simulation_paused ? "▶ Resume" : "Ⅱ Pause"}
+                    </button>
+                    <button
+                      disabled={!owned || !idle}
+                      onClick={() => send("sim_reset")}
+                    >
+                      ↺ Reset
+                    </button>
+                  </div>
                 </div>
-              </section>
+              </details>
             )}
           </aside>
         </div>

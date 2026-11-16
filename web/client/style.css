@@ -1034,3 +1034,47 @@ footer {
   gap: 4px;
   font-variant-numeric: tabular-nums;
 }
+
+.connection-menu {
+  position: relative;
+  margin-left: auto;
+  margin-right: 22px;
+}
+.connection-menu > summary,
+.expandable > summary {
+  cursor: pointer;
+}
+.connection-popup {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: min(330px, 90vw);
+  z-index: 30;
+  box-shadow: 0 12px 32px #0008;
+}
+.expandable > summary {
+  list-style: none;
+}
+.expandable > summary::after {
+  content: "▾";
+  color: #a8b9b4;
+  margin-left: auto;
+}
+.expandable:not([open]) > summary::after {
+  content: "▸";
+}
+.expandable .panel-content {
+  max-height: min(60vh, 550px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (min-width: 761px) {
+  aside {
+    position: sticky;
+    top: 100px;
+    max-height: calc(100vh - 115px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    align-self: start;
+  }
+}

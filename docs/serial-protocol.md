@@ -142,7 +142,7 @@ described in sections 5.2–5.4. Unknown types get RESPONSE with
 | 0x20 | MCU → host | TELEMETRY | 64-byte snapshot below |
 | 0x21 | MCU → host | EVENT | u64 time_us, u16 code, u8 state, u8 mode, u32 faults |
 | 0x30 | Host → MCU | SIM_RESET | Empty; reset simulated state, IDLE only |
-| 0x31 | Host → MCU | SIM_SET_STATE | 24-byte initial state below, IDLE only |
+| 0x31 | Host → MCU | SIM_SET_STATE | 24-byte state below; IDLE or RUNNING with active policy |
 | 0x32 | Host → MCU | SIM_PAUSE | u8 paused (0 or 1), IDLE only |
 | 0x33 | Host → MCU | SIM_SET_PARAMETERS | f32 pivot inertia (kg·m²), f32 viscous damping (N·m·s/rad) |
 | 0x34 | Host → MCU | SIM_GET_PARAMETERS | Empty; returns SIM_PARAMETERS |
@@ -212,7 +212,11 @@ SIM_SET_STATE payload (24 bytes):
 | 20 | u8 | paused: 0 or 1 |
 | 21 | 3 bytes | Reserved, all zero |
 
-Reset and state replacement are IDLE-only. SIM_RESET sets angle 0.2 rad, zero
+SIM_RESET is IDLE-only. SIM_SET_STATE is permitted in IDLE or while an autonomous
+policy is RUNNING. A running policy requires paused=0; state replacement restarts
+its controller and estimator context, preserves the active policy and lease, and
+clears its prior estimator history to avoid a false velocity spike. This is a
+simulation-only command. SIM_RESET sets angle 0.2 rad, zero
 angular velocity, zero step position/velocity/acceleration/target, and resumes
 physics. SIM_SET_STATE sets the four initial quantities and paused state; initial
 step velocity becomes its free-running simulated target. It does not arm jog
