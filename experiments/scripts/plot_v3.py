@@ -15,7 +15,7 @@ parser.add_argument("--velocity", type=float, default=0, help="initial cart velo
 parser.add_argument("--inertia", type=float, default=0.00267683, help="pivot inertia, kg m²")
 parser.add_argument("--damping", type=float, default=0.0004015245, help="damping, N m s/rad")
 parser.add_argument("--duration", type=float, default=30, help="duration, seconds")
-parser.add_argument("--sample-ms", type=int, default=10, help="trace sampling interval, milliseconds")
+parser.add_argument("--sample-ms", type=int, default=1, help="trace sampling interval, milliseconds (default: 1)")
 parser.add_argument("--output", type=Path, default=Path("build/experiments/v3-swingup.png"))
 parser.add_argument("--csv", type=Path, help="also save sampled trace as CSV")
 parser.add_argument("--no-show", action="store_true", help="save without opening a window (for headless runs)")
@@ -57,8 +57,24 @@ axes[6].set_xlabel("Simulated time (s)")
 for ax in axes:
     ax.grid(True, alpha=.2)
     if r.capture_time_s is not None: ax.axvline(r.capture_time_s, color="#587e67", ls="--", lw=.8, alpha=.8)
+# A separate window gives these signals the full plotting area and its own
+# toolbar. Dashed/dotted lines stay distinguishable where signals overlap.
+acceleration_fig, acceleration_ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+acceleration_fig.canvas.manager.set_window_title("V3 acceleration and control effort")
+acceleration_ax.plot(r.time_s, r.raw_u_mm_s2, color="#cc7744", linestyle="--", linewidth=1.2, label="Raw u")
+acceleration_ax.plot(r.time_s, r.limited_u_mm_s2, color="#2b6eaa", linestyle="-", linewidth=1.2, label="Clamped u")
+acceleration_ax.plot(r.time_s, r.acceleration_mm_s2, color="#7956a2", linestyle=":", linewidth=1.6, label="Applied cart acceleration")
+acceleration_ax.axhline(0, color="#555", linewidth=.6)
+if r.capture_time_s is not None:
+    acceleration_ax.axvline(r.capture_time_s, color="#587e67", linestyle="--", linewidth=.8, label="First LQR capture")
+acceleration_ax.set(title="V3 control effort and applied cart acceleration", xlabel="Simulated time (s)", ylabel="Acceleration (mm/s²)")
+acceleration_ax.grid(True, alpha=.2)
+acceleration_ax.legend(loc="best")
+acceleration_output = args.output.with_name(args.output.stem + "-acceleration" + args.output.suffix)
 args.output.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(args.output, dpi=150)
+acceleration_fig.savefig(acceleration_output, dpi=150)
+print(f"Acceleration plot: {acceleration_output}")
 if args.csv:
     args.csv.parent.mkdir(parents=True, exist_ok=True)
     np.savetxt(args.csv, r.trace, delimiter=",", header=",".join(COLUMNS), comments="")
@@ -68,5 +84,5 @@ print(f"First capture: {r.capture_time_s} s; settled: {r.settling_time_s} s; max
 if r.policy_error or not r.finite:
     raise SystemExit(1)
 if not args.no_show:
-    print("Close the plot window to return to the terminal.", flush=True)
+    print("Close both plot windows to return to the terminal.", flush=True)
     plt.show()

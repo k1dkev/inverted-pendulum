@@ -50,4 +50,5 @@ def test_plot_script_can_run_headless(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert output.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    assert (tmp_path / "plot-acceleration.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert trace.read_text().startswith("time_s,angle_rad,")
