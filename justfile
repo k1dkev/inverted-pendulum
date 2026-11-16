@@ -59,3 +59,7 @@ docs-build:
 # Build and serve documentation at http://localhost:8000.
 docs: docs-build
     python3 -m http.server 8000 --bind 127.0.0.1 --directory build/docs/html
+
+# Run deterministic controller/plant scenarios without starting the web app.
+test-controller: native
+    ctest --test-dir build/host --output-on-failure -R '^(scenarios|v3|recovery|policy-reference)$'

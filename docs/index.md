@@ -32,6 +32,7 @@ project-specification
 stm32-pinout-plan
 serial-protocol
 simulation-strategy
+controller-testing
 ```
 
 ```{toctree}

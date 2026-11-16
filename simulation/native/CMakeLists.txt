@@ -36,3 +36,7 @@ add_test(NAME recovery COMMAND recovery-tests)
 add_executable(v3-tests ../../tests/v3_test.c)
 target_link_libraries(v3-tests PRIVATE pendulum_core)
 add_test(NAME v3 COMMAND v3-tests)
+
+add_executable(scenario-tests ../../tests/scenarios_test.c ../../tests/scenario.c)
+target_link_libraries(scenario-tests PRIVATE pendulum_core)
+add_test(NAME scenarios COMMAND scenario-tests)

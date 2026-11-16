@@ -300,3 +300,5 @@ remain future milestones. The simulation firmware is not a hardware motor contro
 
 The previous Arduino and web project remains in Git history on `dev`; the fresh
 STM32 work lives on `stm32-bringup`.
+
+For repeatable controller/plant scenarios, run `nix develop --command just test-controller`. See [controller testing](docs/controller-testing.md) for scenario inputs, metrics, and limits.
