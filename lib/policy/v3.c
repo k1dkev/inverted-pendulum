@@ -3,6 +3,10 @@
 #define PI 3.14159265358979323846f
 #define G 9.81f
 #define LIMIT 10000.0f
+#define SWING_GAIN 0.08f
+#define SWING_TARGET 2.1f
+#define STALL_TIME_US 5000000ULL
+#define PROGRESS_ANGLE (2 * PI / 180)
 static float clip(float x, float lo, float hi) { return fminf(hi, fmaxf(lo, x)); }
 static void window_reset(policy_t *p, float w, float f)
 {
@@ -17,6 +21,9 @@ void v3_start(policy_t *p, uint64_t now)
     p->last_control_us = p->last_measurement_us = p->started_us = now;
     p->v3_a = 0.094f * G * .1444f / .00267683f;
     p->v3_c = .15f;
+    p->v3_best_angle = PI;
+    p->v3_progress_us = now;
+    p->v3_swing_boosted = false;
     p->v3_p00 = 100;
     p->v3_p11 = 1;
 }
@@ -114,6 +121,9 @@ void v3_step(policy_t *p, uint64_t now, float x, float v, float angle)
         p->phase = POLICY_SWING_UP;
         p->integral = 0;
         ++p->recovery_count;
+        p->v3_best_angle = PI;
+        p->v3_progress_us = now;
+        p->v3_swing_boosted = false;
     }
     if (p->phase == POLICY_SWING_UP && p->velocity_samples == 5 && fabsf(angle) < 15 * PI / 180 &&
         fabsf(w) < 1)
@@ -134,7 +144,18 @@ void v3_step(policy_t *p, uint64_t now, float x, float v, float angle)
     }
     else
     {
-        float u = 0.55f * e * w * cosf(angle) - 0.3f * (x / 1000) - 0.2f * (v / 1000);
+        /* Begin gently with a small energy surplus for losses. If the best
+         * approach to upright stops improving, retain the previous v3 law as
+         * a fallback rather than remaining indefinitely at a small swing. */
+        if (fabsf(angle) < p->v3_best_angle - PROGRESS_ANGLE)
+        {
+            p->v3_best_angle = fabsf(angle);
+            p->v3_progress_us = now;
+        }
+        if (now - p->v3_progress_us >= STALL_TIME_US)
+            p->v3_swing_boosted = true;
+        float pump = p->v3_swing_boosted ? 0.55f * e : SWING_GAIN * (energy - SWING_TARGET);
+        float u = pump * w * cosf(angle) - 0.3f * (x / 1000) - 0.2f * (v / 1000);
         if (fabsf(angle) > 170 * PI / 180 && fabsf(w) < .05f && fabsf(v) < 5)
             u += x > 0 ? -.08f : .08f;
         raw = G * 1000 * u;
@@ -144,4 +165,6 @@ void v3_step(policy_t *p, uint64_t now, float x, float v, float angle)
         raw = v > 0 ? -LIMIT : LIMIT;
     p->raw_acceleration = raw;
     p->applied_acceleration = clip(raw, -LIMIT, LIMIT);
+    p->energy_threshold = p->v3_swing_boosted ? 2 : SWING_TARGET;
+    p->energy_fraction = p->energy_threshold / 2;
 }

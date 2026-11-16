@@ -28,7 +28,8 @@ E_dot = -u*omega*cos(theta) - (c/a)*omega²
 The constrained swing-up command is
 
 ```text
-u_raw = kE*e*omega*cos(theta) - kx*(x - x_center) - kv*v
+e_swing = E - 2.1
+u_raw = kE*e_swing*omega*cos(theta) - kx*(x - x_center) - kv*v
 u = clip(u_raw, -u_max, u_max)
 ```
 
@@ -73,12 +74,25 @@ updates RLS; `v3.excited` flags a minimum information-matrix eigenvalue above
 than a guarantee of present excitation. Estimates, excitation status, and
 window counts are available in Telemetry lab.
 
-The gains are `kE = 0.55`, `kx = 0.3`, and `kv = 0.2` in SI units. The
+Nominal swing-up uses `kE = 0.08`, `kx = 0.3`, and `kv = 0.2` in SI
+units. The 2.1 target is a small energy surplus above the physical upright
+energy of 2, to compensate for losses. If the best absolute angle from upright
+fails to improve by 2° for five seconds, the controller falls back to the former
+`kE = 0.55`, target 2 law until LQR capture. A fall from LQR resets the attempt
+to the gentler law. The fallback is intentionally allowed to saturate; it trades
+smoothness for another chance to escape a stalled swing. The
 acceleration limit is 10 m/s², the track spans ±0.19 m, and braking starts at
 the calculated stopping distance plus 0.01 m. A small kick escapes exact
 downward rest. LQR is entered within 15° of upright and 1 rad/s angular velocity;
 it exits outside 30°. These simulation-tuned values and the braking model have
 not been validated on physical hardware.
+
+For the default downward-start deterministic scenario, nominal v3 acceleration
+clipping fell from 53.7% to 0% of swing-up samples, and samples at the speed cap
+fell from 59.9% to 23.6%; first LQR capture changed from 13.51 s to 6.34 s.
+These measurements use 1 ms samples and do not imply that other starting states
+or models will behave similarly. In particular, some simulations with twice
+default damping still fail to capture even with the fallback.
 
 Bounds on each estimate provide a practical safeguard. The smallest eigenvalue
 of `H` can flag poor excitation; bounds clipping is not equivalent to solving a

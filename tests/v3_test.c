@@ -92,6 +92,16 @@ static void checks(void)
     assert(p.v3_a >= 5 && p.v3_a <= 150 && p.v3_c >= 0 && p.v3_c <= 5);
     policy_init(&p, POLICY_V3);
     policy_start(&p, 0);
+    for (uint64_t t = 1000; t <= 6000000; t += 1000)
+        policy_update(&p, t, 0, 0, 3);
+    assert(p.v3_swing_boosted && p.energy_threshold == 2);
+    for (uint64_t t = 6001000; t <= 6020000; t += 1000)
+        policy_update(&p, t, 0, 0, 0);
+    assert(p.phase == POLICY_LQR);
+    policy_update(&p, 6021000, 0, 0, 1);
+    assert(p.phase == POLICY_SWING_UP && !p.v3_swing_boosted);
+    policy_init(&p, POLICY_V3);
+    policy_start(&p, 0);
     policy_update(&p, 1000, 180, 100, 1);
     assert(p.applied_acceleration == -10000);
     policy_init(&p, POLICY_V3);

@@ -21,6 +21,7 @@ typedef struct
     float raw_control, limited_control;
     float estimated_a, estimated_c;
     uint8_t phase, error;
+    bool swing_boosted;
 } scenario_sample_t;
 typedef void (*scenario_observer_t)(const scenario_sample_t *, void *);
 typedef struct

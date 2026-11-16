@@ -55,7 +55,9 @@ typedef struct
     float v3_travel, v3_phi0, v3_phi1, v3_start_w;
     float v3_last_f, v3_window_s;
     uint32_t v3_updates, v3_rejected;
-    bool v3_excited;
+    bool v3_excited, v3_swing_boosted;
+    uint64_t v3_progress_us;
+    float v3_best_angle;
     float v3_fhist[5], v3_dhist[5];
 } policy_t;
 

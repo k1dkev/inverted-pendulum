@@ -8,10 +8,13 @@ def test_default_v3_scenario_is_repeatable_and_balances():
     np.testing.assert_array_equal(result.trace, repeat.trace)
     assert result.trace.shape == (3000, 11)
     assert result.policy_error == 0 and result.finite
-    assert 10 < result.capture_time_s < 20
+    assert 0 < result.capture_time_s < 20
     assert result.settling_time_s is not None and result.settling_time_s < 30
     assert result.max_position_mm < 190
     assert result.phase[-1] == 2
+    swing = result.phase == 1
+    assert np.mean(np.abs(result.raw_u_mm_s2[swing]) > 10000.01) < .05
+    assert np.mean(np.abs(result.velocity_mm_s[swing]) > 319.9) < .35
     assert np.max(np.abs(result.velocity_mm_s)) <= 320.1
     assert np.max(np.abs(result.limited_u_mm_s2)) <= 10000.1
     assert np.isclose(result.actual_c, .15)

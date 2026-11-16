@@ -54,6 +54,7 @@ scenario_result_t scenario_run(const scenario_t *scenario, scenario_observer_t o
             .estimated_c = policy.id == POLICY_V3 ? policy.v3_c : NAN,
             .phase = policy.phase,
             .error = policy.error,
+            .swing_boosted = policy.v3_swing_boosted,
         };
         result.final = sample;
         result.recoveries = policy.recovery_count;
