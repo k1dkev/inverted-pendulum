@@ -42,6 +42,40 @@ static void trajectory(void)
     printf("v3 settled %.2f s, a %.2f c %.3f, %u windows\n", settled / 1e6, p.v3_a, p.v3_c,
            p.v3_updates);
 }
+static void identification_with_noise(void)
+{
+    policy_t p;
+    policy_init(&p, POLICY_V3);
+    policy_start(&p, 0);
+    float theta = 3.0f, omega = 0;
+    const float actual_a = 35, actual_c = .6f;
+    uint32_t rng = 1234;
+    float early_a = 0, early_c = 0;
+    for (uint32_t t = 1; t <= 30000; ++t)
+    {
+        float time = t * .001f;
+        float u = .5f * sinf(2.1f * time) + .2f * sinf(6.3f * time);
+        rng = 1664525U * rng + 1013904223U;
+        float noise = ((rng >> 8) * (1.0f / 16777216) - .5f) * .002f;
+        p.realized_acceleration = u * 9810;
+        assert(policy_update(&p, t * 1000ULL, 0, 0, theta + noise));
+        assert(!p.error);
+        omega += (actual_a * (sinf(theta) - u * cosf(theta)) - actual_c * omega) * .001f;
+        theta = remainderf(theta + omega * .001f, 2 * PI);
+        if (t == 4000)
+        {
+            early_a = p.v3_a;
+            early_c = p.v3_c;
+        }
+    }
+    assert(fabsf(early_a - actual_a) < 4);
+    assert(fabsf(early_c - actual_c) < .3f);
+    assert(fabsf(p.v3_a - actual_a) < 1.5f);
+    assert(fabsf(p.v3_c - actual_c) < .15f);
+    assert(p.v3_excited && p.v3_updates > 5);
+    printf("Noisy identification at 4 s: a %.2f c %.3f; final: a %.2f c %.3f\n", early_a, early_c,
+           p.v3_a, p.v3_c);
+}
 static void checks(void)
 {
     policy_t p;
@@ -69,6 +103,7 @@ static void checks(void)
 int main(void)
 {
     checks();
+    identification_with_noise();
     trajectory();
     puts("v3 checks passed");
 }

@@ -56,36 +56,51 @@ void v3_step(policy_t *p, uint64_t now, float x, float v, float angle)
         for (unsigned i = 0; i < p->velocity_samples; ++i)
             p->filtered_velocity += p->history[i];
         p->filtered_velocity /= p->velocity_samples;
-        p->v3_travel += fabsf(delta);
-        p->v3_phi1 -= delta;
-        p->v3_phi0 += .5f * (p->v3_last_f + f) * dt;
-        p->v3_last_f = f;
-        p->v3_window_s += dt;
-        if (p->v3_travel >= 3 * PI / 4 && p->v3_window_s >= .1f)
+        /* The five velocity differences describe motion centered about 3 ms
+         * before this sample. Delay the regression by the same amount so its
+         * endpoints and filtered velocity refer to the same time interval. */
+        for (unsigned i = 4; i > 0; --i)
         {
-            float q0 = p->v3_phi0, q1 = p->v3_phi1, r = .25f;
-            float z0 = p->v3_p00 * q0 + p->v3_p01 * q1, z1 = p->v3_p01 * q0 + p->v3_p11 * q1;
-            float den = r + q0 * z0 + q1 * z1;
-            float residual = p->history[0] - p->v3_start_w - q0 * p->v3_a - q1 * p->v3_c;
-            p->v3_a = clip(p->v3_a + z0 * residual / den, 5, 150);
-            p->v3_c = clip(p->v3_c + z1 * residual / den, 0, 5);
-            p->v3_p00 = fmaxf(1e-6f, p->v3_p00 - z0 * z0 / den);
-            p->v3_p01 -= z0 * z1 / den;
-            p->v3_p11 = fmaxf(1e-6f, p->v3_p11 - z1 * z1 / den);
-            p->v3_h00 += q0 * q0 / r;
-            p->v3_h01 += q0 * q1 / r;
-            p->v3_h11 += q1 * q1 / r;
-            float diff = p->v3_h00 - p->v3_h11;
-            float eig =
-                .5f * (p->v3_h00 + p->v3_h11 - sqrtf(diff * diff + 4 * p->v3_h01 * p->v3_h01));
-            p->v3_excited = eig > .1f;
-            ++p->v3_updates;
-            window_reset(p, p->history[0], f);
+            p->v3_fhist[i] = p->v3_fhist[i - 1];
+            p->v3_dhist[i] = p->v3_dhist[i - 1];
         }
-        else if (p->v3_window_s >= 10)
+        p->v3_fhist[0] = f;
+        p->v3_dhist[0] = delta;
+        if (p->velocity_samples == 4)
+            window_reset(p, p->filtered_velocity, f);
+        if (p->velocity_samples >= 5)
         {
-            ++p->v3_rejected;
-            window_reset(p, p->history[0], f);
+            p->v3_travel += fabsf(delta);
+            p->v3_phi1 -= p->v3_dhist[3];
+            p->v3_phi0 += p->v3_fhist[3] * dt;
+            p->v3_last_f = f;
+            p->v3_window_s += dt;
+            if (p->v3_travel >= 3 * PI / 4 && p->v3_window_s >= .1f)
+            {
+                float q0 = p->v3_phi0, q1 = p->v3_phi1, r = .05f;
+                float z0 = p->v3_p00 * q0 + p->v3_p01 * q1, z1 = p->v3_p01 * q0 + p->v3_p11 * q1;
+                float den = r + q0 * z0 + q1 * z1;
+                float residual = p->filtered_velocity - p->v3_start_w - q0 * p->v3_a - q1 * p->v3_c;
+                p->v3_a = clip(p->v3_a + z0 * residual / den, 5, 150);
+                p->v3_c = clip(p->v3_c + z1 * residual / den, 0, 5);
+                p->v3_p00 = fmaxf(1e-6f, p->v3_p00 - z0 * z0 / den);
+                p->v3_p01 -= z0 * z1 / den;
+                p->v3_p11 = fmaxf(1e-6f, p->v3_p11 - z1 * z1 / den);
+                p->v3_h00 += q0 * q0 / r;
+                p->v3_h01 += q0 * q1 / r;
+                p->v3_h11 += q1 * q1 / r;
+                float diff = p->v3_h00 - p->v3_h11;
+                float eig =
+                    .5f * (p->v3_h00 + p->v3_h11 - sqrtf(diff * diff + 4 * p->v3_h01 * p->v3_h01));
+                p->v3_excited = eig > .1f;
+                ++p->v3_updates;
+                window_reset(p, p->filtered_velocity, f);
+            }
+            else if (p->v3_window_s >= 10)
+            {
+                ++p->v3_rejected;
+                window_reset(p, p->filtered_velocity, f);
+            }
         }
     }
     float w = p->filtered_velocity;

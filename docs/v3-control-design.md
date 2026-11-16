@@ -65,7 +65,7 @@ H = sum(phi*phi^T/R)
 
 The controller and regression accumulation run at 1 kHz. The prior is
 `a = 0.094*9.81*0.1444/0.00267683`, `c = 0.15`, with diagonal covariance
-`(100, 1)` and observation variance `R = 0.25`. Estimates are clipped to
+`(100, 1)` and observation variance `R = 0.05`. Estimates are clipped to
 `a = 5..150 s⁻²` and `c = 0..5 s⁻¹`. Windows shorter than 0.1 s are deferred;
 windows without enough travel after 10 s are discarded. Every completed window
 updates RLS; `v3.excited` flags a minimum information-matrix eigenvalue above
@@ -83,6 +83,18 @@ not been validated on physical hardware.
 Bounds on each estimate provide a practical safeguard. The smallest eigenvalue
 of `H` can flag poor excitation; bounds clipping is not equivalent to solving a
 box-constrained least-squares problem. Clipped estimates retain the ordinary RLS covariance, so uncertainty near a bound
-is approximate. The estimator uses the most recent angle difference for window endpoints to
-reduce filter-delay bias; the controller uses a five-sample average. Simulation
-quantization and real sensor noise can bias identification; treat these estimates as exploratory.
+is approximate. The estimator uses the same five-sample velocity average as the controller,
+and delays the regression by three 1 ms samples to align it with the filtered
+velocity endpoints. The smaller observation variance gives completed windows
+more weight. Both choices were evaluated in simulation; real sensor noise and
+latency still need measurement. Simulation quantization and real sensor noise
+can bias identification; treat these estimates as exploratory.
+
+The 135° travel threshold still limits how often RLS can update. In particular,
+once LQR balances near upright there may not be enough new motion to complete a
+window, and neither parameter is guaranteed to reach the plant value. For
+example, in one downward-start simulation with 0.7 times default inertia and
+0.5 times default damping, balancing began before damping was accurately
+identified (estimated about 0.21 s⁻¹ versus actual about 0.11 s⁻¹). The panel's
+window count and cumulative excitation flag help diagnose this; the flag is not
+a guarantee of accuracy. No deliberate excitation is added during balance.

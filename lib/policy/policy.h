@@ -56,6 +56,7 @@ typedef struct
     float v3_last_f, v3_window_s;
     uint32_t v3_updates, v3_rejected;
     bool v3_excited;
+    float v3_fhist[5], v3_dhist[5];
 } policy_t;
 
 const policy_descriptor_t *policy_descriptor(uint16_t index);
